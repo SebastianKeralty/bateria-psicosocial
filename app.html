@@ -1,0 +1,659 @@
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const RISK_COLORS = {
+    "Sin riesgo":        { bg: "#bbf7d0", text: "#166534", cls: "risk-sr" },
+    "Riesgo bajo":       { bg: "#fef08a", text: "#854d0e", cls: "risk-rb" },
+    "Riesgo medio":      { bg: "#fed7aa", text: "#9a3412", cls: "risk-rm" },
+    "Riesgo alto":       { bg: "#fca5a5", text: "#991b1b", cls: "risk-ra" },
+    "Riesgo muy alto":   { bg: "#f87171", text: "#7f1d1d", cls: "risk-rma" },
+    "Riesgo muy bajo":   { bg: "#dbeafe", text: "#1e40af", cls: "risk-mb" },
+    "ERROR":             { bg: "#e2e8f0", text: "#475569", cls: "risk-error" }
+};
+const RISK_ORDER = ["Sin riesgo","Riesgo bajo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
+const STRESS_ORDER = ["Riesgo muy bajo","Riesgo bajo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
+const CHART_COLORS = [
+    "#1a73e8","#34a853","#fbbc04","#ea4335","#8e24aa",
+    "#00acc1","#ff7043","#9ccc65","#ab47bc","#26a69a"
+];
+
+const state = {
+    bateriaActiva: null,
+    bateriasComparativa: [],
+    charts: {}
+};
+
+function destroyChart(key) {
+    if (state.charts[key]) { state.charts[key].destroy(); delete state.charts[key]; }
+}
+
+function getChartCtx(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    return el.getContext('2d');
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+    });
+});
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function riskColor(riskLevel) {
+    return RISK_COLORS[riskLevel] || RISK_COLORS["ERROR"];
+}
+
+function getRiskClass(val) {
+    const c = riskColor(val);
+    return c ? c.cls : 'risk-error';
+}
+
+function orderRiskKeys(dist) {
+    const keys = Object.keys(dist);
+    const ordered = RISK_ORDER.filter(k => keys.includes(k));
+    const extra = keys.filter(k => !RISK_ORDER.includes(k) && !STRESS_ORDER.includes(k));
+    const stressOrdered = STRESS_ORDER.filter(k => keys.includes(k));
+    return ordered.length === keys.length ? ordered :
+           stressOrdered.length === keys.length ? stressOrdered : [...ordered, ...stressOrdered, ...extra];
+}
+
+function getFilterOptions(rows, col) {
+    const set = new Set();
+    for (const r of rows) {
+        const v = r[col];
+        if (v !== undefined && v !== null && v !== "") set.add(String(v).trim());
+    }
+    return Array.from(set).sort();
+}
+
+function populateFilter(selectId, col, rows) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>';
+    const opts = getFilterOptions(rows, col);
+    opts.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+document.getElementById('dashboardFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    procesarDashboard(file);
+});
+
+function mostrarStatus(id, msg, tipo) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg ' + tipo;
+    el.style.display = 'block';
+}
+
+function procesarDashboard(file) {
+    mostrarStatus('dashStatus', 'Leyendo archivo...', 'info');
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const result = procesarExcel(new Uint8Array(e.target.result), file.name);
+            if (!result.rows || result.rows.length === 0) {
+                mostrarStatus('dashStatus', 'No se encontraron datos en las hojas esperadas (FORMA B digitacion / FORMA A Digitacion).', 'error');
+                return;
+            }
+            state.bateriaActiva = result;
+            mostrarStatus('dashStatus', '✔ ' + result.meta.fileName + ' — ' + result.meta.totalRows + ' registros (Forma ' + result.meta.forma + ')', 'success');
+            renderDashboard();
+        } catch(err) {
+            mostrarStatus('dashStatus', 'Error al procesar: ' + err.message, 'error');
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function renderDashboard() {
+    if (!state.bateriaActiva) return;
+    const data = state.bateriaActiva;
+    document.getElementById('dashContent').style.display = 'block';
+    renderSummaryCards(data);
+    populateFiltersDashboard(data.rows);
+    renderChartsDashboard(data.rows, data.summary);
+    renderDetailTable(data.rows, data.summary);
+}
+
+function renderSummaryCards(data) {
+    const s = data.summary;
+    const container = document.getElementById('summaryCards');
+    const nTotal = s.total;
+    const sexo = s.demographics.sexo;
+    const nM = sexo["M"] || sexo["Masculino"] || 0;
+    const nF = sexo["F"] || sexo["Femenino"] || 0;
+    const pctM = nTotal ? Math.round((nM / nTotal) * 100) : 0;
+    const pctF = nTotal ? Math.round((nF / nTotal) * 100) : 0;
+
+    container.innerHTML = `
+        <div class="stat-card" style="border-left-color:#1a73e8;">
+            <div class="num">${nTotal}</div>
+            <div class="label">Total Registros</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#34a853;">
+            <div class="num">${nF} (${pctF}%)</div>
+            <div class="label">Femenino</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#ea4335;">
+            <div class="num">${nM} (${pctM}%)</div>
+            <div class="label">Masculino</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#fbbc04;">
+            <div class="num">Forma ${data.meta.forma}</div>
+            <div class="label">${data.meta.fileName}</div>
+        </div>
+    `;
+}
+
+function populateFiltersDashboard(rows) {
+    populateFilter('filterSexo', '2. Sexo', rows);
+    populateFilter('filterUnidad', 'Unidad de Análisis', rows);
+    populateFilter('filterCargo', '14. Tipo de cargo', rows);
+}
+
+function getFilteredRows() {
+    if (!state.bateriaActiva) return [];
+    let rows = state.bateriaActiva.rows;
+    const sexo = document.getElementById('filterSexo')?.value;
+    const unidad = document.getElementById('filterUnidad')?.value;
+    const cargo = document.getElementById('filterCargo')?.value;
+    if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
+    if (unidad) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === unidad);
+    if (cargo) rows = rows.filter(r => String(r["14. Tipo de cargo"] || '').trim() === cargo);
+    return rows;
+}
+
+function aplicarFiltrosDashboard() {
+    const filtered = getFilteredRows();
+    const s = state.bateriaActiva ? computeSummary(filtered) : null;
+    if (s) renderChartsDashboard(filtered, s);
+    if (s) renderDetailTable(filtered, s);
+}
+
+function limpiarFiltrosDashboard() {
+    document.getElementById('filterSexo').value = '';
+    document.getElementById('filterUnidad').value = '';
+    document.getElementById('filterCargo').value = '';
+    aplicarFiltrosDashboard();
+}
+
+function renderChartsDashboard(rows, summary) {
+    if (!summary) return;
+
+    // Intra pie
+    const intraDist = summary.intraGeneral || {};
+    renderPieChart('intraPie', 'Distribución Intralaboral', intraDist);
+
+    // Extra pie
+    const extraDist = summary.extraGeneral || {};
+    renderPieChart('extraPie', 'Distribución Extralaboral', extraDist);
+
+    // Stress bars
+    const stressDist = summary.stress || {};
+    renderBarChart('estresBars', 'Estrés', stressDist);
+
+    // Radar
+    const radarDims = summary.dimensions.filter(d => d.avgT !== null && !d.name.startsWith('[Global]') && !d.name.startsWith('[Extra]'));
+    renderRadarChart('radarChart', radarDims);
+
+    // Top critical
+    renderTopCritical('topCritical', summary.topCriticas);
+}
+
+function renderPieChart(canvasId, label, dist) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
+    if (!ctx) return;
+    const keys = orderRiskKeys(dist);
+    if (keys.length === 0) { ctx.canvas.parentElement.innerHTML += '<p style="color:#94a3b8;text-align:center;">Sin datos</p>'; return; }
+    const values = keys.map(k => dist[k] || 0);
+    const colors = keys.map(k => riskColor(k).bg);
+    const texts = keys.map(k => riskColor(k).text);
+
+    state.charts[canvasId] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: keys.map((k,i) => k + ' (' + values[i] + ')'),
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }
+            }
+        }
+    });
+}
+
+function renderBarChart(canvasId, label, dist) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
+    if (!ctx) return;
+    const keys = orderRiskKeys(dist);
+    if (keys.length === 0) return;
+    const values = keys.map(k => dist[k] || 0);
+    const colors = keys.map(k => riskColor(k).bg);
+    state.charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys,
+            datasets: [{
+                label: 'N° de personas',
+                data: values,
+                backgroundColor: colors,
+                borderColor: keys.map(k => riskColor(k).text),
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } } },
+                x: { ticks: { font: { size: 10 } } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderRadarChart(canvasId, dims) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
+    if (!ctx) return;
+    if (dims.length === 0) return;
+    const labels = dims.map(d => d.name.length > 25 ? d.name.slice(0, 22) + '...' : d.name);
+    const values = dims.map(d => d.avgT || 0);
+    state.charts[canvasId] = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Puntaje T promedio',
+                data: values,
+                backgroundColor: 'rgba(26, 115, 232, 0.15)',
+                borderColor: '#1a73e8',
+                pointBackgroundColor: '#1a73e8',
+                pointRadius: 3,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { stepSize: 20, font: { size: 9 }, backdropColor: 'transparent' },
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    angleLines: { color: 'rgba(0,0,0,0.06)' },
+                    pointLabels: { font: { size: 9 } }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderTopCritical(canvasId, topCriticas) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
+    if (!ctx) return;
+    const top = topCriticas.slice(0, 10);
+    if (top.length === 0) return;
+    const labels = top.map(d => d.name);
+    const values = top.map(d => d.pctAlto);
+    const colors = values.map(v => v >= 50 ? '#ef4444' : v >= 30 ? '#f97316' : v >= 15 ? '#eab308' : '#22c55e');
+
+    state.charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '% Riesgo Alto + Muy Alto',
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } },
+                y: { ticks: { font: { size: 10 } } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.x + '%' } }
+            }
+        }
+    });
+}
+
+function renderDetailTable(rows, summary) {
+    const container = document.getElementById('detailTable');
+    if (!summary) { container.innerHTML = ''; return; }
+    const total = rows.length;
+
+    let html = `<div class="table-wrap"><table>
+        <thead><tr><th>Dimensión</th><th>Prom. T</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th>% Alto+</th></tr></thead><tbody>`;
+
+    for (const dim of summary.dimensions) {
+        if (!dim.risk) continue;
+        const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100*10)/10 : 0;
+        const displayName = dim.name.length > 45 ? dim.name.slice(0, 42) + '...' : dim.name;
+        html += `<tr><td><strong>${displayName}</strong></td>
+            <td>${dim.avgT !== null ? dim.avgT : '-'}</td>`;
+        for (const r of RISK_ORDER) {
+            const v = dim.risk[r] || 0;
+            const pct = total ? Math.round((v/total)*100*10)/10 : 0;
+            html += `<td>${v} <span style="color:#94a3b8;font-size:11px;">(${pct}%)</span></td>`;
+        }
+        html += `<td><span class="badge ${pctAlto >= 30 ? 'risk-ra' : pctAlto >= 15 ? 'risk-rm' : 'risk-sr'}">${pctAlto}%</span></td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ============================================================
+// COMPARATIVA
+// ============================================================
+let compBatteryIdCounter = 0;
+
+document.getElementById('comparativaFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    procesarComparativa(file);
+    this.value = '';
+});
+
+function procesarComparativa(file) {
+    mostrarStatus('compStatus', 'Leyendo archivo...', 'info');
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const result = procesarExcel(new Uint8Array(e.target.result), file.name);
+            if (!result.rows || result.rows.length === 0) {
+                mostrarStatus('compStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
+                return;
+            }
+            const id = ++compBatteryIdCounter;
+            result.meta.id = id;
+            state.bateriasComparativa.push(result);
+            mostrarStatus('compStatus', '✔ ' + result.meta.fileName + ' (' + result.meta.totalRows + ' registros) agregada.', 'success');
+            renderBatteryList();
+            actualizarComparativa();
+        } catch(err) {
+            mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function renderBatteryList() {
+    const container = document.getElementById('batteryList');
+    const listContainer = document.getElementById('batteryListContainer');
+    const countSpan = document.getElementById('batteryCount');
+
+    if (state.bateriasComparativa.length === 0) {
+        listContainer.style.display = 'none';
+        return;
+    }
+    listContainer.style.display = 'block';
+    countSpan.textContent = state.bateriasComparativa.length;
+
+    container.innerHTML = state.bateriasComparativa.map(b => {
+        const s = b.summary;
+        const extraPct = s.extraGeneral ? (Object.keys(s.extraGeneral).length > 0 ? '' : '') : '';
+        return `<div class="battery-item">
+            <input type="checkbox" class="comp-check" data-id="${b.meta.id}" checked onchange="actualizarComparativa()">
+            <div class="info">
+                <div class="name">${b.meta.fileName}</div>
+                <div class="meta">Forma ${b.meta.forma} · ${b.meta.totalRows} registros</div>
+            </div>
+            <div class="actions">
+                <button class="btn-remove" onclick="eliminarBateria(${b.meta.id})" title="Eliminar">✕</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function eliminarBateria(id) {
+    state.bateriasComparativa = state.bateriasComparativa.filter(b => b.meta.id !== id);
+    renderBatteryList();
+    actualizarComparativa();
+}
+
+function limpiarComparativa() {
+    state.bateriasComparativa = [];
+    renderBatteryList();
+    actualizarComparativa();
+    document.getElementById('compStatus').style.display = 'none';
+}
+
+function getSelectedBaterias() {
+    const checkboxes = document.querySelectorAll('.comp-check:checked');
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+    return state.bateriasComparativa.filter(b => ids.includes(b.meta.id));
+}
+
+function actualizarComparativa() {
+    const selected = getSelectedBaterias();
+    const container = document.getElementById('compContent');
+    const hint = document.getElementById('compHint');
+
+    if (selected.length < 2) {
+        container.style.display = 'none';
+        if (hint) hint.textContent = selected.length === 1 ? 'Selecciona al menos una batería más para comparar.' : 'Selecciona al menos 2 baterías para ver la comparativa.';
+        return;
+    }
+    container.style.display = 'block';
+    if (hint) hint.textContent = 'Comparando ' + selected.length + ' baterías.';
+
+    renderGroupedBars(selected);
+    renderRadarCompare(selected);
+    renderHeatmap(selected);
+    renderComparisonTable(selected);
+}
+
+function renderGroupedBars(baterias) {
+    destroyChart('groupedBars');
+    const ctx = getChartCtx('groupedBars');
+    if (!ctx) return;
+
+    const riskKey = baterias[0].summary.intraGeneral ? 'intraGeneral' : null;
+    if (!riskKey) return;
+    const allRiskKeys = new Set();
+    baterias.forEach(b => { Object.keys(b.summary[riskKey]||{}).forEach(k => allRiskKeys.add(k)); });
+    const riskLabels = RISK_ORDER.filter(r => allRiskKeys.has(r));
+    if (riskLabels.length === 0) return;
+
+    const datasets = baterias.map((b, i) => ({
+        label: b.meta.fileName.length > 20 ? b.meta.fileName.slice(0, 17) + '...' : b.meta.fileName,
+        data: riskLabels.map(r => {
+            const total = b.meta.totalRows;
+            const val = (b.summary[riskKey] && b.summary[riskKey][r]) || 0;
+            return total ? Math.round((val / total) * 100 * 10) / 10 : 0;
+        }),
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        borderWidth: 1,
+        borderRadius: 3
+    }));
+
+    state.charts['groupedBars'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: riskLabels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: { ticks: { font: { size: 10 } } },
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 10 } },
+                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%' } }
+            }
+        }
+    });
+}
+
+function renderRadarCompare(baterias) {
+    destroyChart('radarCompare');
+    const ctx = getChartCtx('radarCompare');
+    if (!ctx) return;
+
+    const dims = baterias[0].summary.dimensions.filter(d => d.avgT !== null && !d.name.startsWith('[Global]') && !d.name.startsWith('[Extra]'));
+    if (dims.length === 0) return;
+
+    const labels = dims.map(d => d.name.length > 22 ? d.name.slice(0, 20) + '..' : d.name);
+    const datasets = baterias.map((b, i) => ({
+        label: b.meta.fileName.length > 20 ? b.meta.fileName.slice(0, 17) + '...' : b.meta.fileName,
+        data: dims.map(d => {
+            const match = b.summary.dimensions.find(dd => dd.name === d.name);
+            return match ? (match.avgT || 0) : 0;
+        }),
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+        pointRadius: 3,
+        borderWidth: 2
+    }));
+
+    state.charts['radarCompare'] = new Chart(ctx, {
+        type: 'radar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                r: {
+                    beginAtZero: true, max: 100,
+                    ticks: { stepSize: 20, font: { size: 8 }, backdropColor: 'transparent' },
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    angleLines: { color: 'rgba(0,0,0,0.06)' },
+                    pointLabels: { font: { size: 8 } }
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 10 } }
+            }
+        }
+    });
+}
+
+function renderHeatmap(baterias) {
+    const container = document.getElementById('heatmapContainer');
+    const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+    if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos suficientes</p>'; return; }
+
+    const selected = baterias.map(b => b.meta.id);
+    const selectedBaterias = baterias;
+
+    const headerHtml = '<div style="display:grid;grid-template-columns:200px repeat(' + selectedBaterias.length + ',1fr);gap:2px;margin-bottom:4px;font-weight:600;font-size:12px;color:#475569;">' +
+        '<div class="hm-label">Dimensión</div>' +
+        selectedBaterias.map(b => '<div style="text-align:center;padding:4px;">' + (b.meta.fileName.length > 18 ? b.meta.fileName.slice(0,15)+'..' : b.meta.fileName) + '</div>').join('') +
+        '</div>';
+
+    const rows = dims.map(dim => {
+        const cells = selectedBaterias.map(b => {
+            const match = b.summary.dimensions.find(dd => dd.name === dim.name);
+            const riskDist = match ? match.risk : {};
+            const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '');
+            const rc = riskColor(dominantRisk);
+            return '<div class="hm-cell ' + (rc ? rc.cls : 'risk-error') + '">' + (dominantRisk || '-') + '</div>';
+        }).join('');
+        return '<div style="display:grid;grid-template-columns:200px repeat(' + selectedBaterias.length + ',1fr);gap:2px;">' +
+            '<div class="hm-label">' + (dim.name.length > 40 ? dim.name.slice(0,37)+'...' : dim.name) + '</div>' + cells + '</div>';
+    }).join('');
+
+    container.innerHTML = headerHtml + rows;
+}
+
+function renderComparisonTable(baterias) {
+    const container = document.getElementById('comparisonTable');
+    const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+    if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos</p>'; return; }
+
+    let html = '<div class="table-wrap"><table><thead><tr><th>Dimensión</th>';
+    baterias.forEach(b => {
+        html += `<th>${b.meta.fileName.length > 20 ? b.meta.fileName.slice(0,17)+'..' : b.meta.fileName}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (const dim of dims) {
+        html += `<tr><td><strong>${dim.name.length > 50 ? dim.name.slice(0,47)+'...' : dim.name}</strong></td>`;
+        for (const b of baterias) {
+            const match = b.summary.dimensions.find(dd => dd.name === dim.name);
+            const tVal = match && match.avgT !== null ? match.avgT : '-';
+            const riskDist = match ? match.risk : {};
+            const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '-');
+            const rc = riskColor(dominantRisk);
+            html += `<td><span class="badge ${rc ? rc.cls : 'risk-error'}">${dominantRisk}</span> <span style="color:#64748b;font-size:12px;">${tVal !== '-' ? 'T:'+tVal : ''}</span></td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ============================================================
+// INIT - drag & drop support
+// ============================================================
+['dashboardFile', 'comparativaFile'].forEach(id => {
+    const zone = document.getElementById(id)?.closest('.upload-area');
+    if (!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#1a73e8'; });
+    zone.addEventListener('dragleave', e => { zone.style.borderColor = '#cbd5e1'; });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.style.borderColor = '#cbd5e1';
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        const input = zone.querySelector('input[type="file"]');
+        if (input) {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+</script>

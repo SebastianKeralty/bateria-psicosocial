@@ -1,0 +1,627 @@
+<script>
+const mapNormal = {"Nunca": 0, "Casi nunca": 1, "Algunas veces": 2, "Casi siempre": 3, "Siempre": 4, " Anulado": "Anulada", "Anulado": "Anulada"};
+const mapInverso = {"Nunca": 4, "Casi nunca": 3, "Algunas veces": 2, "Casi siempre": 1, "Siempre": 0, " Anulado": "Anulada", "Anulado": "Anulada"};
+const mapEstresX3 = {"Nunca": 0, "A veces": 3, "Casi siempre": 6, "Siempre": 9, " Anulado": "Anulada", "Anulado": "Anulada"};
+const mapEstresX2 = {"Nunca": 0, "A veces": 2, "Casi siempre": 4, "Siempre": 6, " Anulado": "Anulada", "Anulado": "Anulada"};
+const mapEstresX1 = {"Nunca": 0, "A veces": 1, "Casi siempre": 2, "Siempre": 3, " Anulado": "Anulada", "Anulado": "Anulada"};
+
+function applyMap(row, colName, dictionary) {
+    let originalVal = row[colName];
+    if (originalVal === null || originalVal === undefined || originalVal === "") return;
+    let strVal = String(originalVal).trim();
+    let formatVal = strVal.charAt(0).toUpperCase() + strVal.slice(1).toLowerCase();
+    if (dictionary.hasOwnProperty(formatVal)) {
+        row[colName] = dictionary[formatVal];
+    } else if (formatVal === "Anulado" || formatVal === "Anulada") {
+        row[colName] = "Anulada";
+    }
+}
+
+function clasificarRiesgo(val, rangos) {
+    if (val === "" || isNaN(val) || val === null) return "ERROR";
+    let v = Math.round(parseFloat(val) * 1000000) / 1000000;
+    for (let r of rangos) {
+        if (r[0] === 0) {
+            if (v >= r[0] && v <= r[1]) return r[2];
+        } else {
+            if (v > r[0] && v <= r[1]) return r[2];
+        }
+    }
+    return "ERROR";
+}
+
+function sumCols(row, prefix, cols) {
+    let sum = 0;
+    for (let c of cols) {
+        let val = row[`${prefix} ${c}`];
+        let num = parseFloat(val);
+        if (!isNaN(num)) sum += num;
+    }
+    return sum;
+}
+
+function sumDirectCols(row, cols) {
+    let sum = 0;
+    for (let c of cols) {
+        let val = row[c];
+        let num = parseFloat(val);
+        if (!isNaN(num)) sum += num;
+    }
+    return sum;
+}
+
+function meanCols(row, prefix, cols) {
+    let sum = 0;
+    let count = 0;
+    for (let c of cols) {
+        let val = row[`${prefix} ${c}`];
+        let num = parseFloat(val);
+        if (!isNaN(num)) { sum += num; count++; }
+    }
+    return count > 0 ? (sum / count) : 0;
+}
+
+function crearRangos(arr, labels) {
+    let res = [];
+    for (let i = 0; i < arr.length - 1; i++) {
+        res.push([arr[i], arr[i+1], labels[i]]);
+    }
+    return res;
+}
+
+const labelsStd = ["Sin riesgo", "Riesgo bajo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
+
+function procesarFormaB(data) {
+    const categorias = ['CIRUGIA', 'CONSULTA EXTERNA', 'DIRECCION ADMINISTRATIVA', 'HOSPITALIZACION', 'ONCOLOGIA', 'UNIDAD DE CUIDADOS INTENSIVOS', 'URGENCIAS', 'CARDIOLOGIA', 'CENTRAL DE MEZCLAS FARMACEUTICAS', 'CENTRAL DE SEGURIDAD', 'CUIDADO PALIATIVO', 'DIRECCION MEDICA', 'GASTROENTEROLOGIA', 'HEMODINAMIA', 'IMAGENOLOGIA', 'OTROS PROCEDIMIENTOS TERAPEUTICOS', 'REHABILITACION CARDIACA', 'TPR (TRABAJO DE PARTOS Y RECUPERACION)', 'TRANSPLANTE RENAL', 'UNIDAD DE CUIDADO DE HEMATOLO ONCOLOGIA', 'UNIDAD DE CUIDADO INTENSIVO', 'UNIDAD DE CUIDADO NEONATAL', 'UNIDAD DE TRASPLANTE MEDULA OSEA', 'VICEPRESIDENCIA DE INFRAESTRUCTURA', 'VPDH- DESARROLLO HUMANO', 'VPE-GCIA DE SALUD'];
+
+    let df = JSON.parse(JSON.stringify(data));
+    for (let row of df) {
+        row["Val consulta"] = categorias.includes(row["Unidad de Análisis"]) ? 1 : 0;
+
+        let exep_intra_b = [1,2,3,7,8,10,11,13,15,16,17,18,19,20,21,23,25,26,27,28,66,89,90,91,92,93,94,95,96];
+        for (let i = 1; i <= 97; i++) {
+            let col = `Intralab B ${i}`;
+            if (row[col] !== undefined) {
+                if (exep_intra_b.includes(i)) applyMap(row, col, mapNormal);
+                else applyMap(row, col, mapInverso);
+            }
+        }
+        if (String(row["Filtro"] || "").trim().toLowerCase() !== "si") {
+            for (let i = 89; i <= 97; i++) row[`Intralab B ${i}`] = 0;
+        }
+
+        let exep_extra_b = [2,3,6,24,26,28,30,31];
+        for (let i = 1; i <= 31; i++) {
+            let col = `Extralab ${i}`;
+            if (row[col] !== undefined) {
+                if (exep_extra_b.includes(i)) applyMap(row, col, mapNormal);
+                else applyMap(row, col, mapInverso);
+            }
+        }
+
+        [1, 2, 3, 9, 13, 14, 15, 23, 24].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX3));
+        [4, 5, 6, 10, 11, 16, 17, 18, 19, 25, 26, 27, 28].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX2));
+        [7, 8, 12, 20, 21, 22, 29, 30, 31].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX1));
+
+        row["Caracteristicas Liderazgo"] = sumCols(row, 'Intralab B', Array.from({length: 13}, (_, i) => i + 49));
+        row["Relaciones Sociales"] = sumCols(row, 'Intralab B', Array.from({length: 12}, (_, i) => i + 62));
+        row["Retroal. Desempeño"] = sumCols(row, 'Intralab B', Array.from({length: 5}, (_, i) => i + 74));
+        row["Control y autonomia sobre el trabajo"] = sumCols(row, 'Intralab B', [34,35,36]);
+        row["Oportunidades para el desarrollo"] = sumCols(row, 'Intralab B', [29,30,31,32]);
+        row["Participación y manejo del cambIo"] = sumCols(row, 'Intralab B', [38,39,40]);
+        row["Claridad de rol"] = sumCols(row, 'Intralab B', [41,42,43,44,45]);
+        row["Capacitación"] = sumCols(row, 'Intralab B', [46,47,48]);
+        row["Demandas cuantitativas"] = sumCols(row, 'Intralab B', [13,14,15]);
+        row["demandas de carga mental"] = sumCols(row, 'Intralab B', [16,17,18,19,20]);
+        row["Demandas emocionales"] = sumCols(row, 'Intralab B', Array.from({length: 9}, (_, i) => i + 89));
+        row["Demandas ambientales y de esfuerzo fisico"] = sumCols(row, 'Intralab B', Array.from({length: 12}, (_, i) => i + 1));
+        row["Demandas de jornada laboral"] = sumCols(row, 'Intralab B', [21,22,23,24,33,37]);
+        row["Influencia sobre el entorno extra"] = sumCols(row, 'Intralab B', [25,26,27,28]);
+        row["Reconocimiento y compensación"] = sumCols(row, 'Intralab B', [79,80,81,82,83,84]);
+        row["Recompensas de pertenencia y trabajo"] = sumCols(row, 'Intralab B', [85,86,87,88]);
+
+        row["Caracteristicas Liderazgo (T)"] = (row["Caracteristicas Liderazgo"] / 52) * 100;
+        row["Relaciones Sociales (T)"] = (row["Relaciones Sociales"] / 48) * 100;
+        row["Retroal. Desempeño (T)"] = (row["Retroal. Desempeño"] / 20) * 100;
+        row["Control y autonomia sobre el trabajo (T)"] = (row["Control y autonomia sobre el trabajo"] / 12) * 100;
+        row["Oportunidades para el desarrollo (T)"] = (row["Oportunidades para el desarrollo"] / 16) * 100;
+        row["Participación y manejo del cambIo (T)"] = (row["Participación y manejo del cambIo"] / 12) * 100;
+        row["Claridad de rol (T)"] = (row["Claridad de rol"] / 20) * 100;
+        row["Capacitación (T)"] = (row["Capacitación"] / 12) * 100;
+        row["Demandas cuantitativas (T)"] = (row["Demandas cuantitativas"] / 12) * 100;
+        row["demandas de carga mental (T)"] = (row["demandas de carga mental"] / 20) * 100;
+        row["Demandas emocionales (T)"] = (row["Demandas emocionales"] / 36) * 100;
+        row["Demandas ambientales y de esfuerzo fisico (T)"] = (row["Demandas ambientales y de esfuerzo fisico"] / 48) * 100;
+        row["Demandas de jornada laboral (T)"] = (row["Demandas de jornada laboral"] / 24) * 100;
+        row["Influencia sobre el entorno extra (T)"] = (row["Influencia sobre el entorno extra"] / 16) * 100;
+        row["Reconocimiento y compensación (T)"] = (row["Reconocimiento y compensación"] / 24) * 100;
+        row["Recompensas de pertenencia y trabajo (T)"] = (row["Recompensas de pertenencia y trabajo"] / 16) * 100;
+
+        row["LIDERAZGO Y RELACIONES SOCIALES"] = row["Caracteristicas Liderazgo"] + row["Relaciones Sociales"] + row["Retroal. Desempeño"];
+        row["CONTROL SOBRE EL TRABAJO"] = row["Control y autonomia sobre el trabajo"] + row["Oportunidades para el desarrollo"] + row["Participación y manejo del cambIo"] + row["Claridad de rol"] + row["Capacitación"];
+        row["DEMANDAS DEL TRABAJO"] = row["Demandas cuantitativas"] + row["demandas de carga mental"] + row["Demandas emocionales"] + row["Demandas ambientales y de esfuerzo fisico"] + row["Demandas de jornada laboral"] + row["Influencia sobre el entorno extra"];
+        row["RECOMPENSAS"] = row["Reconocimiento y compensación"] + row["Recompensas de pertenencia y trabajo"];
+
+        row["LIDERAZGO Y RELACIONES SOCIALES (T)"] = (row["LIDERAZGO Y RELACIONES SOCIALES"] / 120) * 100;
+        row["CONTROL SOBRE EL TRABAJO (T)"] = (row["CONTROL SOBRE EL TRABAJO"] / 72) * 100;
+        row["DEMANDAS DEL TRABAJO (T)"] = (row["DEMANDAS DEL TRABAJO"] / 156) * 100;
+        row["RECOMPENSAS (T)"] = (row["RECOMPENSAS"] / 40) * 100;
+        row["INTRALABORAL"] = row["LIDERAZGO Y RELACIONES SOCIALES"] + row["CONTROL SOBRE EL TRABAJO"] + row["DEMANDAS DEL TRABAJO"] + row["RECOMPENSAS"];
+        row["INTRALABORAL(T)"] = (row["INTRALABORAL"] / 388) * 100;
+
+        const diccionario_rangos_b = {
+            "Caracteristicas Liderazgo (T)": [[0, 3.8, "Sin riesgo"], [3.8, 13.5, "Riesgo bajo"], [13.5, 25, "Riesgo medio"], [25, 38.5, "Riesgo alto"], [38.5, 100, "Riesgo muy alto"]],
+            "Relaciones Sociales (T)": [[0, 6.3, "Sin riesgo"], [6.3, 14.6, "Riesgo bajo"], [14.6, 27.1, "Riesgo medio"], [27.1, 37.5, "Riesgo alto"], [37.5, 100, "Riesgo muy alto"]],
+            "Retroal. Desempeño (T)": [[0, 5, "Sin riesgo"], [5, 20, "Riesgo bajo"], [20, 30, "Riesgo medio"], [30, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            "Control y autonomia sobre el trabajo (T)": [[0, 33.3, "Sin riesgo"], [33.3, 50, "Riesgo bajo"], [50, 66.7, "Riesgo medio"], [66.7, 75, "Riesgo alto"], [75, 100, "Riesgo muy alto"]],
+            "Oportunidades para el desarrollo (T)": [[0, 12.5, "Sin riesgo"], [12.5, 25, "Riesgo bajo"], [25, 37.5, "Riesgo medio"], [37.5, 56.3, "Riesgo alto"], [56.3, 100, "Riesgo muy alto"]],
+            "Participación y manejo del cambIo (T)": [[0, 16.7, "Sin riesgo"], [16.7, 33.3, "Riesgo bajo"], [33.3, 41.7, "Riesgo medio"], [41.7, 58.3, "Riesgo alto"], [58.3, 100, "Riesgo muy alto"]],
+            "Claridad de rol (T)": [[0, 0.9, "Sin riesgo"], [0.9, 5, "Riesgo bajo"], [5, 15, "Riesgo medio"], [15, 30, "Riesgo alto"], [30, 100, "Riesgo muy alto"]],
+            "Capacitación (T)": [[0, 0.9, "Sin riesgo"], [0.9, 16.7, "Riesgo bajo"], [16.7, 25, "Riesgo medio"], [25, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            "Demandas cuantitativas (T)": [[0, 16.7, "Sin riesgo"], [16.7, 33.3, "Riesgo bajo"], [33.3, 41.7, "Riesgo medio"], [41.7, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            "demandas de carga mental (T)": [[0, 50, "Sin riesgo"], [50, 65, "Riesgo bajo"], [65, 75, "Riesgo medio"], [75, 85, "Riesgo alto"], [85, 100, "Riesgo muy alto"]],
+            "Demandas emocionales (T)": [[0, 19.4, "Sin riesgo"], [19.4, 27.8, "Riesgo bajo"], [27.8, 38.9, "Riesgo medio"], [38.9, 47.2, "Riesgo alto"], [47.2, 100, "Riesgo muy alto"]],
+            "Demandas ambientales y de esfuerzo fisico (T)": [[0, 22.9, "Sin riesgo"], [22.9, 31.3, "Riesgo bajo"], [31.3, 39.6, "Riesgo medio"], [39.6, 47.9, "Riesgo alto"], [47.9, 100, "Riesgo muy alto"]],
+            "Demandas de jornada laboral (T)": [[0, 25, "Sin riesgo"], [25, 37.5, "Riesgo bajo"], [37.5, 45.8, "Riesgo medio"], [45.8, 58.3, "Riesgo alto"], [58.3, 100, "Riesgo muy alto"]],
+            "Influencia sobre el entorno extra (T)": [[0, 12.5, "Sin riesgo"], [12.5, 25, "Riesgo bajo"], [25, 31.3, "Riesgo medio"], [31.3, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            "Reconocimiento y compensación (T)": [[0, 0.9, "Sin riesgo"], [0.9, 12.5, "Riesgo bajo"], [12.5, 25, "Riesgo medio"], [25, 37.5, "Riesgo alto"], [37.5, 100, "Riesgo muy alto"]],
+            "Recompensas de pertenencia y trabajo (T)": [[0, 0.9, "Sin riesgo"], [0.9, 6.3, "Riesgo bajo"], [6.3, 12.5, "Riesgo medio"], [12.5, 18.8, "Riesgo alto"], [18.8, 100, "Riesgo muy alto"]],
+            "LIDERAZGO Y RELACIONES SOCIALES (T)": [[0, 8.3, "Sin riesgo"], [8.3, 17.5, "Riesgo bajo"], [17.5, 26.7, "Riesgo medio"], [26.7, 38.3, "Riesgo alto"], [38.3, 100, "Riesgo muy alto"]],
+            "CONTROL SOBRE EL TRABAJO (T)": [[0, 19.4, "Sin riesgo"], [19.4, 26.4, "Riesgo bajo"], [26.4, 34.7, "Riesgo medio"], [34.7, 43.1, "Riesgo alto"], [43.1, 100, "Riesgo muy alto"]],
+            "DEMANDAS DEL TRABAJO (T)": [[0, 26.9, "Sin riesgo"], [26.9, 33.3, "Riesgo bajo"], [33.3, 37.8, "Riesgo medio"], [37.8, 44.2, "Riesgo alto"], [44.2, 100, "Riesgo muy alto"]],
+            "RECOMPENSAS (T)": [[0, 2.5, "Sin riesgo"], [2.5, 10, "Riesgo bajo"], [10, 17.5, "Riesgo medio"], [17.5, 27.5, "Riesgo alto"], [27.5, 100, "Riesgo muy alto"]],
+            "INTRALABORAL(T)": [[0, 20.6, "Sin riesgo"], [20.6, 26, "Riesgo bajo"], [26, 31.2, "Riesgo medio"], [31.2, 38.7, "Riesgo alto"], [38.7, 100, "Riesgo muy alto"]]
+        };
+        for (let [col, rangos] of Object.entries(diccionario_rangos_b)) {
+            row[col.replace(" (T)", " (I)").replace("(T)", "(I)")] = clasificarRiesgo(row[col], rangos);
+        }
+
+        row['Tiempo fuera del trabajo'] = sumCols(row, 'Extralab', [14, 15, 16, 17]);
+        row['Relaciones familiares'] = sumCols(row, 'Extralab', [22, 25, 27]);
+        row['Comunicación y relaciones'] = sumCols(row, 'Extralab', [18, 19, 20, 21, 23]);
+        row['Situación económica familia'] = sumCols(row, 'Extralab', [29, 30, 31]);
+        row['Características de la vivienda'] = sumCols(row, 'Extralab', [5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        row['influencia del entorno extralaboral'] = sumCols(row, 'Extralab', [24, 26, 28]);
+        row['Desplazamiento casa-trabajo'] = sumCols(row, 'Extralab', [1, 2, 3, 4]);
+        row['PUNTAJE BRUTO TOTAL'] = sumDirectCols(row, ['Tiempo fuera del trabajo', 'Relaciones familiares', 'Comunicación y relaciones', 'Situación económica familia', 'Características de la vivienda', 'influencia del entorno extralaboral', 'Desplazamiento casa-trabajo']);
+
+        row['Tiempo fuera del trabajo (T)'] = (row['Tiempo fuera del trabajo'] / 16) * 100;
+        row['Relaciones familiares (T)'] = (row['Relaciones familiares'] / 12) * 100;
+        row['Comunicación y relaciones (T)'] = (row['Comunicación y relaciones'] / 20) * 100;
+        row['Situación económica familia (T)'] = (row['Situación económica familia'] / 12) * 100;
+        row['Características de la vivienda (T)'] = (row['Características de la vivienda'] / 36) * 100;
+        row['influencia del entorno extralaboral (T)'] = (row['influencia del entorno extralaboral'] / 12) * 100;
+        row['Desplazamiento casa-trabajo (T)'] = (row['Desplazamiento casa-trabajo'] / 16) * 100;
+        row['PUNTAJE BRUTO TOTAL (T)'] = (row['PUNTAJE BRUTO TOTAL'] / 124) * 100;
+
+        const rangos_extra = {
+            'Tiempo fuera del trabajo (T)': [[0, 6.3, "Sin riesgo"], [6.3, 25, "Riesgo bajo"], [25, 37.5, "Riesgo medio"], [37.5, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            'Relaciones familiares (T)': [[0, 8.3, "Sin riesgo"], [8.3, 25, "Riesgo bajo"], [25, 33.3, "Riesgo medio"], [33.3, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            'Comunicación y relaciones (T)': [[0, 5, "Sin riesgo"], [5, 15, "Riesgo bajo"], [15, 25, "Riesgo medio"], [25, 35, "Riesgo alto"], [35, 100, "Riesgo muy alto"]],
+            'Situación económica familia (T)': [[0, 16.7, "Sin riesgo"], [16.7, 25, "Riesgo bajo"], [25, 41.7, "Riesgo medio"], [41.7, 50, "Riesgo alto"], [50, 100, "Riesgo muy alto"]],
+            'Características de la vivienda (T)': [[0, 5.6, "Sin riesgo"], [5.6, 11.1, "Riesgo bajo"], [11.1, 16.7, "Riesgo medio"], [16.7, 27.8, "Riesgo alto"], [27.8, 100, "Riesgo muy alto"]],
+            'influencia del entorno extralaboral (T)': [[0, 0.9, "Sin riesgo"], [0.9, 16.7, "Riesgo bajo"], [16.7, 25, "Riesgo medio"], [25, 41.7, "Riesgo alto"], [41.7, 100, "Riesgo muy alto"]],
+            'Desplazamiento casa-trabajo (T)': [[0, 0.9, "Sin riesgo"], [0.9, 12.5, "Riesgo bajo"], [12.5, 25, "Riesgo medio"], [25, 43.8, "Riesgo alto"], [43.8, 100, "Riesgo muy alto"]],
+            'PUNTAJE BRUTO TOTAL (T)': [[0, 12.9, "Sin riesgo"], [12.9, 17.7, "Riesgo bajo"], [17.7, 24.2, "Riesgo medio"], [24.2, 32.3, "Riesgo alto"], [32.3, 100, "Riesgo muy alto"]]
+        };
+        for (let [col, rangos] of Object.entries(rangos_extra)) {
+            row[col.replace("(T)", "(I)")] = clasificarRiesgo(row[col], rangos);
+        }
+
+        row['PROM 1-8'] = meanCols(row, 'Estrés', Array.from({length: 8}, (_, i) => i + 1)) * 4;
+        row['PROM 9-12'] = meanCols(row, 'Estrés', Array.from({length: 4}, (_, i) => i + 9)) * 3;
+        row['PROM 13-22'] = meanCols(row, 'Estrés', Array.from({length: 10}, (_, i) => i + 13)) * 2;
+        row['PROM 23-31'] = meanCols(row, 'Estrés', Array.from({length: 9}, (_, i) => i + 23));
+        row['Puntaje Bruto Total Estres'] = sumDirectCols(row, ['PROM 1-8', 'PROM 9-12', 'PROM 13-22', 'PROM 23-31']);
+        row['Puntaje Bruto Total (T) Estres'] = (row['Puntaje Bruto Total Estres'] / 61.16) * 100;
+
+        const rangos_estres = [[0, 6.5, "Riesgo muy bajo"], [6.5, 11.8, "Riesgo bajo"], [11.8, 17, "Riesgo medio"], [17, 23.4, "Riesgo alto"], [23.4, 100, "Riesgo muy alto"]];
+        row['Interpretación'] = clasificarRiesgo(row['Puntaje Bruto Total (T) Estres'], rangos_estres);
+    }
+
+    const colsDeseadas = [
+        "Fecha de aplicación dd/mm/aaaa", "No. Encuesta", "ID", "2. Sexo", "3. Año nacimiento", "4. Estado civil",
+        "5. Nivel estudios", "6. Ocupación / Profesión", "7. Lugar de residencia: Ciudad", "7. Lugar de residencia: Departamento",
+        "8. Estrato", "9. Tipo vivienda", "10. No. dependientes", "11. Lugar de trabajo: Ciudad", "11. Lugar de trabajo: Departamento",
+        "12. Antigüedad en la empresa", "13. Cargo", "14. Tipo de cargo", "15. Antigüedad en el cargo", "16. Área donde trabaja",
+        "17. Tipo de contrato", "18. Horas diarias de trabajo", "19. Tipo de salario", "Nombre completo del trabajador",
+        "Nivel de cargo del trabajador", "Unidad de Análisis", "Val consulta",
+        "Caracteristicas Liderazgo (T)", "Relaciones Sociales (T)", "Retroal. Desempeño (T)", "Control y autonomia sobre el trabajo (T)",
+        "Oportunidades para el desarrollo (T)", "Participación y manejo del cambIo (T)", "Claridad de rol (T)", "Capacitación (T)",
+        "Demandas cuantitativas (T)", "demandas de carga mental (T)", "Demandas emocionales (T)", "Demandas ambientales y de esfuerzo fisico (T)",
+        "Demandas de jornada laboral (T)", "Influencia sobre el entorno extra (T)", "Reconocimiento y compensación (T)",
+        "Recompensas de pertenencia y trabajo (T)", "LIDERAZGO Y RELACIONES SOCIALES (T)", "CONTROL SOBRE EL TRABAJO (T)",
+        "DEMANDAS DEL TRABAJO (T)", "RECOMPENSAS (T)", "INTRALABORAL(T)",
+        "Caracteristicas Liderazgo (I)", "Relaciones Sociales (I)", "Retroal. Desempeño (I)", "Control y autonomia sobre el trabajo (I)",
+        "Oportunidades para el desarrollo (I)", "Participación y manejo del cambIo (I)", "Claridad de rol (I)", "Capacitación (I)",
+        "Demandas cuantitativas (I)", "demandas de carga mental (I)", "Demandas emocionales (I)", "Demandas ambientales y de esfuerzo fisico (I)",
+        "Demandas de jornada laboral (I)", "Influencia sobre el entorno extra (I)", "Reconocimiento y compensación (I)",
+        "Recompensas de pertenencia y trabajo (I)", "LIDERAZGO Y RELACIONES SOCIALES (I)", "CONTROL SOBRE EL TRABAJO (I)",
+        "DEMANDAS DEL TRABAJO (I)", "RECOMPENSAS (I)", "INTRALABORAL(I)",
+        "Tiempo fuera del trabajo (I)", "Relaciones familiares (I)", "Comunicación y relaciones (I)", "Situación económica familia (I)",
+        "Características de la vivienda (I)", "influencia del entorno extralaboral (I)", "Desplazamiento casa-trabajo (I)", "PUNTAJE BRUTO TOTAL (I)"
+    ];
+    return filterColumns(df, colsDeseadas);
+}
+
+function procesarFormaA(data) {
+    let df = JSON.parse(JSON.stringify(data));
+    for (let row of df) {
+        let nums_normales_intra = [1, 2, 3, 7, 8, 10, 11, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33, 35, 36, 37, 38, 52, 80];
+        for (let i = 1; i <= 105; i++) {
+            let col = `Intralab A ${i}`;
+            if (row[col] !== undefined) {
+                if (nums_normales_intra.includes(i)) applyMap(row, col, mapNormal);
+                else applyMap(row, col, mapInverso);
+            }
+        }
+        let fVal1 = String(row["Filtro"] || "").trim().toLowerCase();
+        for (let i = 106; i <= 114; i++) {
+            if (fVal1 === 'si') applyMap(row, `Intralab A ${i}`, mapNormal);
+            else row[`Intralab A ${i}`] = 0;
+        }
+        let fVal2 = String(row["Filtro.1"] || "").trim().toLowerCase();
+        for (let i = 115; i <= 123; i++) {
+            if (fVal2 === 'si') applyMap(row, `Intralab A ${i}`, mapNormal);
+            else row[`Intralab A ${i}`] = 0;
+        }
+
+        let nums_normal_extra = [2, 3, 6, 24, 26, 28, 30, 31];
+        for (let i = 1; i <= 31; i++) {
+            let col = `Extralab ${i}`;
+            if (row[col] !== undefined) {
+                if (nums_normal_extra.includes(i)) applyMap(row, col, mapNormal);
+                else applyMap(row, col, mapInverso);
+            }
+        }
+
+        [1, 2, 3, 9, 13, 14, 15, 23, 24].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX3));
+        [4, 5, 6, 10, 11, 16, 17, 18, 19, 25, 26, 27, 28].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX2));
+        [7, 8, 12, 20, 21, 22, 29, 30, 31].forEach(i => applyMap(row, `Estrés ${i}`, mapEstresX1));
+
+        row['Caracteristicas Liderazgo'] = sumCols(row, 'Intralab A', Array.from({length: 13}, (_, i) => i + 63));
+        row['Relaciones Sociales'] = sumCols(row, 'Intralab A', Array.from({length: 14}, (_, i) => i + 76));
+        row['Retroal. Desempeño'] = sumCols(row, 'Intralab A', Array.from({length: 5}, (_, i) => i + 90));
+        row['Relación colaboradores'] = sumCols(row, 'Intralab A', Array.from({length: 9}, (_, i) => i + 115));
+        row['Control y autonomia sobre el trabajo'] = sumCols(row, 'Intralab A', [44, 45, 46]);
+        row['Oportunidades para el desarrollo'] = sumCols(row, 'Intralab A', [39, 40, 41, 42]);
+        row['Participación y manejo del cambIo'] = sumCols(row, 'Intralab A', [48, 49, 50, 51]);
+        row['Claridad de rol'] = sumCols(row, 'Intralab A', Array.from({length: 7}, (_, i) => i + 53));
+        row['Capacitación'] = sumCols(row, 'Intralab A', [60, 61, 62]);
+        row['Demandas cuantitativas'] = sumCols(row, 'Intralab A', [13,14,15,32,43,47]);
+        row['demandas de carga mental'] = sumCols(row, 'Intralab A', [16,17,18,20,21]);
+        row['Demandas emocionales'] = sumCols(row, 'Intralab A', Array.from({length: 9}, (_, i) => i + 106));
+        row['Exigencias de responsabilidad'] = sumCols(row, 'Intralab A', [19,22,23,24,25,26]);
+        row['Demandas ambientales y de esfuerzo fisico'] = sumCols(row, 'Intralab A', Array.from({length: 12}, (_, i) => i + 1));
+        row['Demandas de jornada laboral'] = sumCols(row, 'Intralab A', [31,33,34]);
+        row['Consistencia de rol'] = sumCols(row, 'Intralab A', [27,28,29,30,52]);
+        row['Influencia sobre el entorno extra'] = sumCols(row, 'Intralab A', [35,36,37,38]);
+        row['Reconocimiento y compensación'] = sumCols(row, 'Intralab A', Array.from({length: 6}, (_, i) => i + 96));
+        row['Recompensas de pertenencia y trabajo'] = sumCols(row, 'Intralab A', [95,102,103,104,105]);
+
+        row['Caracteristicas Liderazgo (T)'] = (row['Caracteristicas Liderazgo'] / 52) * 100;
+        row['Relaciones Sociales (T)'] = (row['Relaciones Sociales'] / 56) * 100;
+        row['Retroal. Desempeño (T)'] = (row['Retroal. Desempeño'] / 20) * 100;
+        row['Relación colaboradores (T)'] = (row['Relación colaboradores'] / 36) * 100;
+        row['Control y autonomia sobre el trabajo (T)'] = (row['Control y autonomia sobre el trabajo'] / 12) * 100;
+        row['Oportunidades para el desarrollo (T)'] = (row['Oportunidades para el desarrollo'] / 16) * 100;
+        row['Participación y manejo del cambIo (T)'] = (row['Participación y manejo del cambIo'] / 16) * 100;
+        row['Claridad de rol (T)'] = (row['Claridad de rol'] / 28) * 100;
+        row['Capacitación (T)'] = (row['Capacitación'] / 12) * 100;
+        row['Demandas cuantitativas (T)'] = (row['Demandas cuantitativas'] / 24) * 100;
+        row['demandas de carga mental (T)'] = (row['demandas de carga mental'] / 20) * 100;
+        row['Demandas emocionales (T)'] = (row['Demandas emocionales'] / 36) * 100;
+        row['Exigencias de responsabilidad (T)'] = (row['Exigencias de responsabilidad'] / 24) * 100;
+        row['Demandas ambientales y de esfuerzo fisico (T)'] = (row['Demandas ambientales y de esfuerzo fisico'] / 48) * 100;
+        row['Demandas de jornada laboral (T)'] = (row['Demandas de jornada laboral'] / 12) * 100;
+        row['Consistencia de rol (T)'] = (row['Consistencia de rol'] / 20) * 100;
+        row['Influencia sobre el entorno extra (T)'] = (row['Influencia sobre el entorno extra'] / 16) * 100;
+        row['Reconocimiento y compensación (T)'] = (row['Reconocimiento y compensación'] / 24) * 100;
+        row['Recompensas de pertenencia y trabajo (T)'] = (row['Recompensas de pertenencia y trabajo'] / 20) * 100;
+
+        row['LIDERAZGO Y RELACIONES SOCIALES'] = sumDirectCols(row, ['Caracteristicas Liderazgo', 'Relaciones Sociales', 'Retroal. Desempeño', 'Relación colaboradores']);
+        row['LIDERAZGO Y RELACIONES SOCIALES (T)'] = (row['LIDERAZGO Y RELACIONES SOCIALES'] / 164) * 100;
+        row['CONTROL SOBRE EL TRABAJO'] = sumDirectCols(row, ['Control y autonomia sobre el trabajo', 'Oportunidades para el desarrollo', 'Participación y manejo del cambIo', 'Claridad de rol', 'Capacitación']);
+        row['CONTROL SOBRE EL TRABAJO (T)'] = (row['CONTROL SOBRE EL TRABAJO'] / 84) * 100;
+        row['DEMANDAS DEL TRABAJO'] = sumDirectCols(row, ['Demandas cuantitativas', 'demandas de carga mental', 'Demandas emocionales', 'Exigencias de responsabilidad', 'Demandas ambientales y de esfuerzo fisico', 'Demandas de jornada laboral', 'Consistencia de rol', 'Influencia sobre el entorno extra']);
+        row['DEMANDAS DEL TRABAJO (T)'] = (row['DEMANDAS DEL TRABAJO'] / 200) * 100;
+        row['RECOMPENSAS'] = sumDirectCols(row, ['Reconocimiento y compensación', 'Recompensas de pertenencia y trabajo']);
+        row['RECOMPENSAS (T)'] = (row['RECOMPENSAS'] / 44) * 100;
+        row['INTRALABORAL'] = sumDirectCols(row, ['LIDERAZGO Y RELACIONES SOCIALES', 'CONTROL SOBRE EL TRABAJO', 'DEMANDAS DEL TRABAJO', 'RECOMPENSAS']);
+        row['INTRALABORAL(T)'] = (row['INTRALABORAL'] / 492) * 100;
+
+        const baremos_intra = {
+            'Caracteristicas Liderazgo': [0, 3.8, 15.4, 30.8, 46.2, 100],
+            'Relaciones Sociales': [0, 5.4, 16.1, 25.0, 37.5, 100],
+            'Retroal. Desempeño': [0, 10.0, 25.0, 40.0, 55.0, 100],
+            'Relación colaboradores': [0, 13.9, 25.0, 33.3, 47.2, 100],
+            'Control y autonomia sobre el trabajo': [0, 8.3, 25.0, 41.7, 58.3, 100],
+            'Oportunidades para el desarrollo': [0, 0.9, 6.3, 18.8, 31.3, 100],
+            'Participación y manejo del cambIo': [0, 12.5, 25.0, 37.5, 50.0, 100],
+            'Claridad de rol': [0, 0.9, 10.7, 21.4, 39.3, 100],
+            'Capacitación': [0, 0.9, 16.7, 33.3, 50.0, 100],
+            'Demandas cuantitativas': [0, 25.0, 33.3, 45.8, 54.2, 100],
+            'demandas de carga mental': [0, 60.0, 70.0, 80.0, 90.0, 100],
+            'Demandas emocionales': [0, 16.7, 25.0, 33.3, 47.2, 100],
+            'Exigencias de responsabilidad': [0, 37.5, 54.2, 66.7, 79.2, 100],
+            'Demandas ambientales y de esfuerzo fisico': [0, 14.6, 22.9, 31.3, 39.6, 100],
+            'Demandas de jornada laboral': [0, 8.3, 25.0, 33.3, 50.0, 100],
+            'Consistencia de rol': [0, 15.0, 25.0, 35.0, 45.0, 100],
+            'Influencia sobre el entorno extra': [0, 18.8, 31.3, 43.8, 50.0, 100],
+            'Reconocimiento y compensación': [0, 4.2, 16.7, 25.0, 37.6, 100],
+            'Recompensas de pertenencia y trabajo': [0, 0.9, 5.0, 10.0, 20.0, 100],
+            'LIDERAZGO Y RELACIONES SOCIALES': [0, 9.1, 17.7, 25.6, 34.8, 100],
+            'CONTROL SOBRE EL TRABAJO': [0, 10.7, 19.0, 29.8, 40.5, 100],
+            'DEMANDAS DEL TRABAJO': [0, 28.5, 35.0, 41.5, 47.5, 100],
+            'RECOMPENSAS': [0, 4.5, 11.4, 20.5, 29.5, 100],
+            'INTRALABORAL': [0, 19.7, 25.8, 31.5, 38.0, 100]
+        };
+        for (let [col, bins] of Object.entries(baremos_intra)) {
+            let tCol = `${col} (T)`;
+            if (row[tCol] === undefined) tCol = `${col}(T)`;
+            let riskCol = tCol.replace(" (T)", " (I)").replace("(T)", "(I)");
+            row[riskCol] = clasificarRiesgo(row[tCol], crearRangos(bins, labelsStd));
+        }
+
+        row['Tiempo fuera del trabajo'] = sumCols(row, 'Extralab', [14, 15, 16, 17]);
+        row['Relaciones familiares'] = sumCols(row, 'Extralab', [22, 25, 27]);
+        row['Comunicación y relaciones'] = sumCols(row, 'Extralab', [18, 19, 20, 21, 23]);
+        row['Situación económica familia'] = sumCols(row, 'Extralab', [29, 30, 31]);
+        row['Características de la vivienda'] = sumCols(row, 'Extralab', [5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        row['influencia del entorno extralaboral'] = sumCols(row, 'Extralab', [24, 26, 28]);
+        row['Desplazamiento casa-trabajo'] = sumCols(row, 'Extralab', [1, 2, 3, 4]);
+        row['PUNTAJE BRUTO TOTAL'] = sumDirectCols(row, ['Tiempo fuera del trabajo', 'Relaciones familiares', 'Comunicación y relaciones', 'Situación económica familia', 'Características de la vivienda', 'influencia del entorno extralaboral', 'Desplazamiento casa-trabajo']);
+
+        row['Tiempo fuera del trabajo (T)'] = (row['Tiempo fuera del trabajo'] / 16) * 100;
+        row['Relaciones familiares (T)'] = (row['Relaciones familiares'] / 12) * 100;
+        row['Comunicación y relaciones (T)'] = (row['Comunicación y relaciones'] / 20) * 100;
+        row['Situación económica familia (T)'] = (row['Situación económica familia'] / 12) * 100;
+        row['Características de la vivienda (T)'] = (row['Características de la vivienda'] / 36) * 100;
+        row['influencia del entorno extralaboral (T)'] = (row['influencia del entorno extralaboral'] / 12) * 100;
+        row['Desplazamiento casa-trabajo (T)'] = (row['Desplazamiento casa-trabajo'] / 16) * 100;
+        row['PUNTAJE BRUTO TOTAL (T)'] = (row['PUNTAJE BRUTO TOTAL'] / 124) * 100;
+
+        const baremos_extra = {
+            'Tiempo fuera del trabajo': [0, 6.3, 25.0, 37.5, 50.0, 100],
+            'Relaciones familiares': [0, 8.3, 25.0, 33.3, 50.0, 100],
+            'Comunicación y relaciones': [0, 0.9, 10.0, 20.0, 30.0, 100],
+            'Situación económica familia': [0, 8.3, 25.0, 33.3, 50.0, 100],
+            'Características de la vivienda': [0, 5.6, 11.1, 13.9, 22.2, 100],
+            'influencia del entorno extralaboral': [0, 8.3, 16.7, 25.0, 41.7, 100],
+            'Desplazamiento casa-trabajo': [0, 0.9, 12.5, 25.0, 43.8, 100],
+            'PUNTAJE BRUTO TOTAL': [0, 11.3, 16.9, 22.6, 29.0, 100]
+        };
+        for (let [col, bins] of Object.entries(baremos_extra)) {
+            row[`${col} (I)`] = clasificarRiesgo(row[`${col} (T)`], crearRangos(bins, labelsStd));
+        }
+
+        row['PROM 1-8'] = meanCols(row, 'Estrés', Array.from({length: 8}, (_, i) => i + 1)) * 4;
+        row['PROM 9-12'] = meanCols(row, 'Estrés', Array.from({length: 4}, (_, i) => i + 9)) * 3;
+        row['PROM 13-22'] = meanCols(row, 'Estrés', Array.from({length: 10}, (_, i) => i + 13)) * 2;
+        row['PROM 23-31'] = meanCols(row, 'Estrés', Array.from({length: 9}, (_, i) => i + 23));
+        row['Puntaje Bruto Total Estres'] = sumDirectCols(row, ['PROM 1-8', 'PROM 9-12', 'PROM 13-22', 'PROM 23-31']);
+        row['Puntaje Bruto Total (T) Estres'] = (row['Puntaje Bruto Total Estres'] / 61.16) * 100;
+
+        const baremos_estres = [0, 7.8, 12.6, 17.7, 25.0, 100];
+        const labels_estres = ["Riesgo muy bajo", "Riesgo bajo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
+        row['Interpretación'] = clasificarRiesgo(row['Puntaje Bruto Total (T) Estres'], crearRangos(baremos_estres, labels_estres));
+    }
+
+    const colsA = [
+        "No. Encuesta", "ID", "2. Sexo", "3. Año nacimiento", "4. Estado civil", "5. Nivel estudios", "6. Ocupación / Profesión",
+        "7. Lugar de residencia: Ciudad", "7. Lugar de residencia: Departamento", "8. Estrato", "9. Tipo vivienda", "10. No. dependientes",
+        "11. Lugar de trabajo: Ciudad", "11. Lugar de trabajo: Departamento", "12. Antigüedad en la empresa", "13. Cargo", "14. Tipo de cargo",
+        "15. Antigüedad en el cargo", "16. Área donde trabaja", "17. Tipo de contrato", "18. Horas diarias de trabajo", "19. Tipo de salario",
+        "Nombre completo del trabajador", "Nivel de cargo del trabajador", "Unidad de Análisis", "Val consulta",
+        "Caracteristicas Liderazgo (T)", "Relaciones Sociales (T)", "Retroal. Desempeño (T)",
+        "Relación colaboradores (T)",
+        "Control y autonomia sobre el trabajo (T)", "Oportunidades para el desarrollo (T)",
+        "Participación y manejo del cambIo (T)", "Claridad de rol (T)", "Capacitación (T)",
+        "Demandas cuantitativas (T)", "demandas de carga mental (T)", "Demandas emocionales (T)",
+        "Exigencias de responsabilidad (T)",
+        "Demandas ambientales y de esfuerzo fisico (T)", "Demandas de jornada laboral (T)",
+        "Consistencia de rol (T)",
+        "Influencia sobre el entorno extra (T)", "Reconocimiento y compensación (T)",
+        "Recompensas de pertenencia y trabajo (T)",
+        "LIDERAZGO Y RELACIONES SOCIALES (T)", "CONTROL SOBRE EL TRABAJO (T)",
+        "DEMANDAS DEL TRABAJO (T)", "RECOMPENSAS (T)", "INTRALABORAL(T)",
+        "Tiempo fuera del trabajo (I)", "Relaciones familiares (I)", "Comunicación y relaciones (I)",
+        "Situación económica familia (I)", "Características de la vivienda (I)",
+        "influencia del entorno extralaboral (I)", "Desplazamiento casa-trabajo (I)", "PUNTAJE BRUTO TOTAL (I)",
+        "Interpretación"
+    ];
+    return filterColumns(df, colsA);
+}
+
+function filterColumns(df, requestedCols) {
+    let stringCols = Object.keys(df[0] || {}).filter(k => typeof df[0][k] === 'string' && !requestedCols.includes(k));
+    let finalCols = [...requestedCols, ...stringCols];
+    return df.map(row => {
+        let newRow = {};
+        finalCols.forEach(col => { if(row[col] !== undefined) newRow[col] = row[col]; });
+        return newRow;
+    });
+}
+
+function getColumnDistribution(rows, colName) {
+    const dist = {};
+    for (const row of rows) {
+        const val = row[colName];
+        if (val !== undefined && val !== null && val !== "") {
+            dist[val] = (dist[val] || 0) + 1;
+        }
+    }
+    return dist;
+}
+
+function getAverageTScore(rows, colName) {
+    let sum = 0, count = 0;
+    for (const row of rows) {
+        const val = parseFloat(row[colName]);
+        if (!isNaN(val)) { sum += val; count++; }
+    }
+    return count > 0 ? Math.round((sum / count) * 10) / 10 : 0;
+}
+
+function computeSummary(rows) {
+    if (!rows || rows.length === 0) return null;
+    const total = rows.length;
+    const first = rows[0];
+
+    const isFormB = first["INTRALABORAL(I)"] !== undefined;
+    const isFormA = !isFormB && first["INTRALABORAL"] !== undefined && typeof first["INTRALABORAL"] === 'string';
+
+    const getRiskDistribution = (col) => getColumnDistribution(rows, col);
+    const getAvg = (col) => getAverageTScore(rows, col);
+
+    const riskLevels = ["Sin riesgo", "Riesgo bajo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
+    const stressLevels = ["Riesgo muy bajo", "Riesgo bajo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
+
+    const summary = { total, isFormA, isFormB };
+
+    // Demographics
+    summary.demographics = {
+        sexo: getRiskDistribution("2. Sexo"),
+        unidadAnalisis: getRiskDistribution("Unidad de Análisis"),
+        tipoCargo: getRiskDistribution("14. Tipo de cargo"),
+        tipoContrato: getRiskDistribution("17. Tipo de contrato"),
+        areaTrabajo: getRiskDistribution("16. Área donde trabaja"),
+        estrato: getRiskDistribution("8. Estrato")
+    };
+
+    // Intralaboral general
+    if (isFormB) {
+        summary.intraGeneral = getRiskDistribution("INTRALABORAL(I)");
+    } else if (isFormA) {
+        summary.intraGeneral = getRiskDistribution("INTRALABORAL");
+    }
+
+    // Extralaboral general
+    summary.extraGeneral = getRiskDistribution("PUNTAJE BRUTO TOTAL (I)");
+
+    // Stress
+    summary.stress = getRiskDistribution("Interpretación");
+
+    // Dimensions
+    summary.dimensions = [];
+
+    if (isFormB) {
+        const tCols = [
+            "Caracteristicas Liderazgo (T)", "Relaciones Sociales (T)", "Retroal. Desempeño (T)",
+            "Control y autonomia sobre el trabajo (T)", "Oportunidades para el desarrollo (T)",
+            "Participación y manejo del cambIo (T)", "Claridad de rol (T)", "Capacitación (T)",
+            "Demandas cuantitativas (T)", "demandas de carga mental (T)", "Demandas emocionales (T)",
+            "Demandas ambientales y de esfuerzo fisico (T)", "Demandas de jornada laboral (T)",
+            "Influencia sobre el entorno extra (T)", "Reconocimiento y compensación (T)",
+            "Recompensas de pertenencia y trabajo (T)"
+        ];
+        for (const col of tCols) {
+            const name = col.replace(" (T)", "");
+            const riskCol = col.replace(" (T)", " (I)");
+            summary.dimensions.push({
+                name,
+                avgT: getAvg(col),
+                risk: getRiskDistribution(riskCol)
+            });
+        }
+        const globalCols = [
+            "LIDERAZGO Y RELACIONES SOCIALES (T)", "CONTROL SOBRE EL TRABAJO (T)",
+            "DEMANDAS DEL TRABAJO (T)", "RECOMPENSAS (T)", "INTRALABORAL(T)"
+        ];
+        for (const col of globalCols) {
+            const name = col.replace("(T)", "").trim();
+            const riskCol = (col.endsWith("(T)") ? col.slice(0, -3) + "(I)" : col.replace("(T)", "(I)"));
+            let rc = riskCol;
+            if (col === "INTRALABORAL(T)") rc = "INTRALABORAL(I)";
+            summary.dimensions.push({
+                name: `[Global] ${name}`,
+                avgT: getAvg(col),
+                risk: getRiskDistribution(rc)
+            });
+        }
+    } else if (isFormA) {
+        const dims = [
+            "Caracteristicas Liderazgo", "Relaciones Sociales", "Retroal. Desempeño", "Relación colaboradores",
+            "Control y autonomia sobre el trabajo", "Oportunidades para el desarrollo",
+            "Participación y manejo del cambIo", "Claridad de rol", "Capacitación",
+            "Demandas cuantitativas", "demandas de carga mental", "Demandas emocionales",
+            "Exigencias de responsabilidad", "Demandas ambientales y de esfuerzo fisico",
+            "Demandas de jornada laboral", "Consistencia de rol", "Influencia sobre el entorno extra",
+            "Reconocimiento y compensación", "Recompensas de pertenencia y trabajo"
+        ];
+        for (const name of dims) {
+            const tCol = `${name} (T)`;
+            summary.dimensions.push({
+                name,
+                avgT: getAvg(tCol),
+                risk: getRiskDistribution(name)
+            });
+        }
+        const globalCols = [
+            "LIDERAZGO Y RELACIONES SOCIALES", "CONTROL SOBRE EL TRABAJO",
+            "DEMANDAS DEL TRABAJO", "RECOMPENSAS", "INTRALABORAL"
+        ];
+        for (const name of globalCols) {
+            const tCol = `${name} (T)`;
+            summary.dimensions.push({
+                name: `[Global] ${name}`,
+                avgT: getAvg(tCol),
+                risk: getRiskDistribution(name)
+            });
+        }
+    }
+
+    // Extra dimensions
+    const extraDims = [
+        "Tiempo fuera del trabajo (I)", "Relaciones familiares (I)", "Comunicación y relaciones (I)",
+        "Situación económica familia (I)", "Características de la vivienda (I)",
+        "influencia del entorno extralaboral (I)", "Desplazamiento casa-trabajo (I)",
+        "PUNTAJE BRUTO TOTAL (I)"
+    ];
+    for (const rc of extraDims) {
+        summary.dimensions.push({
+            name: `[Extra] ${rc.replace(" (I)", "")}`,
+            avgT: null,
+            risk: getRiskDistribution(rc)
+        });
+    }
+
+    // Top critical dimensions (highest % alto + muy alto)
+    summary.topCriticas = summary.dimensions
+        .filter(d => d.risk)
+        .map(d => {
+            const alto = (d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0);
+            return { name: d.name, pctAlto: Math.round((alto / total) * 100 * 10) / 10, avgT: d.avgT };
+        })
+        .sort((a, b) => b.pctAlto - a.pctAlto);
+
+    return summary;
+}
+
+function procesarExcel(arrayBuffer, fileName) {
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    let result = { meta: { fileName, forma: '', totalRows: 0 }, rows: [], summary: null };
+
+    if (workbook.Sheets["FORMA B digitacion"]) {
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets["FORMA B digitacion"], { defval: "" });
+        result.rows = procesarFormaB(data);
+        result.meta.forma = 'B';
+        result.meta.totalRows = result.rows.length;
+    }
+    if (workbook.Sheets["FORMA A Digitacion"]) {
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets["FORMA A Digitacion"], { defval: "" });
+        const processedA = procesarFormaA(data);
+        if (result.rows.length > 0) {
+            result.rows = result.rows.concat(processedA);
+            result.meta.forma = 'AB';
+        } else {
+            result.rows = processedA;
+            result.meta.forma = 'A';
+        }
+        result.meta.totalRows = result.rows.length;
+    }
+
+    result.summary = computeSummary(result.rows);
+    return result;
+}
+</script>

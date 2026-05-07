@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Batería Psicosocial</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #1e293b;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .app-header {
+            background: linear-gradient(135deg, #1a73e8, #1557b0);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .app-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .app-header h1 span { font-weight: 300; opacity: 0.8; }
+        .tabs-nav { display: flex; gap: 4px; }
+        .tab-btn {
+            background: transparent;
+            color: rgba(255,255,255,0.75);
+            border: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+        .tab-btn.active { background: rgba(255,255,255,0.2); color: white; }
+
+        .main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1e293b;
+        }
+        .card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #475569;
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #f8fafc;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+        .upload-area:hover { border-color: #1a73e8; }
+        .upload-area input[type="file"] { margin-top: 10px; }
+        .upload-area p { margin-top: 8px; color: #64748b; font-size: 13px; }
+
+        .status-msg {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .status-msg.success { display: block; background: #dcfce7; color: #166534; }
+        .status-msg.error { display: block; background: #fce4ec; color: #c62828; }
+        .status-msg.info { display: block; background: #e8f0fe; color: #1a73e8; }
+
+        .cards-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border-left: 4px solid #1a73e8;
+            text-align: center;
+        }
+        .stat-card .num { font-size: 28px; font-weight: 700; color: #1a73e8; }
+        .stat-card .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .chart-card.full { grid-column: 1 / -1; }
+        .chart-card h3 { margin-bottom: 12px; }
+        .chart-card canvas { max-height: 320px; max-width: 100%; }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .filter-bar label { font-size: 13px; font-weight: 500; color: #475569; }
+        .filter-bar select {
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            color: #1e293b;
+        }
+        .filter-bar button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .filter-bar button:hover { background: #1557b0; }
+
+        .table-wrap {
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+        .table-wrap table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .table-wrap th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .table-wrap td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .table-wrap tr:hover td { background: #f8fafc; }
+
+        .battery-list { margin-top: 12px; }
+        .battery-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+        .battery-item:hover { border-color: #1a73e8; }
+        .battery-item .info { flex: 1; }
+        .battery-item .name { font-weight: 600; font-size: 14px; }
+        .battery-item .meta { font-size: 12px; color: #64748b; }
+        .battery-item .actions { display: flex; gap: 8px; }
+        .battery-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; }
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn-remove:hover { background: #fce4ec; }
+        .btn-clear {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .btn-clear:hover { background: #dc2626; }
+
+        .heatmap-grid {
+            display: grid;
+            gap: 2px;
+            margin-top: 8px;
+        }
+        .heatmap-grid .hm-row {
+            display: grid;
+            gap: 2px;
+            align-items: center;
+        }
+        .hm-cell {
+            padding: 6px 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 4px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hm-label { font-weight: 600; color: #1e293b; font-size: 12px; padding: 4px 8px; text-align: left; }
+
+        .risk-sr { background: #bbf7d0; color: #166534; }
+        .risk-rb { background: #fef08a; color: #854d0e; }
+        .risk-rm { background: #fed7aa; color: #9a3412; }
+        .risk-ra { background: #fca5a5; color: #991b1b; }
+        .risk-rma { background: #f87171; color: #7f1d1d; font-weight: 700; }
+        .risk-mb { background: #dbeafe; color: #1e40af; }
+        .risk-error { background: #e2e8f0; color: #475569; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .placeholder { text-align: center; padding: 40px; color: #94a3b8; }
+
+        @media (max-width: 800px) {
+            .app-header { flex-direction: column; gap: 10px; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .cards-row { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <h1>Batería Psicosocial <span>Dashboard</span></h1>
+    <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="comparativa">Comparativa</button>
+        <button class="tab-btn" data-tab="reportes">Reportes</button>
+    </nav>
+</div>
+
+<div class="main">
+
+    <!-- ============ TAB: DASHBOARD ============ -->
+    <section id="tab-dashboard" class="tab-content active">
+        <div class="card">
+            <h2>Cargar archivo Excel de la batería</h2>
+            <div class="upload-area" id="dropZone">
+                <p style="font-weight:500;color:#1e293b;">Selecciona o arrastra un archivo .xlsx</p>
+                <p style="font-size:13px;color:#64748b;margin-top:4px;">Formatos: FORMA A Digitacion / FORMA B digitacion</p>
+                <input type="file" id="dashboardFile" accept=".xlsx,.xls" style="margin-top:10px;">
+            </div>
+            <div id="dashStatus" class="status-msg"></div>
+        </div>
+
+        <div id="dashContent" style="display:none;">
+            <div class="cards-row" id="summaryCards"></div>
+            <div class="filter-bar" id="filterBar">
+                <label>Filtrar:</label>
+                <select id="filterSexo"><option value="">Todos los sexos</option></select>
+                <select id="filterUnidad"><option value="">Todas las unidades</option></select>
+                <select id="filterCargo"><option value="">Todos los cargos</option></select>
+                <button onclick="aplicarFiltrosDashboard()">Aplicar</button>
+                <button onclick="limpiarFiltrosDashboard()" style="background:#64748b;">Limpiar</button>
+            </div>
+            <div class="charts-grid" id="dashCharts">
+                <div class="chart-card"><h3>Intralaboral</h3><canvas id="intraPie"></canvas></div>
+                <div class="chart-card"><h3>Extralaboral</h3><canvas id="extraPie"></canvas></div>
+                <div class="chart-card"><h3>Estrés</h3><canvas id="estresBars"></canvas></div>
+                <div class="chart-card"><h3>Perfil de puntajes T</h3><canvas id="radarChart"></canvas></div>
+                <div class="chart-card full"><h3>Dimensiones más críticas (% Riesgo Alto + Muy Alto)</h3><canvas id="topCritical"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>Tabla detallada por dimensión</h2>
+                <div id="detailTable"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ TAB: COMPARATIVA ============ -->
+    <section id="tab-comparativa" class="tab-content">
+        <div class="card">
+            <h2>Agregar baterías para comparar</h2>
+            <p style="font-size:13px;color:#64748b;margin-bottom:12px;">Sube varios archivos Excel para comparar sus resultados. Cada archivo se agrega a la lista.</p>
+            <div class="upload-area">
+                <p style="font-weight:500;color:#1e293b;">Seleccionar archivo .xlsx</p>
+                <input type="file" id="comparativaFile" accept=".xlsx,.xls">
+            </div>
+            <div id="compStatus" class="status-msg"></div>
+            <div id="batteryListContainer" style="margin-top:12px;display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <strong style="font-size:14px;">Baterías cargadas (<span id="batteryCount">0</span>)</strong>
+                    <button class="btn-clear" onclick="limpiarComparativa()">Limpiar todo</button>
+                </div>
+                <div id="batteryList" class="battery-list"></div>
+                <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Selecciona al menos 2 baterías para ver la comparativa.</p>
+            </div>
+        </div>
+
+        <div id="compContent" style="display:none;">
+            <div class="charts-grid">
+                <div class="chart-card full"><h3>Comparativa: Distribución Intralaboral</h3><canvas id="groupedBars"></canvas></div>
+                <div class="chart-card full"><h3>Comparativa: Perfil de puntajes T</h3><canvas id="radarCompare"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>Mapa de calor: Riesgo por dimensión y batería</h2>
+                <div id="heatmapContainer"></div>
+            </div>
+            <div class="card">
+                <h2>Tabla comparativa</h2>
+                <div id="comparisonTable"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ TAB: REPORTES ============ -->
+    <section id="tab-reportes" class="tab-content">
+        <div class="card placeholder" style="padding:60px;">
+            <p style="font-size:24px;margin-bottom:12px;">📄</p>
+            <h2 style="color:#94a3b8;">Próximamente</h2>
+            <p style="color:#94a3b8;margin-top:8px;">La generación de reportes Word y PowerPoint estará disponible en la próxima versión.</p>
+        </div>
+    </section>
+
+</div>
+
+<?!= include('procesador'); ?>
+<?!= include('app'); ?>
+</body>
+</html>
