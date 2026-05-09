@@ -56,10 +56,13 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         if (tab === 'dashboard' && state.bateriaActiva) {
             document.getElementById('topbarBadge').style.display = 'inline';
             document.getElementById('topbarBadge').textContent = state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' reg.)';
+            document.getElementById('btnExport').style.display = 'inline-flex';
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
+            document.getElementById('btnExport').style.display = 'none';
         } else {
             document.getElementById('topbarBadge').style.display = 'none';
+            document.getElementById('btnExport').style.display = 'none';
         }
     });
 });
@@ -720,6 +723,64 @@ function renderDetailTable(rows, summary) {
     html += buildTable('Estrés', stressDims);
 
     container.innerHTML = html;
+}
+
+// ============================================================
+// EXPORT DASHBOARD
+// ============================================================
+function exportarDashboard() {
+    const btn = document.getElementById('btnExport');
+    const dash = document.getElementById('dashContent');
+    if (!dash || dash.style.display === 'none') return;
+
+    btn.classList.add('loading');
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Exportando...';
+
+    // Temporarily hide click-hints
+    const hints = dash.querySelectorAll('.click-hint');
+    hints.forEach(h => h.style.display = 'none');
+
+    // Ensure charts render at full resolution
+    const charts = Object.values(state.charts);
+    charts.forEach(c => { if (c && c.resize) c.resize(); });
+
+    // Force any filters panel closed
+    const advPanel = document.getElementById('dfAdvancedPanel');
+    const advWasOpen = advPanel && advPanel.style.display !== 'none';
+    if (advWasOpen) advPanel.style.display = 'none';
+
+    html2canvas(dash, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        allowTaint: false,
+        logging: false,
+        onclone: (doc) => {
+            // Re-enable hints in clone
+            doc.querySelectorAll('.click-hint').forEach(h => h.style.display = '');
+        }
+    }).then(canvas => {
+        // Restore UI
+        hints.forEach(h => h.style.display = '');
+        if (advWasOpen) advPanel.style.display = 'block';
+        btn.classList.remove('loading');
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar';
+
+        // Download
+        const link = document.createElement('a');
+        link.download = state.bateriaActiva
+            ? 'Dashboard_' + state.bateriaActiva.meta.fileName.replace(/\.xlsx?$/i, '') + '.png'
+            : 'Dashboard.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }).catch(err => {
+        hints.forEach(h => h.style.display = '');
+        if (advWasOpen) advPanel.style.display = 'block';
+        btn.classList.remove('loading');
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar';
+        console.error('Export error:', err);
+        alert('Error al exportar la imagen. Revisa la consola para más detalles.');
+    });
 }
 
 // ============================================================

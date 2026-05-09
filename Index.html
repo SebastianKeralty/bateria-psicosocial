@@ -7,6 +7,7 @@
     <title>Batería Psicosocial</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -115,12 +116,38 @@
             color: #1e293b;
         }
         .topbar .badge-data {
+            margin-left: 14px;
             font-size: 12px;
-            color: #64748b;
-            background: #f1f5f9;
-            padding: 4px 12px;
-            border-radius: 12px;
+            background: #eef2ff;
+            color: #1a73e8;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-weight: 600;
         }
+        .btn-export {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg,#1a73e8,#6366f1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+            white-space: nowrap;
+        }
+        .btn-export:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-export:active { transform: translateY(0); }
+        .btn-export.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-export .spin { animation: spin 1s linear infinite; }
 
         .main {
             padding: 24px 28px;
@@ -733,6 +760,10 @@
     <header class="topbar">
         <h2 id="topbarTitle">Inicio</h2>
         <span id="topbarBadge" class="badge-data" style="display:none;"></span>
+        <button id="btnExport" class="btn-export" style="display:none;" onclick="exportarDashboard()" title="Exportar dashboard como imagen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+        </button>
     </header>
 
     <div class="main">
