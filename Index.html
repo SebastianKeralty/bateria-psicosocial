@@ -450,6 +450,22 @@
             flex-shrink: 0;
         }
         .modal-header h2 { font-size: 18px; margin: 0; }
+        .btn-view-toggle {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn-view-toggle:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+        }
         .modal-close {
             background: none;
             border: none;
@@ -789,6 +805,7 @@
             <div class="modal-panel">
                 <div class="modal-header">
                     <h2 id="modalTitle">Detalle</h2>
+                    <span id="modalViewToggle" style="display:none;margin-left:auto;margin-right:12px;"></span>
                     <button class="modal-close" onclick="closeDrillModal()">✕</button>
                 </div>
                 <div class="modal-filters" id="modalFilters"></div>
