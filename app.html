@@ -213,41 +213,234 @@ function renderSummaryCards(data) {
     const extraR = clasificarCritico(extraPct);
     const stressR = clasificarCritico(stressPct);
 
+    const buildCard = (num, label, sublabel, color, pct) => {
+        const isTotal = label === 'Total Encuestados';
+        const bgColor = isTotal ? '#eef2ff' : pct >= 50 ? '#fef2f2' : pct >= 25 ? '#fff7ed' : pct >= 10 ? '#fefce8' : '#f0fdf4';
+        const borderColor = isTotal ? '#1a73e8' : color;
+        return `<div style="background:${bgColor};border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,0.07);border-left:5px solid ${borderColor};text-align:center;display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:${isTotal ? 36 : 22}px;font-weight:800;color:${isTotal ? '#1a73e8' : color};line-height:1.1;">${num}</div>
+            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;">${label}</div>
+            ${!isTotal ? `
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+                <span style="font-size:11px;font-weight:600;color:#64748b;">${sublabel}</span>
+            </div>
+            <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:2px;max-width:80%;margin-left:auto;margin-right:auto;">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
+            </div>` : ''}
+        </div>`;
+    };
+
     container.innerHTML = `
-        <div class="stat-card" style="border-left-color:#1a73e8;">
-            <div class="num">${nTotal}</div>
-            <div class="label">Total Encuestados</div>
-        </div>
-        <div class="stat-card" style="border-left-color:${intraR.color};">
-            <div class="num" style="font-size:20px;color:${intraR.color};">${intraR.label}</div>
-            <div class="label">Intralaboral · ${intraPct}% crítico</div>
-        </div>
-        <div class="stat-card" style="border-left-color:${extraR.color};">
-            <div class="num" style="font-size:20px;color:${extraR.color};">${extraR.label}</div>
-            <div class="label">Extralaboral · ${extraPct}% crítico</div>
-        </div>
-        <div class="stat-card" style="border-left-color:${stressR.color};">
-            <div class="num" style="font-size:20px;color:${stressR.color};">${stressR.label}</div>
-            <div class="label">Estrés · ${stressPct}% crítico</div>
-        </div>
+        ${buildCard(nTotal, 'Total Encuestados', '', '#1a73e8', 0)}
+        ${buildCard(intraR.label, 'Intralaboral', intraPct + '% crítico', intraR.color, intraPct)}
+        ${buildCard(extraR.label, 'Extralaboral', extraPct + '% crítico', extraR.color, extraPct)}
+        ${buildCard(stressR.label, 'Estrés', stressPct + '% crítico', stressR.color, stressPct)}
     `;
 }
 
+function buildDashboardFilters(rows) {
+    const bar = document.getElementById('filterBar');
+    bar.style.marginBottom = '14px';
+    bar.innerHTML = '';
+
+    const topRow = document.createElement('div');
+    topRow.className = 'mf-quick-bar mf-row-top';
+
+    const addSelect = (id, placeholder, col) => {
+        const sel = document.createElement('select');
+        sel.id = id;
+        const optAll = document.createElement('option');
+        optAll.value = ''; optAll.textContent = placeholder;
+        sel.appendChild(optAll);
+        const opts = getFilterOptions(rows, col);
+        opts.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o; opt.textContent = o;
+            sel.appendChild(opt);
+        });
+        topRow.appendChild(sel);
+    };
+
+    addSelect('dfForma', 'Forma: Todas', '_forma');
+    addSelect('dfSexo', 'Sexo: Todos', '2. Sexo');
+    addSelect('dfArea', '\u00c1rea: Todas', 'Unidad de An\u00e1lisis');
+    addSelect('dfCargo', 'Tipo cargo: Todos', '14. Tipo de cargo');
+
+    bar.appendChild(topRow);
+
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'mf-quick-bar mf-row-bottom';
+
+    const inp = document.createElement('input');
+    inp.id = 'dfBusqueda';
+    inp.placeholder = 'Buscar (ID, nombre, cargo\u2026)';
+    inp.className = 'mf-search-input';
+    bottomRow.appendChild(inp);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'dfToggle';
+    toggleBtn.className = 'mf-toggle';
+    toggleBtn.title = 'M\u00e1s filtros';
+    toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
+    toggleBtn.onclick = function() {
+        const panel = document.getElementById('dfAdvancedPanel');
+        if (!panel) return;
+        const isOpen = panel.style.display !== 'none';
+        panel.style.display = isOpen ? 'none' : 'block';
+        toggleBtn.title = isOpen ? 'M\u00e1s filtros' : 'Menos filtros';
+        toggleBtn.classList.toggle('open', !isOpen);
+    };
+    bottomRow.appendChild(toggleBtn);
+
+    const btnF = document.createElement('button');
+    btnF.className = 'btn-filtrar';
+    btnF.title = 'Filtrar';
+    btnF.style.background = 'linear-gradient(135deg,#6366f1,#06b6d4)';
+    btnF.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+    btnF.onclick = aplicarFiltrosDashboard;
+    bottomRow.appendChild(btnF);
+
+    const btnL = document.createElement('button');
+    btnL.className = 'btn-limpiar';
+    btnL.title = 'Limpiar';
+    btnL.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    btnL.onclick = limpiarFiltrosDashboard;
+    bottomRow.appendChild(btnL);
+
+    bar.appendChild(bottomRow);
+
+    const advPanel = document.createElement('div');
+    advPanel.id = 'dfAdvancedPanel';
+    advPanel.className = 'mf-advanced-panel';
+    advPanel.style.display = 'none';
+
+    const groups = [
+        {
+            title: 'Persona',
+            cols: [
+                { label: 'Estado civil', col: '4. Estado civil', id: 'dfEstadoCivil' },
+                { label: 'Nivel estudios', col: '5. Nivel estudios', id: 'dfNivelEstudios' },
+                { label: 'Estrato', col: '8. Estrato', id: 'dfEstrato' },
+                { label: 'Tipo vivienda', col: '9. Tipo vivienda', id: 'dfTipoVivienda' }
+            ]
+        },
+        {
+            title: 'Laboral',
+            cols: [
+                { label: 'Antig\u00fcedad empresa', col: '12. Antig\u00fcedad en la empresa', id: 'dfAntiguedadEmp' },
+                { label: 'Antig\u00fcedad cargo', col: '15. Antig\u00fcedad en el cargo', id: 'dfAntiguedadCargo' },
+                { label: 'Tipo contrato', col: '17. Tipo de contrato', id: 'dfTipoContrato' },
+                { label: 'Horas diarias', col: '18. Horas diarias de trabajo', id: 'dfHorasDiarias' },
+                { label: 'Tipo salario', col: '19. Tipo de salario', id: 'dfTipoSalario' },
+                { label: 'Nivel cargo', col: 'Nivel de cargo del trabajador', id: 'dfNivelCargo' },
+                { label: '\u00c1rea trabajo', col: '16. \u00c1rea donde trabaja', id: 'dfAreaTrabajo' }
+            ]
+        },
+        {
+            title: 'Ubicaci\u00f3n',
+            cols: [
+                { label: 'Ciudad residencia', col: '7. Lugar de residencia: Ciudad', id: 'dfCiudadRes' },
+                { label: 'Dpto residencia', col: '7. Lugar de residencia: Departamento', id: 'dfDptoRes' },
+                { label: 'Ciudad trabajo', col: '11. Lugar de trabajo: Ciudad', id: 'dfCiudadTrab' },
+                { label: 'Dpto trabajo', col: '11. Lugar de trabajo: Departamento', id: 'dfDptoTrab' }
+            ]
+        }
+    ];
+
+    const advGrid = document.createElement('div');
+    advGrid.className = 'mf-adv-grid';
+    for (const group of groups) {
+        const card = document.createElement('div');
+        card.className = 'mf-group-card';
+        const header = document.createElement('div');
+        header.className = 'mf-group-header';
+        header.textContent = group.title;
+        card.appendChild(header);
+        const grid = document.createElement('div');
+        grid.className = 'mf-group-grid';
+        let hasFields = false;
+        for (const f of group.cols) {
+            const opts = getFilterOptions(rows, f.col);
+            if (opts.length === 0) continue;
+            hasFields = true;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mf-field';
+            const lbl = document.createElement('label');
+            lbl.textContent = f.label;
+            wrapper.appendChild(lbl);
+            const sel = document.createElement('select');
+            sel.id = f.id;
+            const optAll = document.createElement('option');
+            optAll.value = ''; optAll.textContent = 'Todos';
+            sel.appendChild(optAll);
+            opts.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o; opt.textContent = o;
+                sel.appendChild(opt);
+            });
+            wrapper.appendChild(sel);
+            grid.appendChild(wrapper);
+        }
+        if (hasFields) {
+            card.appendChild(grid);
+            advGrid.appendChild(card);
+        }
+    }
+    if (advGrid.children.length > 0) {
+        advPanel.appendChild(advGrid);
+        bar.appendChild(advPanel);
+    } else {
+        toggleBtn.style.display = 'none';
+    }
+}
+
 function populateFiltersDashboard(rows) {
-    populateFilter('filterSexo', '2. Sexo', rows);
-    populateFilter('filterUnidad', 'Unidad de Análisis', rows);
-    populateFilter('filterCargo', '14. Tipo de cargo', rows);
+    buildDashboardFilters(rows);
 }
 
 function getFilteredRows() {
     if (!state.bateriaActiva) return [];
     let rows = state.bateriaActiva.rows;
-    const sexo = document.getElementById('filterSexo')?.value;
-    const unidad = document.getElementById('filterUnidad')?.value;
-    const cargo = document.getElementById('filterCargo')?.value;
+
+    const q = document.getElementById('dfBusqueda')?.value?.trim().toLowerCase();
+    if (q) {
+        const searchCols = ["ID", "Nombre completo del trabajador", "13. Cargo", "No. Encuesta"];
+        rows = rows.filter(r => searchCols.some(col =>
+            String(r[col] || '').trim().toLowerCase().includes(q)
+        ));
+    }
+
+    const forma = document.getElementById('dfForma')?.value;
+    const sexo = document.getElementById('dfSexo')?.value;
+    const area = document.getElementById('dfArea')?.value;
+    const cargo = document.getElementById('dfCargo')?.value;
+    if (forma) rows = rows.filter(r => String(r["_forma"] || '').trim() === forma);
     if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
-    if (unidad) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === unidad);
+    if (area) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === area);
     if (cargo) rows = rows.filter(r => String(r["14. Tipo de cargo"] || '').trim() === cargo);
+
+    const advMap = [
+        { id: 'dfEstadoCivil', col: '4. Estado civil' },
+        { id: 'dfNivelEstudios', col: '5. Nivel estudios' },
+        { id: 'dfEstrato', col: '8. Estrato' },
+        { id: 'dfTipoVivienda', col: '9. Tipo vivienda' },
+        { id: 'dfAntiguedadEmp', col: '12. Antigüedad en la empresa' },
+        { id: 'dfAntiguedadCargo', col: '15. Antigüedad en el cargo' },
+        { id: 'dfTipoContrato', col: '17. Tipo de contrato' },
+        { id: 'dfHorasDiarias', col: '18. Horas diarias de trabajo' },
+        { id: 'dfTipoSalario', col: '19. Tipo de salario' },
+        { id: 'dfNivelCargo', col: 'Nivel de cargo del trabajador' },
+        { id: 'dfAreaTrabajo', col: '16. Área donde trabaja' },
+        { id: 'dfCiudadRes', col: '7. Lugar de residencia: Ciudad' },
+        { id: 'dfDptoRes', col: '7. Lugar de residencia: Departamento' },
+        { id: 'dfCiudadTrab', col: '11. Lugar de trabajo: Ciudad' },
+        { id: 'dfDptoTrab', col: '11. Lugar de trabajo: Departamento' }
+    ];
+    for (const f of advMap) {
+        const val = document.getElementById(f.id)?.value;
+        if (val) rows = rows.filter(r => String(r[f.col] || '').trim() === val);
+    }
+
     return rows;
 }
 
@@ -260,9 +453,15 @@ function aplicarFiltrosDashboard() {
 }
 
 function limpiarFiltrosDashboard() {
-    document.getElementById('filterSexo').value = '';
-    document.getElementById('filterUnidad').value = '';
-    document.getElementById('filterCargo').value = '';
+    const ids = ['dfForma','dfSexo','dfArea','dfCargo','dfBusqueda',
+        'dfEstadoCivil','dfNivelEstudios','dfEstrato','dfTipoVivienda',
+        'dfAntiguedadEmp','dfAntiguedadCargo','dfTipoContrato',
+        'dfHorasDiarias','dfTipoSalario','dfNivelCargo','dfAreaTrabajo',
+        'dfCiudadRes','dfDptoRes','dfCiudadTrab','dfDptoTrab'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     aplicarFiltrosDashboard();
 }
 
@@ -459,28 +658,77 @@ function renderTopCritical(canvasId, topCriticas) {
     });
 }
 
+function toggleDetailSort() {
+    state._detailSortDir = state._detailSortDir === 'desc' ? 'asc' : 'desc';
+    const filtered = getFilteredRows();
+    const s = state.bateriaActiva ? computeSummary(filtered) : null;
+    if (s) renderDetailTable(filtered, s);
+}
+
 function renderDetailTable(rows, summary) {
     const container = document.getElementById('detailTable');
     if (!summary) { container.innerHTML = ''; return; }
     const total = rows.length;
 
-    let html = `<div class="table-wrap"><table>
-        <thead><tr><th>Dimensión</th><th>Prom. T</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th>% Alto+</th></tr></thead><tbody>`;
+    const intraDims = summary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
+    const globalDims = summary.dimensions.filter(d => d.name.startsWith('[Global]'));
+    const extraDims = summary.dimensions.filter(d => d.name.startsWith('[Extra]'));
+    const stressDist = summary.stress || {};
 
-    for (const dim of summary.dimensions) {
-        if (!dim.risk) continue;
-        const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100*10)/10 : 0;
-        const displayName = dim.name.length > 45 ? dim.name.slice(0, 42) + '...' : dim.name;
-        html += `<tr><td><strong>${displayName}</strong></td>
-            <td>${dim.avgT !== null ? dim.avgT : '-'}</td>`;
-        for (const r of RISK_ORDER) {
-            const v = dim.risk[r] || 0;
-            const pct = total ? Math.round((v/total)*100*10)/10 : 0;
-            html += `<td>${v} <span style="color:#94a3b8;font-size:11px;">(${pct}%)</span></td>`;
+    const sortDims = (dims) => {
+        if (state._detailSortDir === undefined) state._detailSortDir = 'desc';
+        return [...dims].filter(d => d.risk).sort((a, b) => {
+            const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+            const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+            return state._detailSortDir === 'desc' ? bPct - aPct : aPct - bPct;
+        });
+    };
+
+    const buildRow = (dim) => {
+        if (!dim.risk) return '';
+        const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
+        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        const displayName = dim.name.replace('[Global] ', '').replace('[Extra] ', '');
+        let r = `<tr style="background:${rowBg};"><td><strong>${displayName}</strong></td>`;
+        for (const k of RISK_ORDER) {
+            const v = dim.risk[k] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            r += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        html += `<td><span class="badge ${pctAlto >= 30 ? 'risk-ra' : pctAlto >= 15 ? 'risk-rm' : 'risk-sr'}">${pctAlto}%</span></td></tr>`;
+        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        r += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
+        return r;
+    };
+
+    const sortIcon = state._detailSortDir === 'desc' ? '\u25BC' : '\u25B2';
+
+    const buildTable = (title, dims) => {
+        if (dims.length === 0) return '';
+        let h = `<div class="card" style="margin-top:12px;"><h3>${title}</h3><div class="table-wrap"><table>
+            <thead><tr><th>Dimensi\u00f3n</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleDetailSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+        for (const dim of sortDims(dims)) h += buildRow(dim);
+        h += '</tbody></table></div></div>';
+        return h;
+    };
+
+    let html = '';
+    html += buildTable('Intralaboral', intraDims);
+    html += buildTable('Extralaboral', extraDims);
+
+    const stressKeys = orderRiskKeys(stressDist);
+    if (stressKeys.length > 0) {
+        html += `<div class="card" style="margin-top:12px;"><h3>Estr\u00e9s</h3><div class="table-wrap"><table>
+            <thead><tr><th>Nivel</th><th>Personas</th><th>Porcentaje</th></tr></thead><tbody>`;
+        for (const k of stressKeys) {
+            const v = stressDist[k] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            const rc = riskColor(k);
+            const rowBg = pct >= 30 ? '#fca5a5' : pct >= 15 ? '#fed7aa' : pct >= 5 ? '#fef08a' : '#bbf7d0';
+            html += `<tr style="background:${rowBg};"><td><span class="badge ${rc.cls}">${k}</span></td><td><strong>${v}</strong></td><td><strong>${pct}%</strong></td></tr>`;
+        }
+        html += '</tbody></table></div></div>';
     }
-    html += '</tbody></table></div>';
+
     container.innerHTML = html;
 }
 

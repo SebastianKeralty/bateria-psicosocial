@@ -757,14 +757,7 @@
 
             <div id="dashContent" style="display:none;">
                 <div class="cards-row" id="summaryCards"></div>
-                <div class="filter-bar" id="filterBar">
-                    <label>Filtrar:</label>
-                    <select id="filterSexo"><option value="">Todos los sexos</option></select>
-                    <select id="filterUnidad"><option value="">Todas las unidades</option></select>
-                    <select id="filterCargo"><option value="">Todos los cargos</option></select>
-                    <button onclick="aplicarFiltrosDashboard()">Aplicar</button>
-                    <button onclick="limpiarFiltrosDashboard()" style="background:#64748b;">Limpiar</button>
-                </div>
+                <div id="filterBar"></div>
 
                 <!-- Main dashboard view -->
                 <div id="dashMainView">
@@ -787,10 +780,7 @@
                     </div>
                 </div>
 
-                <div class="card" id="detailTableCard">
-                    <h2>Tabla detallada por dimensión</h2>
-                    <div id="detailTable"></div>
-                </div>
+                <div id="detailTable"></div>
             </div>
         </section>
 
