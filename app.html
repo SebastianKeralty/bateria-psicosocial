@@ -94,6 +94,15 @@ function orderRiskKeys(dist) {
     return keys;
 }
 
+function toTitleCase(str) {
+    const keepLower = ['de','del','la','las','lo','los','el','ella','ellos','y','e','o','a','en','con','por','para','sin','sobre','entre','desde','hasta','al','un','una','su','sus'];
+    return str.split(' ').map((word, i) => {
+        const w = word.toLowerCase();
+        if (i > 0 && keepLower.includes(w)) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+}
+
 function getFilterOptions(rows, col) {
     const set = new Set();
     for (const r of rows) {
@@ -269,6 +278,72 @@ function renderChartsDashboard(rows, summary) {
     renderClickableBarChart('stressBars', stressDist);
 }
 
+function renderDonutChart(canvasId, dist, centerPct, centerColor, centerCount) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
+    if (!ctx) return;
+    const keys = orderRiskKeys(dist);
+    if (keys.length === 0) return;
+    const values = keys.map(k => dist[k] || 0);
+    const colors = keys.map(k => riskColor(k).bg);
+
+    const centerPlugin = {
+        id: 'centerText',
+        afterDraw(chart) {
+            const { ctx, chartArea: { left, top, right, bottom } } = chart;
+            const cx = (left + right) / 2;
+            const cy = (top + bottom) / 2;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 26px "Segoe UI", sans-serif';
+            ctx.fillStyle = centerColor || '#ef4444';
+            ctx.fillText((centerCount || 0) + '', cx, cy - 14);
+            ctx.font = 'bold 18px "Segoe UI", sans-serif';
+            ctx.fillStyle = centerColor || '#ef4444';
+            ctx.fillText((centerPct || 0) + '%', cx, cy + 10);
+            ctx.font = '9px "Segoe UI", sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('CR\u00cdTICO', cx, cy + 28);
+            ctx.restore();
+        }
+    };
+
+    state.charts[canvasId] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: keys,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '72%',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total ? Math.round((value / total) * 100) : 0;
+                            return label + ': ' + value + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [centerPlugin]
+    });
+}
+
 function renderClickableBarChart(canvasId, dist) {
     destroyChart(canvasId);
     const ctx = getChartCtx(canvasId);
@@ -419,83 +494,307 @@ const DOMAIN_DIMS = {
     "RECOMPENSAS": ["Reconocimiento y compensación", "Recompensas de pertenencia y trabajo"]
 };
 
+function toggleSort() {
+    state._sortDir = state._sortDir === 'desc' ? 'asc' : 'desc';
+    aplicarFiltrosModal();
+}
+
+function rebuildDimensionOptions(type) {
+    const dimSel = document.getElementById('mfDimension');
+    if (!dimSel) return;
+    const domain = document.getElementById('mfDominio')?.value || '';
+    const currentVal = dimSel.value;
+    dimSel.innerHTML = '<option value="">Dimensi\u00f3n: Todas</option>';
+    let availDims = [];
+    if (type === 'intra') {
+        availDims = (state._drillSummary.dimensions || [])
+            .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
+        if (domain) {
+            const domainDims = DOMAIN_DIMS[domain] || [];
+            availDims = availDims.filter(d => domainDims.includes(d.name));
+        }
+        availDims = availDims.map(d => d.name);
+    } else {
+        availDims = (state._drillSummary.dimensions || [])
+            .filter(d => d.name.startsWith('[Extra]'))
+            .map(d => d.name.replace('[Extra] ', ''));
+    }
+    availDims.sort().forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d; opt.textContent = d;
+        dimSel.appendChild(opt);
+    });
+    if (currentVal) {
+        // restore if still valid
+        if (Array.from(dimSel.options).some(o => o.value === currentVal)) {
+            dimSel.value = currentVal;
+        }
+    }
+}
+
 function buildModalFilters(type) {
     const container = document.getElementById('modalFilters');
     container.innerHTML = '';
     const allRows = state.bateriaActiva.rows;
 
-    const filters = [
-        { label: 'Área:', col: 'Unidad de Análisis', id: 'mfArea' },
-        { label: 'Sexo:', col: '2. Sexo', id: 'mfSexo' },
-        { label: 'Cargo:', col: '14. Tipo de cargo', id: 'mfCargo' }
-    ];
+    // ── Top row: selects ──
+    const topRow = document.createElement('div');
+    topRow.className = 'mf-quick-bar mf-row-top';
 
-    for (const f of filters) {
-        const lbl = document.createElement('label');
-        lbl.textContent = f.label;
-        container.appendChild(lbl);
+    // Forma
+    const formaSel = document.createElement('select');
+    formaSel.id = 'mfForma';
+    ['', 'A', 'B'].forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v ? 'Forma ' + v : 'Forma: Todas';
+        formaSel.appendChild(opt);
+    });
+    topRow.appendChild(formaSel);
+
+    const addSelect = (id, placeholder, col) => {
         const sel = document.createElement('select');
-        sel.id = f.id;
+        sel.id = id;
         const optAll = document.createElement('option');
-        optAll.value = '';
-        optAll.textContent = 'Todos';
+        optAll.value = ''; optAll.textContent = placeholder;
         sel.appendChild(optAll);
-        const opts = getFilterOptions(allRows, f.col);
+        const opts = getFilterOptions(allRows, col);
         opts.forEach(o => {
             const opt = document.createElement('option');
             opt.value = o; opt.textContent = o;
             sel.appendChild(opt);
         });
-        container.appendChild(sel);
-    }
+        topRow.appendChild(sel);
+    };
 
+    addSelect('mfSexo', 'Sexo: Todos', '2. Sexo');
+    addSelect('mfArea', '\u00c1rea: Todas', 'Unidad de An\u00e1lisis');
+
+    // Dominio (intra only)
     if (type === 'intra') {
-        const lblDom = document.createElement('label');
-        lblDom.textContent = 'Dominio:';
-        container.appendChild(lblDom);
         const selDom = document.createElement('select');
         selDom.id = 'mfDominio';
         const optAllDom = document.createElement('option');
-        optAllDom.value = ''; optAllDom.textContent = 'Todos';
+        optAllDom.value = ''; optAllDom.textContent = 'Dominio: Todos';
         selDom.appendChild(optAllDom);
         const availableDims = state._drillSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
         const availDomains = Object.keys(DOMAIN_DIMS).filter(d => DOMAIN_DIMS[d].some(dim => availableDims.some(a => a.name === dim)));
         availDomains.forEach(d => {
             const opt = document.createElement('option');
-            opt.value = d; opt.textContent = d;
+            opt.value = d; opt.textContent = toTitleCase(d);
             selDom.appendChild(opt);
         });
-        container.appendChild(selDom);
+        selDom.onchange = function() { rebuildDimensionOptions(type); };
+        topRow.appendChild(selDom);
     }
 
-    const inpId = document.createElement('input');
-    inpId.id = 'mfIdBusqueda';
-    inpId.placeholder = 'Buscar por ID...';
-    container.appendChild(inpId);
+    // Dimensión (intra / extra)
+    if (type === 'intra' || type === 'extra') {
+        const dimSel = document.createElement('select');
+        dimSel.id = 'mfDimension';
+        const optAllDim = document.createElement('option');
+        optAllDim.value = ''; optAllDim.textContent = 'Dimensi\u00f3n: Todas';
+        dimSel.appendChild(optAllDim);
+        let availDims = [];
+        if (type === 'intra') {
+            availDims = (state._drillSummary.dimensions || [])
+                .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'))
+                .map(d => d.name);
+        } else {
+            availDims = (state._drillSummary.dimensions || [])
+                .filter(d => d.name.startsWith('[Extra]'))
+                .map(d => d.name.replace('[Extra] ', ''));
+        }
+        availDims.sort().forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = d;
+            dimSel.appendChild(opt);
+        });
+        topRow.appendChild(dimSel);
+    }
+
+    container.appendChild(topRow);
+
+    // ── Bottom row: big search + buttons ──
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'mf-quick-bar mf-row-bottom';
+
+    const inp = document.createElement('input');
+    inp.id = 'mfBusqueda';
+    inp.placeholder = 'Buscar (ID, nombre, cargo\u2026)';
+    inp.className = 'mf-search-input';
+    bottomRow.appendChild(inp);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'mfToggle';
+    toggleBtn.className = 'mf-toggle';
+    toggleBtn.title = 'M\u00e1s filtros';
+    toggleBtn.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
+    toggleBtn.onclick = toggleAdvancedFilters;
+    bottomRow.appendChild(toggleBtn);
 
     const btnF = document.createElement('button');
     btnF.className = 'btn-filtrar';
-    btnF.textContent = 'Filtrar';
+    btnF.title = 'Filtrar';
+    btnF.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
     btnF.onclick = aplicarFiltrosModal;
-    container.appendChild(btnF);
+    bottomRow.appendChild(btnF);
 
     const btnL = document.createElement('button');
     btnL.className = 'btn-limpiar';
-    btnL.textContent = 'Limpiar';
+    btnL.title = 'Limpiar';
+    btnL.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
     btnL.onclick = limpiarFiltrosModal;
-    container.appendChild(btnL);
+    bottomRow.appendChild(btnL);
+
+    container.appendChild(bottomRow);
+
+    // ── Advanced panel ──
+    const advPanel = document.createElement('div');
+    advPanel.id = 'mfAdvancedPanel';
+    advPanel.className = 'mf-advanced-panel';
+    advPanel.style.display = 'none';
+
+    const groups = [
+        {
+            title: 'Persona',
+            cols: [
+                { label: 'Estado civil', col: '4. Estado civil', id: 'mfEstadoCivil' },
+                { label: 'Nivel estudios', col: '5. Nivel estudios', id: 'mfNivelEstudios' },
+                { label: 'Estrato', col: '8. Estrato', id: 'mfEstrato' },
+                { label: 'Tipo vivienda', col: '9. Tipo vivienda', id: 'mfTipoVivienda' }
+            ]
+        },
+        {
+            title: 'Laboral',
+            cols: [
+                { label: 'Tipo de cargo', col: '14. Tipo de cargo', id: 'mfTipoCargo' },
+                { label: 'Antig\u00fcedad empresa', col: '12. Antig\u00fcedad en la empresa', id: 'mfAntiguedadEmp' },
+                { label: 'Antig\u00fcedad cargo', col: '15. Antig\u00fcedad en el cargo', id: 'mfAntiguedadCargo' },
+                { label: 'Tipo contrato', col: '17. Tipo de contrato', id: 'mfTipoContrato' },
+                { label: 'Horas diarias', col: '18. Horas diarias de trabajo', id: 'mfHorasDiarias' },
+                { label: 'Tipo salario', col: '19. Tipo de salario', id: 'mfTipoSalario' },
+                { label: 'Nivel cargo', col: 'Nivel de cargo del trabajador', id: 'mfNivelCargo' },
+                { label: '\u00c1rea trabajo', col: '16. \u00c1rea donde trabaja', id: 'mfAreaTrabajo' }
+            ]
+        },
+        {
+            title: 'Ubicaci\u00f3n',
+            cols: [
+                { label: 'Ciudad residencia', col: '7. Lugar de residencia: Ciudad', id: 'mfCiudadRes' },
+                { label: 'Dpto residencia', col: '7. Lugar de residencia: Departamento', id: 'mfDptoRes' },
+                { label: 'Ciudad trabajo', col: '11. Lugar de trabajo: Ciudad', id: 'mfCiudadTrab' },
+                { label: 'Dpto trabajo', col: '11. Lugar de trabajo: Departamento', id: 'mfDptoTrab' }
+            ]
+        }
+    ];
+
+    const advGrid = document.createElement('div');
+    advGrid.className = 'mf-adv-grid';
+
+    for (const group of groups) {
+        const card = document.createElement('div');
+        card.className = 'mf-group-card';
+        const header = document.createElement('div');
+        header.className = 'mf-group-header';
+        header.textContent = group.title;
+        card.appendChild(header);
+        const grid = document.createElement('div');
+        grid.className = 'mf-group-grid';
+        let hasFields = false;
+        for (const f of group.cols) {
+            const opts = getFilterOptions(allRows, f.col);
+            if (opts.length === 0) continue;
+            hasFields = true;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mf-field';
+            const lbl = document.createElement('label');
+            lbl.textContent = f.label;
+            wrapper.appendChild(lbl);
+            const sel = document.createElement('select');
+            sel.id = f.id;
+            const optAll = document.createElement('option');
+            optAll.value = ''; optAll.textContent = 'Todos';
+            sel.appendChild(optAll);
+            opts.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o; opt.textContent = o;
+                sel.appendChild(opt);
+            });
+            wrapper.appendChild(sel);
+            grid.appendChild(wrapper);
+        }
+        if (hasFields) {
+            card.appendChild(grid);
+            advGrid.appendChild(card);
+        }
+    }
+
+    if (advGrid.children.length > 0) {
+        advPanel.appendChild(advGrid);
+        container.appendChild(advPanel);
+    } else {
+        toggleBtn.style.display = 'none';
+    }
+}
+
+function toggleAdvancedFilters() {
+    const panel = document.getElementById('mfAdvancedPanel');
+    const btn = document.getElementById('mfToggle');
+    if (!panel || !btn) return;
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    btn.title = isOpen ? 'M\u00e1s filtros' : 'Menos filtros';
+    btn.classList.toggle('open', !isOpen);
 }
 
 function getModalFilteredRows() {
     let rows = state.bateriaActiva.rows;
+
+    // Quick search (Layer 1)
+    const q = document.getElementById('mfBusqueda')?.value?.trim().toLowerCase();
+    if (q) {
+        const searchCols = ["ID", "Nombre completo del trabajador", "13. Cargo", "No. Encuesta"];
+        rows = rows.filter(r => searchCols.some(col =>
+            String(r[col] || '').trim().toLowerCase().includes(q)
+        ));
+    }
+
+    // Quick filter selects (Layer 2)
     const area = document.getElementById('mfArea')?.value;
     const sexo = document.getElementById('mfSexo')?.value;
-    const cargo = document.getElementById('mfCargo')?.value;
-    const idBusq = document.getElementById('mfIdBusqueda')?.value?.trim();
+    const forma = document.getElementById('mfForma')?.value;
     if (area) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === area);
     if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
-    if (cargo) rows = rows.filter(r => String(r["14. Tipo de cargo"] || '').trim() === cargo);
-    if (idBusq) rows = rows.filter(r => String(r["ID"] || r["No. Encuesta"] || '').trim().toLowerCase().includes(idBusq.toLowerCase()));
+    if (forma) rows = rows.filter(r => String(r["_forma"] || '').trim() === forma);
+
+    // Advanced filter selects (Layer 3)
+    const advMap = [
+        { id: 'mfEstadoCivil', col: '4. Estado civil' },
+        { id: 'mfNivelEstudios', col: '5. Nivel estudios' },
+        { id: 'mfEstrato', col: '8. Estrato' },
+        { id: 'mfTipoVivienda', col: '9. Tipo vivienda' },
+        { id: 'mfTipoCargo', col: '14. Tipo de cargo' },
+        { id: 'mfAntiguedadEmp', col: '12. Antigüedad en la empresa' },
+        { id: 'mfAntiguedadCargo', col: '15. Antigüedad en el cargo' },
+        { id: 'mfTipoContrato', col: '17. Tipo de contrato' },
+        { id: 'mfHorasDiarias', col: '18. Horas diarias de trabajo' },
+        { id: 'mfTipoSalario', col: '19. Tipo de salario' },
+        { id: 'mfNivelCargo', col: 'Nivel de cargo del trabajador' },
+        { id: 'mfAreaTrabajo', col: '16. Área donde trabaja' },
+        { id: 'mfCiudadRes', col: '7. Lugar de residencia: Ciudad' },
+        { id: 'mfDptoRes', col: '7. Lugar de residencia: Departamento' },
+        { id: 'mfCiudadTrab', col: '11. Lugar de trabajo: Ciudad' },
+        { id: 'mfDptoTrab', col: '11. Lugar de trabajo: Departamento' }
+    ];
+    for (const f of advMap) {
+        const val = document.getElementById(f.id)?.value;
+        if (val) rows = rows.filter(r => String(r[f.col] || '').trim() === val);
+    }
+
     return rows;
 }
 
@@ -504,14 +803,32 @@ function aplicarFiltrosModal() {
     state._drillRows = filtered;
     state._drillSummary = computeSummary(filtered);
     renderModalBody();
+    actualizarIndicadorFiltros();
+}
+
+function actualizarIndicadorFiltros() {
+    const advIds = ['mfEstadoCivil','mfNivelEstudios','mfEstrato','mfTipoVivienda',
+        'mfTipoCargo','mfAntiguedadEmp','mfAntiguedadCargo','mfTipoContrato',
+        'mfHorasDiarias','mfTipoSalario','mfNivelCargo','mfAreaTrabajo',
+        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab'];
+    const hasActive = advIds.some(id => {
+        const el = document.getElementById(id);
+        return el && el.value && el.value !== '';
+    });
+    const btn = document.getElementById('mfToggle');
+    if (btn) btn.className = 'mf-toggle' + (hasActive ? ' active' : '');
 }
 
 function limpiarFiltrosModal() {
-    ['mfArea','mfSexo','mfCargo','mfDominio'].forEach(id => {
+    const ids = ['mfArea','mfSexo','mfForma','mfDimension','mfDominio','mfBusqueda',
+        'mfEstadoCivil','mfNivelEstudios','mfEstrato','mfTipoVivienda',
+        'mfTipoCargo','mfAntiguedadEmp','mfAntiguedadCargo','mfTipoContrato',
+        'mfHorasDiarias','mfTipoSalario','mfNivelCargo','mfAreaTrabajo',
+        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab'];
+    ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    document.getElementById('mfIdBusqueda').value = '';
     aplicarFiltrosModal();
 }
 
@@ -552,16 +869,17 @@ function renderIntraModalBody() {
     const total = summary.total;
     const container = document.getElementById('modalBody');
     const domain = document.getElementById('mfDominio')?.value || '';
+    const areaVal = document.getElementById('mfArea')?.value || '';
 
     const intraDims = summary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
-    const globalDims = summary.dimensions.filter(d => d.name.startsWith('[Global]'));
 
     const filteredDims = domain
         ? intraDims.filter(d => (DOMAIN_DIMS[domain] || []).includes(d.name))
         : intraDims;
-    const filteredGlobal = domain
-        ? globalDims.filter(d => d.name.replace('[Global] ', '') === domain)
-        : globalDims;
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? filteredDims.filter(d => d.name === dimFilter)
+        : filteredDims;
 
     let html = '';
     if (!total) {
@@ -570,33 +888,136 @@ function renderIntraModalBody() {
         return;
     }
 
-    if (filteredGlobal.length > 0) {
-        html += '<div class="cards-row" style="margin-bottom:16px;">';
-        for (const g of filteredGlobal) {
-            const pctAlto = total ? Math.round((((g.risk["Riesgo alto"]||0)+(g.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-            const color = pctAlto >= 50 ? '#ef4444' : pctAlto >= 25 ? '#f97316' : pctAlto >= 10 ? '#eab308' : '#22c55e';
-            html += `<div class="stat-card" style="border-left-color:${color};">
-                <div class="num" style="font-size:16px;color:${color};">${pctAlto}%</div>
-                <div class="label">${g.name.replace('[Global] ','')}</div>
+    const intraDist = summary.intraGeneral || {};
+    const hasDist = Object.keys(intraDist).length > 0;
+    const topN = (summary.topCriticas || []).filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]')).slice(0, 5);
+
+    // ── Helper: compute domain risk (capped at 100) ──
+    const computeDomainRisk = (domainName) => {
+        const domainDimNames = DOMAIN_DIMS[domainName] || [];
+        const domainDims = intraDims.filter(d => domainDimNames.includes(d.name) && d.risk);
+        if (domainDims.length === 0) return null;
+        let sumPct = 0;
+        for (const d of domainDims) {
+            const alto = (d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0);
+            sumPct += total ? (alto / total) * 100 : 0;
+        }
+        const pctAlto = Math.round(sumPct / domainDims.length);
+        return { name: toTitleCase(domainName), pctAlto };
+    };
+
+    const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+
+    const makeHorizBar = (name, pctAlto) => {
+        const barColor = pctColor(pctAlto);
+        return `<div class="bar-row" style="margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                <span style="color:#334155;">${name}</span>
+                <span style="font-weight:700;color:${barColor};">${pctAlto}%</span>
+            </div>
+            <div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+                <div class="bar-fill" style="width:${pctAlto}%;background:${barColor};"></div>
+            </div>
+        </div>`;
+    };
+
+    if (hasDist) {
+        const pctAltoGlobal = total ? Math.round((((intraDist["Riesgo alto"]||0)+(intraDist["Riesgo muy alto"]||0))/total)*100) : 0;
+        const critCount = (intraDist["Riesgo alto"]||0) + (intraDist["Riesgo muy alto"]||0);
+        const critColor = pctAltoGlobal >= 85 ? '#ef4444' : pctAltoGlobal >= 70 ? '#f97316' : pctAltoGlobal >= 50 ? '#eab308' : pctAltoGlobal >= 30 ? '#84cc16' : '#22c55e';
+
+        // ── Three equal donut panels: Global | Dominios | Mayor Riesgo ──
+        html += '<div class="card" style="display:flex;gap:12px;padding:16px;margin-bottom:16px;align-items:stretch;">';
+
+        // Left: Total card + Global risk bars
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        html += '<div style="background:#eef2ff;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;border:1px solid #c7d2fe;">';
+        html += '<div style="font-size:24px;font-weight:700;color:#1a73e8;">'+total+'</div>';
+        html += '<div style="font-size:10px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Encuestados</div>';
+        html += '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">';
+        const riskKeys = orderRiskKeys(intraDist);
+        for (const k of riskKeys) {
+            const v = intraDist[k] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            const rc = riskColor(k);
+            html += `<div class="bar-row" style="margin-bottom:2px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                    <span style="color:#334155;">${k} (${v})</span>
+                    <span style="font-weight:700;color:${rc.text};">${pct}%</span>
+                </div>
+                <div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+                    <div class="bar-fill" style="width:${pct}%;background:${rc.bg};"></div>
+                </div>
             </div>`;
         }
+        html += '</div></div>';
+
+        // Middle: Domain horizontal bars
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        if (!domain) {
+            const critColor = pctColor(pctAltoGlobal);
+            html += '<div style="background:#fef2f2;border-radius:8px;padding:6px 12px;text-align:center;margin-bottom:8px;border:1px solid #fecaca;">';
+            html += '<div style="font-size:28px;font-weight:800;color:' + critColor + ';line-height:1.2;">' + pctAltoGlobal + '%</div>';
+            html += '<div style="font-size:9px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Riesgo Intralaboral</div>';
+            html += '</div>';
+        }
+        const domainTitle = areaVal ? 'Dominios \u00b7 ' + areaVal : 'Dominios';
+        html += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">' + domainTitle + '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;">';
+        if (domain) {
+            const dr = computeDomainRisk(domain);
+            if (dr) {
+                const heroColor = pctColor(dr.pctAlto);
+                const heroBg = dr.pctAlto >= 50 ? '#fef2f2' : dr.pctAlto >= 25 ? '#fff7ed' : dr.pctAlto >= 10 ? '#fefce8' : '#f0fdf4';
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${dr.name}</div>
+                    <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${dr.pctAlto}%</div>
+                    <div style="font-size:10px;font-weight:700;color:${heroColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cr\u00edtico</div>
+                    <div style="width:80%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:${dr.pctAlto}%;background:${heroColor};border-radius:4px;transition:width 0.4s ease;"></div>
+                    </div>
+                </div>`;
+            }
+        } else {
+            const allDomains = Object.keys(DOMAIN_DIMS).filter(d =>
+                DOMAIN_DIMS[d].some(dim => intraDims.some(a => a.name === dim))
+            );
+            const domainData = allDomains.map(d => computeDomainRisk(d)).filter(Boolean);
+            domainData.sort((a, b) => b.pctAlto - a.pctAlto);
+            for (const d of domainData) {
+                html += makeHorizBar(d.name, d.pctAlto);
+            }
+        }
+        html += '</div></div>';
+
         html += '</div>';
     }
 
-    html += `<div class="table-wrap"><table>
-        <thead><tr><th>Dimensión</th><th>Prom. T</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th>% Alto+</th></tr></thead><tbody>`;
+    // Sort
+    if (state._sortDir === undefined) state._sortDir = 'desc';
+    const sortedDims = [...finalDims].filter(d => d.risk).sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return state._sortDir === 'desc' ? bPct - aPct : aPct - bPct;
+    });
 
-    for (const dim of filteredDims) {
+    const sortIcon = state._sortDir === 'desc' ? '\u25BC' : '\u25B2';
+    html += `<div class="table-wrap"><table>
+        <thead><tr><th>Dimensi\u00f3n</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+
+    for (const dim of sortedDims) {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        html += `<tr><td><strong>${dim.name}</strong></td>
-            <td>${dim.avgT !== null ? dim.avgT : '-'}</td>`;
+        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        html += `<tr style="background:${rowBg};"><td><strong>${dim.name}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
-            html += `<td>${v} <span style="color:#94a3b8;font-size:11px;">(${pct}%)</span></td>`;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        html += `<td><span class="badge ${pctAlto >= 30 ? 'risk-ra' : pctAlto >= 15 ? 'risk-rm' : 'risk-sr'}">${pctAlto}%</span></td></tr>`;
+        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
     }
     html += '</tbody></table></div>';
     container.innerHTML = html;
@@ -607,20 +1028,26 @@ function renderExtraModalBody() {
     const total = summary.total;
     const container = document.getElementById('modalBody');
     const extraDims = summary.dimensions.filter(d => d.name.startsWith('[Extra]'));
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? extraDims.filter(d => d.name.replace('[Extra] ', '') === dimFilter)
+        : extraDims;
 
     let html = `<div class="table-wrap"><table>
-        <thead><tr><th>Dimensión</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th>% Alto+</th></tr></thead><tbody>`;
+        <thead><tr><th>Dimensión</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;">Riesgo Crítico</th></tr></thead><tbody>`;
 
-    for (const dim of extraDims) {
+    for (const dim of finalDims) {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        html += `<tr><td><strong>${dim.name.replace('[Extra] ','')}</strong></td>`;
+        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        html += `<tr style="background:${rowBg};"><td><strong>${dim.name.replace('[Extra] ','')}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
-            html += `<td>${v} <span style="color:#94a3b8;font-size:11px;">(${pct}%)</span></td>`;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        html += `<td><span class="badge ${pctAlto >= 30 ? 'risk-ra' : pctAlto >= 15 ? 'risk-rm' : 'risk-sr'}">${pctAlto}%</span></td></tr>`;
+        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
     }
     html += '</tbody></table></div>';
 
@@ -914,23 +1341,28 @@ function renderComparisonTable(baterias) {
 // ============================================================
 // INIT - drag & drop support
 // ============================================================
-['inicioFile', 'comparativaFile'].forEach(id => {
-    const zone = document.getElementById(id)?.closest('.upload-area');
-    if (!zone) return;
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#1a73e8'; });
-    zone.addEventListener('dragleave', e => { zone.style.borderColor = '#cbd5e1'; });
+document.querySelectorAll('.upload-area').forEach(zone => {
+    const input = zone.querySelector('input[type="file"]');
+    if (!input) return;
+
+    zone.addEventListener('click', () => input.click());
+
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', e => {
+        zone.classList.remove('drag-over');
+    });
     zone.addEventListener('drop', function(e) {
         e.preventDefault();
-        zone.style.borderColor = '#cbd5e1';
+        zone.classList.remove('drag-over');
         const file = e.dataTransfer.files[0];
         if (!file) return;
-        const input = zone.querySelector('input[type="file"]');
-        if (input) {
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            input.files = dt.files;
-            input.dispatchEvent(new Event('change'));
-        }
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change'));
     });
 });
 </script>
