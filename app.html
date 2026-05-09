@@ -9,10 +9,11 @@ const RISK_COLORS = {
     "Riesgo alto":       { bg: "#fca5a5", text: "#991b1b", cls: "risk-ra" },
     "Riesgo muy alto":   { bg: "#f87171", text: "#7f1d1d", cls: "risk-rma" },
     "Riesgo muy bajo":   { bg: "#dbeafe", text: "#1e40af", cls: "risk-mb" },
+    "Dato perdido":      { bg: "#e2e8f0", text: "#94a3b8", cls: "risk-error" },
     "ERROR":             { bg: "#e2e8f0", text: "#475569", cls: "risk-error" }
 };
 const RISK_ORDER = ["Sin riesgo","Riesgo bajo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
-const STRESS_ORDER = ["Riesgo muy bajo","Riesgo bajo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
+const STRESS_ORDER = ["Sin riesgo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
 const CHART_COLORS = [
     "#1a73e8","#34a853","#fbbc04","#ea4335","#8e24aa",
     "#00acc1","#ff7043","#9ccc65","#ab47bc","#26a69a"
@@ -715,19 +716,8 @@ function renderDetailTable(rows, summary) {
     html += buildTable('Intralaboral', intraDims);
     html += buildTable('Extralaboral', extraDims);
 
-    const stressKeys = orderRiskKeys(stressDist);
-    if (stressKeys.length > 0) {
-        html += `<div class="card" style="margin-top:12px;"><h3>Estr\u00e9s</h3><div class="table-wrap"><table>
-            <thead><tr><th>Nivel</th><th>Personas</th><th>Porcentaje</th></tr></thead><tbody>`;
-        for (const k of stressKeys) {
-            const v = stressDist[k] || 0;
-            const pct = total ? Math.round((v/total)*100) : 0;
-            const rc = riskColor(k);
-            const rowBg = pct >= 30 ? '#fca5a5' : pct >= 15 ? '#fed7aa' : pct >= 5 ? '#fef08a' : '#bbf7d0';
-            html += `<tr style="background:${rowBg};"><td><span class="badge ${rc.cls}">${k}</span></td><td><strong>${v}</strong></td><td><strong>${pct}%</strong></td></tr>`;
-        }
-        html += '</tbody></table></div></div>';
-    }
+    const stressDims = summary.dimensions.filter(d => d.name.startsWith('[Stress]'));
+    html += buildTable('Estrés', stressDims);
 
     container.innerHTML = html;
 }
@@ -740,6 +730,12 @@ const DOMAIN_DIMS = {
     "CONTROL SOBRE EL TRABAJO": ["Control y autonomia sobre el trabajo", "Oportunidades para el desarrollo", "Participación y manejo del cambIo", "Claridad de rol", "Capacitación"],
     "DEMANDAS DEL TRABAJO": ["Demandas cuantitativas", "demandas de carga mental", "Demandas emocionales", "Exigencias de responsabilidad", "Demandas ambientales y de esfuerzo fisico", "Demandas de jornada laboral", "Consistencia de rol", "Influencia sobre el entorno extra"],
     "RECOMPENSAS": ["Reconocimiento y compensación", "Recompensas de pertenencia y trabajo"]
+};
+const STRESS_CAT_QS = {
+    "Síntomas Fisiológicos":              [1,2,3,4,5,6,7,8],
+    "Síntomas de Comportamiento Social":  [9,10,11,12],
+    "Síntomas Intelectuales y Laborales": [13,14,15,16,17,18,19,20,21,22],
+    "Síntomas Psicoemocionales":          [23,24,25,26,27,28,29,30,31]
 };
 
 function toggleSort() {
@@ -859,6 +855,41 @@ function buildModalFilters(type) {
             dimSel.appendChild(opt);
         });
         topRow.appendChild(dimSel);
+    }
+
+    // Stress: category + question
+    if (type === 'stress') {
+        const catSel = document.createElement('select');
+        catSel.id = 'mfStressCat';
+        const optAllCat = document.createElement('option');
+        optAllCat.value = ''; optAllCat.textContent = 'Categor\u00eda: Todas';
+        catSel.appendChild(optAllCat);
+        Object.keys(STRESS_CAT_QS).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            catSel.appendChild(opt);
+        });
+        catSel.onchange = function() {
+            const qSel = document.getElementById('mfStressQ');
+            if (!qSel) return;
+            const cat = this.value;
+            qSel.innerHTML = '<option value="">Pregunta: Todas</option>';
+            if (cat && STRESS_CAT_QS[cat]) {
+                STRESS_CAT_QS[cat].forEach(i => {
+                    const opt = document.createElement('option');
+                    opt.value = i; opt.textContent = 'Estr\u00e9s ' + i;
+                    qSel.appendChild(opt);
+                });
+            }
+        };
+        topRow.appendChild(catSel);
+
+        const qSel = document.createElement('select');
+        qSel.id = 'mfStressQ';
+        const optAllQ = document.createElement('option');
+        optAllQ.value = ''; optAllQ.textContent = 'Pregunta: Todas';
+        qSel.appendChild(optAllQ);
+        topRow.appendChild(qSel);
     }
 
     container.appendChild(topRow);
@@ -1072,7 +1103,8 @@ function limpiarFiltrosModal() {
         'mfEstadoCivil','mfNivelEstudios','mfEstrato','mfTipoVivienda',
         'mfTipoCargo','mfAntiguedadEmp','mfAntiguedadCargo','mfTipoContrato',
         'mfHorasDiarias','mfTipoSalario','mfNivelCargo','mfAreaTrabajo',
-        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab'];
+        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab',
+        'mfStressCat','mfStressQ'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -1417,6 +1449,9 @@ function renderStressModalBody() {
     const keys = orderRiskKeys(stressDist);
     const hasDist = keys.length > 0;
 
+    const catFilter = document.getElementById('mfStressCat')?.value || '';
+    const qFilter = document.getElementById('mfStressQ')?.value || '';
+
     let html = '';
     if (!total) {
         html = '<p style="color:#94a3b8;text-align:center;padding:30px;">Sin datos para el filtro seleccionado.</p>';
@@ -1424,12 +1459,37 @@ function renderStressModalBody() {
         return;
     }
 
+    const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+
+    const makeHorizBar = (name, pctAlto) => {
+        const barColor = pctColor(pctAlto);
+        return `<div class="bar-row" style="margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                <span style="color:#334155;">${name}</span>
+                <span style="font-weight:700;color:${barColor};">${pctAlto}%</span>
+            </div>
+            <div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+                <div class="bar-fill" style="width:${pctAlto}%;background:${barColor};"></div>
+            </div>
+        </div>`;
+    };
+
+    const catNames = Object.keys(STRESS_CAT_QS);
+
+    const computeStressCatRisk = (catName) => {
+        const dim = summary.dimensions.find(d => d.name === `[Stress] ${catName}`);
+        if (!dim || !dim.risk) return null;
+        const alto = (dim.risk["Riesgo alto"] || 0) + (dim.risk["Riesgo muy alto"] || 0);
+        const pctAlto = total ? Math.round((alto / total) * 100) : 0;
+        return { name: catName, pctAlto };
+    };
+
     const pctAltoGlobal = total ? Math.round((((stressDist["Riesgo alto"]||0)+(stressDist["Riesgo muy alto"]||0))/total)*100) : 0;
 
     if (hasDist) {
         html += '<div class="card" style="display:flex;gap:12px;padding:16px;margin-bottom:16px;align-items:stretch;">';
 
-        // Left: Total card + stress distribution bars
+        // Left: Total card + Global stress distribution bars
         html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
         html += '<div style="background:#eef2ff;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;border:1px solid #c7d2fe;">';
         html += '<div style="font-size:24px;font-weight:700;color:#1a73e8;">'+total+'</div>';
@@ -1452,32 +1512,83 @@ function renderStressModalBody() {
         }
         html += '</div></div>';
 
-        // Right: Stress global hero card
-        const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
-        const critColor = pctColor(pctAltoGlobal);
-        const heroBg = pctAltoGlobal >= 50 ? '#fef2f2' : pctAltoGlobal >= 25 ? '#fff7ed' : pctAltoGlobal >= 10 ? '#fefce8' : '#f0fdf4';
+        // Right: Category bars or hero
         html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
-        html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:20px;text-align:center;">
-            <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:8px;">Nivel de Estr\u00e9s Global</div>
-            <div style="font-size:48px;font-weight:800;color:${critColor};line-height:1;">${pctAltoGlobal}%</div>
-            <div style="font-size:10px;font-weight:700;color:${critColor};text-transform:uppercase;letter-spacing:1px;margin-top:6px;margin-bottom:10px;">Cr\u00edtico</div>
-            <div style="width:70%;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden;">
-                <div style="height:100%;width:${pctAltoGlobal}%;background:${critColor};border-radius:5px;transition:width 0.4s ease;"></div>
-            </div>
-        </div>`;
-        html += '</div></div>';
+        if (!catFilter) {
+            const critColor = pctColor(pctAltoGlobal);
+            html += '<div style="background:#fef2f2;border-radius:8px;padding:6px 12px;text-align:center;margin-bottom:8px;border:1px solid #fecaca;">';
+            html += '<div style="font-size:28px;font-weight:800;color:' + critColor + ';line-height:1.2;">' + pctAltoGlobal + '%</div>';
+            html += '<div style="font-size:9px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Riesgo Estr\u00e9s Global</div>';
+            html += '</div>';
+        }
+        html += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Categor\u00edas</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;">';
+
+        if (catFilter) {
+            const cr = computeStressCatRisk(catFilter);
+            if (cr) {
+                const heroColor = pctColor(cr.pctAlto);
+                const heroBg = cr.pctAlto >= 50 ? '#fef2f2' : cr.pctAlto >= 25 ? '#fff7ed' : cr.pctAlto >= 10 ? '#fefce8' : '#f0fdf4';
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${cr.name}</div>
+                    <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${cr.pctAlto}%</div>
+                    <div style="font-size:10px;font-weight:700;color:${heroColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cr\u00edtico</div>
+                    <div style="width:80%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:${cr.pctAlto}%;background:${heroColor};border-radius:4px;transition:width 0.4s ease;"></div>
+                    </div>
+                </div>`;
+            }
+        } else {
+            const catBars = catNames.map(c => computeStressCatRisk(c)).filter(Boolean);
+            catBars.sort((a, b) => b.pctAlto - a.pctAlto);
+            for (const c of catBars) {
+                html += makeHorizBar(c.name, c.pctAlto);
+            }
+        }
+        html += '</div></div></div>';
     }
 
-    // Mini table: just the distribution summary
-    html += '<div class="table-wrap"><table><thead><tr><th>Nivel</th><th>Personas</th><th>Porcentaje</th></tr></thead><tbody>';
-    for (const k of keys) {
-        const v = stressDist[k] || 0;
-        const pct = total ? Math.round((v/total)*100) : 0;
-        const rc = riskColor(k);
-        html += `<tr><td><span class="badge ${rc.cls}">${k}</span></td><td>${v}</td><td>${pct}%</td></tr>`;
+    // Table: 31 stress questions (filtered by category / question)
+    const stressQuestions = summary.stressQuestions || [];
+    let filteredQs = stressQuestions;
+    if (catFilter && STRESS_CAT_QS[catFilter]) {
+        const qNums = STRESS_CAT_QS[catFilter];
+        filteredQs = filteredQs.filter(q => {
+            const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+            return qNums.includes(num);
+        });
     }
+    if (qFilter) {
+        filteredQs = filteredQs.filter(q => q.name === `Estr\u00e9s ${qFilter}`);
+    }
+
+    // Sort
+    if (state._sortDir === undefined) state._sortDir = 'desc';
+    filteredQs.sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return state._sortDir === 'desc' ? bPct - aPct : aPct - bPct;
+    });
+
+    const sortIcon = state._sortDir === 'desc' ? '\u25BC' : '\u25B2';
+    html += `<div class="table-wrap"><table>
+        <thead><tr><th>Pregunta</th>${STRESS_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+
+    for (const q of filteredQs) {
+        if (!q.risk) continue;
+        const pctAlto = total ? Math.round((((q.risk["Riesgo alto"]||0)+(q.risk["Riesgo muy alto"]||0))/total)*100) : 0;
+        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        html += `<tr style="background:${rowBg};"><td><strong>${q.name}</strong></td>`;
+        for (const r of STRESS_ORDER) {
+            const v = q.risk[r] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
+        }
+        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
+    }
+
     html += '</tbody></table></div>';
-
     container.innerHTML = html;
 }
 
