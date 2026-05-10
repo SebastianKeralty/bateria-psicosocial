@@ -22,7 +22,15 @@ const CHART_COLORS = [
 const state = {
     bateriaActiva: null,
     bateriasComparativa: [],
-    charts: {}
+    charts: {},
+    _drillBatteryData: null,
+    _drillComparativaBaterias: null,
+    _drillRows: null,
+    _drillSummary: null,
+    _drillType: null,
+    _viewMode: 'table',
+    _detailSortDir: 1,
+    _sortDir: 1
 };
 
 function destroyChart(key) {
@@ -892,7 +900,8 @@ function rebuildDimensionOptions(type) {
 function buildModalFilters(type) {
     const container = document.getElementById('modalFilters');
     container.innerHTML = '';
-    const allRows = state.bateriaActiva.rows;
+    const src = state._drillBatteryData || state.bateriaActiva;
+    const allRows = src.rows;
 
     // ── Top row: selects ──
     const topRow = document.createElement('div');
@@ -1147,7 +1156,8 @@ function toggleAdvancedFilters() {
 }
 
 function getModalFilteredRows() {
-    let rows = state.bateriaActiva.rows;
+    const src = state._drillBatteryData || state.bateriaActiva;
+    let rows = src.rows;
 
     // Quick search (Layer 1)
     const q = document.getElementById('mfBusqueda')?.value?.trim().toLowerCase();
@@ -1231,6 +1241,7 @@ function limpiarFiltrosModal() {
 function showDrillDown(type) {
     const data = state.bateriaActiva;
     if (!data) return;
+    state._drillBatteryData = null;
     state._drillRows = data.rows;
     state._drillSummary = data.summary;
     state._drillType = type;
@@ -1251,6 +1262,28 @@ function showDrillDown(type) {
     renderModalBody();
 }
 
+function showDrillFromComparativa(type, batteryData) {
+    if (!batteryData) return;
+    state._drillBatteryData = batteryData;
+    state._drillComparativaBaterias = state.bateriasComparativa.slice();
+    state._drillRows = batteryData.rows;
+    state._drillSummary = batteryData.summary;
+    state._drillType = type;
+    state._viewMode = 'table';
+
+    document.getElementById('drillModal').style.display = 'flex';
+    document.getElementById('modalBody').innerHTML = '';
+    document.getElementById('modalFilters').innerHTML = '';
+
+    document.getElementById('modalTitle').textContent = 'Comparativa — ' + (type === 'intra' ? 'Intralaboral' : type === 'extra' ? 'Extralaboral' : 'Estrés');
+
+    const toggleContainer = document.getElementById('modalViewToggle');
+    toggleContainer.style.display = 'none';
+    toggleContainer.innerHTML = '';
+
+    renderComparativaDrillModal(type);
+}
+
 function toggleDrillView() {
     state._viewMode = state._viewMode === 'chart' ? 'table' : 'chart';
     const btn = document.querySelector('#modalViewToggle button');
@@ -1262,6 +1295,8 @@ function toggleDrillView() {
 }
 
 function closeDrillModal() {
+    state._drillBatteryData = null;
+    state._drillComparativaBaterias = null;
     document.getElementById('drillModal').style.display = 'none';
 }
 
@@ -1991,17 +2026,45 @@ function renderBatteryList() {
     }
     listContainer.style.display = 'block';
 
-    container.innerHTML = state.bateriasComparativa.map(b => {
+    const sorted = [...state.bateriasComparativa].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+
+    container.innerHTML = sorted.map(b => {
         const m = b.meta;
-        return `<div class="battery-item">
-            <input type="checkbox" class="comp-check" data-id="${m.id}" checked onchange="actualizarComparativa()">
-            <div class="b-name"><input type="text" value="${m.name || ''}" onchange="updateBatteryMeta(${m.id},'name',this.value)"></div>
-            <div class="b-year"><input type="text" value="${m.year || ''}" onchange="updateBatteryMeta(${m.id},'year',this.value)" placeholder="Año"></div>
-            <div class="b-tags">
-                <span class="b-tag form-${m.forma.toLowerCase()}">${m.forma}</span>
-                <span class="b-tag">${m.totalRows} reg.</span>
+        const s = b.summary;
+        const pctIntra = pctCriticoDist(s.intraGeneral, s.total);
+        const pctExtra = pctCriticoDist(s.extraGeneral, s.total);
+        const pctStress = pctCriticoDist(s.stress, s.total);
+        const barColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+        return `<div class="bat-card">
+            <div class="bat-card-header">
+                <div class="bat-card-name">
+                    <span>${m.name || ''}</span>
+                    <button class="btn-remove" onclick="event.stopPropagation();eliminarBateria(${m.id})" title="Eliminar" style="margin-left:auto;font-size:14px;">✕</button>
+                </div>
+                <div class="bat-card-year">${m.year || 'Año?'}</div>
+                <div class="bat-card-meta">
+                    <span class="tag form-${(m.forma||'').toLowerCase()}">${m.forma || '?'}</span>
+                    <span class="tag">${m.totalRows} reg.</span>
+                </div>
             </div>
-            <button class="btn-remove" onclick="eliminarBateria(${m.id})" title="Eliminar">✕</button>
+            <div class="bat-card-body">
+                <div class="bat-risk-row">
+                    <span class="lbl">Intra</span>
+                    <div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:${pctIntra}%;background:${barColor(pctIntra)}"></div></div>
+                    <span class="pct" style="color:${barColor(pctIntra)}">${pctIntra}%</span>
+                </div>
+                <div class="bat-risk-row">
+                    <span class="lbl">Extra</span>
+                    <div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:${pctExtra}%;background:${barColor(pctExtra)}"></div></div>
+                    <span class="pct" style="color:${barColor(pctExtra)}">${pctExtra}%</span>
+                </div>
+                <div class="bat-risk-row">
+                    <span class="lbl">Estrés</span>
+                    <div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:${pctStress}%;background:${barColor(pctStress)}"></div></div>
+                    <span class="pct" style="color:${barColor(pctStress)}">${pctStress}%</span>
+                </div>
+            </div>
+            <div class="bat-card-footer">${m.totalRows} registros</div>
         </div>`;
     }).join('');
 }
@@ -2020,41 +2083,12 @@ function limpiarComparativa() {
 }
 
 function getSelectedBaterias() {
-    const checkboxes = document.querySelectorAll('.comp-check:checked');
-    const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
-    return state.bateriasComparativa.filter(b => ids.includes(b.meta.id));
+    return state.bateriasComparativa; // no checkboxes — all always selected
 }
 
 function pctCriticoDist(dist, total) {
     if (!dist || !total) return 0;
     return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/total)*100);
-}
-
-function renderCompCards(baterias) {
-    const container = document.getElementById('compCards');
-    const types = [
-        { key: 'intraGeneral', label: 'Intralaboral' },
-        { key: 'extraGeneral', label: 'Extralaboral' },
-        { key: 'stress', label: 'Estr\u00e9s' }
-    ];
-    let html = '<div class="card" style="padding:12px 16px;"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">';
-    for (const b of baterias) {
-        const s = b.summary;
-        html += `<div style="background:#f8fafc;border-radius:8px;padding:10px;border:1px solid #e2e8f0;">
-            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:6px;">${bLabel(b)}</div>`;
-        for (const t of types) {
-            const dist = s[t.key];
-            const pct = dist ? pctCriticoDist(dist, s.total) : 0;
-            const color = pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
-            html += `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
-                <span style="color:#64748b;">${t.label}</span>
-                <span style="font-weight:700;color:${color};">${pct}%</span>
-            </div>`;
-        }
-        html += '</div>';
-    }
-    html += '</div></div>';
-    container.innerHTML = html;
 }
 
 function actualizarComparativa() {
@@ -2070,13 +2104,54 @@ function actualizarComparativa() {
     container.style.display = 'block';
     if (hint) hint.textContent = 'Comparando ' + selected.length + ' bater\u00edas.';
 
-    renderCompCards(selected);
+    renderTrendCard(selected);
     renderGroupedCompare('groupedIntra', 'intraGeneral', selected);
     renderGroupedCompare('groupedExtra', 'extraGeneral', selected);
     renderGroupedCompare('groupedStress', 'stress', selected, STRESS_ORDER);
-    renderRadarCompare(selected);
     renderHeatmap(selected);
     renderComparisonTable(selected);
+}
+
+function renderTrendCard(baterias) {
+    const container = document.getElementById('trendCard');
+    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+    if (sorted.length < 2) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+
+    const years = [...new Set(sorted.map(b => b.meta.year).filter(Boolean))].sort();
+    if (years.length < 2) { container.style.display = 'none'; return; }
+
+    const byYear = (year) => sorted.filter(b => b.meta.year === year);
+    const pctAvg = (list, key) => {
+        if (!list.length) return 0;
+        const sum = list.reduce((acc, b) => acc + pctCriticoDist(b.summary[key], b.summary.total), 0);
+        return Math.round(sum / list.length);
+    };
+
+    let html = '<div class="bat-trend-card"><h3>📈 Tendencia por año</h3>';
+    const types = [
+        { key: 'intraGeneral', label: 'Intralaboral' },
+        { key: 'extraGeneral', label: 'Extralaboral' },
+        { key: 'stress', label: 'Estrés' }
+    ];
+    for (const t of types) {
+        const vals = years.map(y => pctAvg(byYear(y), t.key));
+        let arrow = '→';
+        let arrowCls = 'flat';
+        if (vals.length >= 2) {
+            const last = vals[vals.length - 1];
+            const prev = vals[vals.length - 2];
+            if (last > prev) { arrow = '↑'; arrowCls = 'up'; }
+            else if (last < prev) { arrow = '↓'; arrowCls = 'down'; }
+        }
+        html += `<div class="trend-row">
+            <span class="trend-label">${t.label}</span>
+            <span class="trend-arrow ${arrowCls}">${arrow}</span>
+            <span style="color:#64748b;">${years.map((y, i) => y + ': ' + vals[i] + '%').join(' · ')}</span>
+        </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
@@ -2090,7 +2165,9 @@ function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
     const riskLabels = order.filter(r => allRiskKeys.has(r));
     if (riskLabels.length === 0) return;
 
-    const datasets = baterias.map((b, i) => ({
+    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+
+    const datasets = sorted.map((b, i) => ({
         label: bLabelShort(b),
         data: riskLabels.map(r => {
             const t = b.meta.totalRows;
@@ -2119,71 +2196,448 @@ function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
     });
 }
 
-function renderRadarCompare(baterias) {
-    destroyChart('radarCompare');
-    const ctx = getChartCtx('radarCompare');
-    if (!ctx) return;
-
-    const dims = baterias[0].summary.dimensions.filter(d => d.avgT !== null && !d.name.startsWith('[Global]') && !d.name.startsWith('[Extra]'));
-    if (dims.length === 0) return;
-
-    const labels = dims.map(d => d.name.length > 22 ? d.name.slice(0, 20) + '..' : d.name);
-    const datasets = baterias.map((b, i) => ({
-        label: bLabelShort(b),
-        data: dims.map(d => {
-            const match = b.summary.dimensions.find(dd => dd.name === d.name);
-            return match ? (match.avgT || 0) : 0;
-        }),
-        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
-        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-        pointRadius: 3, borderWidth: 2
-    }));
-
-    state.charts['radarCompare'] = new Chart(ctx, {
-        type: 'radar',
-        data: { labels, datasets },
-        options: {
-            responsive: true, maintainAspectRatio: true,
-            scales: {
-                r: {
-                    beginAtZero: true, max: 100,
-                    ticks: { stepSize: 20, font: { size: 8 }, backdropColor: 'transparent' },
-                    grid: { color: 'rgba(0,0,0,0.06)' },
-                    angleLines: { color: 'rgba(0,0,0,0.06)' },
-                    pointLabels: { font: { size: 8 } }
-                }
-            },
-            plugins: {
-                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 10 } }
-            }
-        }
-    });
-}
-
 function renderHeatmap(baterias) {
     const container = document.getElementById('heatmapContainer');
     const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
     if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos suficientes</p>'; return; }
 
-    const headerHtml = '<div style="display:grid;grid-template-columns:200px repeat(' + baterias.length + ',1fr);gap:2px;margin-bottom:4px;font-weight:600;font-size:12px;color:#475569;">' +
-        '<div class="hm-label">Dimensi\u00f3n</div>' +
-        baterias.map(b => '<div style="text-align:center;padding:4px;">' + bLabelShort(b, 18) + '</div>').join('') +
-        '</div>';
-
-    const rows = dims.map(dim => {
-        const cells = baterias.map(b => {
+    let html = '';
+    for (const b of baterias) {
+        html += '<div class="hm-battery-block"><h4>' + (b.meta.name || '') + ' (' + (b.meta.year || '?') + ')</h4>';
+        html += '<div class="hm-battery-grid" style="grid-template-columns:200px repeat(1,1fr);">';
+        for (const dim of dims) {
             const match = b.summary.dimensions.find(dd => dd.name === dim.name);
             const riskDist = match ? match.risk : {};
             const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '');
             const rc = riskColor(dominantRisk);
-            return '<div class="hm-cell ' + (rc ? rc.cls : 'risk-error') + '">' + (dominantRisk || '-') + '</div>';
-        }).join('');
-        return '<div style="display:grid;grid-template-columns:200px repeat(' + baterias.length + ',1fr);gap:2px;">' +
-            '<div class="hm-label">' + (dim.name.length > 40 ? dim.name.slice(0,37)+'...' : dim.name) + '</div>' + cells + '</div>';
-    }).join('');
+            html += '<div style="display:grid;grid-template-columns:200px 1fr;gap:2px;">';
+            html += '<div class="hm-label">' + (dim.name.length > 40 ? dim.name.slice(0,37)+'...' : dim.name) + '</div>';
+            html += '<div class="hm-cell ' + (rc ? rc.cls : 'risk-error') + '">' + (dominantRisk || '-') + '</div>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+    }
+    container.innerHTML = html;
+}
 
-    container.innerHTML = headerHtml + rows;
+function abrirDrillComparativa(type) {
+    if (state.bateriasComparativa.length === 0) return;
+    const b = state.bateriasComparativa[0];
+    closeDrillModal();
+    showDrillFromComparativa(type, b);
+}
+
+function renderComparativaDrillModal(type) {
+    const body = document.getElementById('modalBody');
+    const baterias = state._drillComparativaBaterias || [];
+    if (!baterias.length) { body.innerHTML = '<p style="color:#94a3b8;padding:40px;text-align:center;">Sin datos</p>'; return; }
+
+    const summaryKey = type === 'intra' ? 'intraGeneral' : type === 'extra' ? 'extraGeneral' : 'stress';
+    const riskOrder = type === 'stress' ? STRESS_ORDER : RISK_ORDER;
+
+    // ── Build filters ──
+    buildComparativaDrillFilters(type, baterias);
+
+    // ── Render content ──
+    renderComparativaDrillContent(baterias, summaryKey, riskOrder);
+}
+
+function buildComparativaDrillFilters(type, baterias) {
+    const container = document.getElementById('modalFilters');
+    container.innerHTML = '';
+
+    const allRows = [];
+    baterias.forEach(b => { if (b.rows) allRows.push(...b.rows); });
+
+    // ── Top row ──
+    const topRow = document.createElement('div');
+    topRow.className = 'mf-quick-bar mf-row-top';
+
+    const addSelect = (id, placeholder, col) => {
+        const sel = document.createElement('select');
+        sel.id = id;
+        const optAll = document.createElement('option');
+        optAll.value = ''; optAll.textContent = placeholder;
+        sel.appendChild(optAll);
+        const opts = getFilterOptions(allRows, col);
+        opts.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o; opt.textContent = o;
+            sel.appendChild(opt);
+        });
+        sel.onchange = aplicarFiltrosComparativaDrill;
+        topRow.appendChild(sel);
+    };
+
+    // Forma
+    const formaSel = document.createElement('select');
+    formaSel.id = 'mfForma';
+    ['', 'A', 'B'].forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v ? 'Forma ' + v : 'Forma: Todas';
+        formaSel.appendChild(opt);
+    });
+    formaSel.onchange = aplicarFiltrosComparativaDrill;
+    topRow.appendChild(formaSel);
+
+    addSelect('mfSexo', 'Sexo: Todos', '2. Sexo');
+    addSelect('mfArea', '\u00c1rea: Todas', 'Unidad de An\u00e1lisis');
+
+    // Dominio (intra only)
+    if (type === 'intra') {
+        const selDom = document.createElement('select');
+        selDom.id = 'mfDominio';
+        const optAllDom = document.createElement('option');
+        optAllDom.value = ''; optAllDom.textContent = 'Dominio: Todos';
+        selDom.appendChild(optAllDom);
+        const firstSummary = baterias[0] ? baterias[0].summary : null;
+        const intraDims = firstSummary ? firstSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]')) : [];
+        const availDomains = Object.keys(DOMAIN_DIMS).filter(d => DOMAIN_DIMS[d].some(dim => intraDims.some(a => a.name === dim)));
+        availDomains.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = toTitleCase(d);
+            selDom.appendChild(opt);
+        });
+        selDom.onchange = function() {
+            rebuildComparativaDimensionOptions(type, baterias);
+        };
+        topRow.appendChild(selDom);
+
+        // Dimensión (intra)
+        const dimSel = document.createElement('select');
+        dimSel.id = 'mfDimension';
+        const optAllDim = document.createElement('option');
+        optAllDim.value = ''; optAllDim.textContent = 'Dimensi\u00f3n: Todas';
+        dimSel.appendChild(optAllDim);
+        intraDims.sort((a, b) => a.name.localeCompare(b.name)).forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.name; opt.textContent = d.name;
+            dimSel.appendChild(opt);
+        });
+        dimSel.onchange = aplicarFiltrosComparativaDrill;
+        topRow.appendChild(dimSel);
+    }
+
+    // Dimensión (extra only)
+    if (type === 'extra') {
+        const dimSel = document.createElement('select');
+        dimSel.id = 'mfDimension';
+        const optAllDim = document.createElement('option');
+        optAllDim.value = ''; optAllDim.textContent = 'Dimensi\u00f3n: Todas';
+        dimSel.appendChild(optAllDim);
+        const firstSummary = baterias[0] ? baterias[0].summary : null;
+        const extraDims = firstSummary ? firstSummary.dimensions.filter(d => d.name.startsWith('[Extra]')).map(d => d.name.replace('[Extra] ', '')) : [];
+        extraDims.sort().forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = d;
+            dimSel.appendChild(opt);
+        });
+        dimSel.onchange = aplicarFiltrosComparativaDrill;
+        topRow.appendChild(dimSel);
+    }
+
+    container.appendChild(topRow);
+
+    // ── Bottom row ──
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'mf-quick-bar mf-row-bottom';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.id = 'mfBusqueda';
+    searchInput.className = 'mf-search-input';
+    searchInput.placeholder = 'Buscar por nombre, ID, cargo...';
+    bottomRow.appendChild(searchInput);
+
+    const btnFiltrar = document.createElement('button');
+    btnFiltrar.className = 'btn-filtrar';
+    btnFiltrar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    btnFiltrar.onclick = aplicarFiltrosComparativaDrill;
+    bottomRow.appendChild(btnFiltrar);
+
+    const btnLimpiar = document.createElement('button');
+    btnLimpiar.className = 'btn-limpiar';
+    btnLimpiar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    btnLimpiar.onclick = function() {
+        document.querySelectorAll('#modalFilters select').forEach(s => s.value = '');
+        document.getElementById('mfBusqueda').value = '';
+        aplicarFiltrosComparativaDrill();
+    };
+    bottomRow.appendChild(btnLimpiar);
+
+    container.appendChild(bottomRow);
+
+    // ── Advanced toggle + panel ──
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'mf-toggle';
+    toggleBtn.id = 'mfToggle';
+    toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
+    toggleBtn.title = 'Filtros avanzados';
+    toggleBtn.onclick = function() {
+        const panel = document.getElementById('mfAdvPanel');
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            this.classList.toggle('open');
+        }
+    };
+    bottomRow.appendChild(toggleBtn);
+
+    container.appendChild(bottomRow);
+
+    // ── Advanced panel ──
+    const advPanel = document.createElement('div');
+    advPanel.id = 'mfAdvPanel';
+    advPanel.className = 'mf-advanced-panel';
+    advPanel.style.display = 'none';
+
+    const advFields = [
+        { id: 'mfEstadoCivil', label: 'Estado civil', col: '4. Estado civil' },
+        { id: 'mfNivelEstudios', label: 'Nivel estudios', col: '5. Nivel estudios' },
+        { id: 'mfEstrato', label: 'Estrato', col: '8. Estrato' },
+        { id: 'mfTipoVivienda', label: 'Tipo vivienda', col: '9. Tipo vivienda' },
+        { id: 'mfAntiguedadEmp', label: 'Antigüedad empresa', col: '12. Antigüedad en la empresa' },
+        { id: 'mfAntiguedadCargo', label: 'Antigüedad cargo', col: '15. Antigüedad en el cargo' },
+        { id: 'mfTipoContrato', label: 'Tipo contrato', col: '17. Tipo de contrato' },
+        { id: 'mfHorasDiarias', label: 'Horas diarias', col: '18. Horas diarias de trabajo' },
+        { id: 'mfTipoSalario', label: 'Tipo salario', col: '19. Tipo de salario' },
+        { id: 'mfNivelCargo', label: 'Nivel cargo', col: 'Nivel de cargo del trabajador' },
+        { id: 'mfAreaTrabajo', label: 'Área trabajo', col: '16. Área donde trabaja' },
+        { id: 'mfCiudadRes', label: 'Ciudad residencia', col: '7. Lugar de residencia: Ciudad' },
+        { id: 'mfDptoRes', label: 'Dpto residencia', col: '7. Lugar de residencia: Departamento' },
+        { id: 'mfCiudadTrab', label: 'Ciudad trabajo', col: '11. Lugar de trabajo: Ciudad' },
+        { id: 'mfDptoTrab', label: 'Dpto trabajo', col: '11. Lugar de trabajo: Departamento' },
+        { id: 'mfTipoCargo', label: 'Tipo cargo', col: '14. Tipo de cargo' }
+    ];
+
+    let advHtml = '<div class="mf-adv-grid">';
+    for (const f of advFields) {
+        const opts = getFilterOptions(allRows, f.col);
+        advHtml += '<div class="mf-field"><label>' + f.label + '</label><select id="' + f.id + '"><option value="">Todos</option>';
+        opts.forEach(o => { advHtml += '<option value="' + o.replace(/"/g, '&quot;') + '">' + o + '</option>'; });
+        advHtml += '</select></div>';
+    }
+    advHtml += '</div>';
+    advPanel.innerHTML = advHtml;
+    container.appendChild(advPanel);
+
+    // Wire advanced filter changes
+    advFields.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (el) el.onchange = function() {
+            const btn = document.getElementById('mfToggle');
+            const hasActive = advFields.some(x => {
+                const e = document.getElementById(x.id);
+                return e && e.value && e.value !== '';
+            });
+            if (btn) btn.className = 'mf-toggle' + (hasActive ? ' active' : '');
+            aplicarFiltrosComparativaDrill();
+        };
+    });
+}
+
+function rebuildComparativaDimensionOptions(type, baterias) {
+    const domain = document.getElementById('mfDominio')?.value;
+    const dimSel = document.getElementById('mfDimension');
+    if (!dimSel) return;
+    const currentVal = dimSel.value;
+    dimSel.innerHTML = '<option value="">Dimensi\u00f3n: Todas</option>';
+    const firstSummary = baterias[0] ? baterias[0].summary : null;
+    let dims = firstSummary ? firstSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]')) : [];
+    if (domain && DOMAIN_DIMS[domain]) {
+        dims = dims.filter(d => DOMAIN_DIMS[domain].includes(d.name));
+    }
+    dims.sort((a, b) => a.name.localeCompare(b.name)).forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.name; opt.textContent = d.name;
+        dimSel.appendChild(opt);
+    });
+    if (currentVal) dimSel.value = currentVal;
+    aplicarFiltrosComparativaDrill();
+}
+
+function aplicarFiltrosComparativaDrill() {
+    const baterias = state._drillComparativaBaterias;
+    if (!baterias) return;
+
+    const forma = document.getElementById('mfForma')?.value;
+    const sexo = document.getElementById('mfSexo')?.value;
+    const area = document.getElementById('mfArea')?.value;
+    const q = document.getElementById('mfBusqueda')?.value?.trim().toLowerCase();
+
+    const advFields = [
+        { id: 'mfEstadoCivil', col: '4. Estado civil' },
+        { id: 'mfNivelEstudios', col: '5. Nivel estudios' },
+        { id: 'mfEstrato', col: '8. Estrato' },
+        { id: 'mfTipoVivienda', col: '9. Tipo vivienda' },
+        { id: 'mfTipoCargo', col: '14. Tipo de cargo' },
+        { id: 'mfAntiguedadEmp', col: '12. Antigüedad en la empresa' },
+        { id: 'mfAntiguedadCargo', col: '15. Antigüedad en el cargo' },
+        { id: 'mfTipoContrato', col: '17. Tipo de contrato' },
+        { id: 'mfHorasDiarias', col: '18. Horas diarias de trabajo' },
+        { id: 'mfTipoSalario', col: '19. Tipo de salario' },
+        { id: 'mfNivelCargo', col: 'Nivel de cargo del trabajador' },
+        { id: 'mfAreaTrabajo', col: '16. Área donde trabaja' },
+        { id: 'mfCiudadRes', col: '7. Lugar de residencia: Ciudad' },
+        { id: 'mfDptoRes', col: '7. Lugar de residencia: Departamento' },
+        { id: 'mfCiudadTrab', col: '11. Lugar de trabajo: Ciudad' },
+        { id: 'mfDptoTrab', col: '11. Lugar de trabajo: Departamento' }
+    ];
+
+    const searchCols = ["ID", "Nombre completo del trabajador", "13. Cargo", "No. Encuesta"];
+
+    const filtered = baterias.map(b => {
+        let rows = b.rows || [];
+        if (forma) rows = rows.filter(r => String(r["_forma"] || '').trim() === forma);
+        if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
+        if (area) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === area);
+        if (q) rows = rows.filter(r => searchCols.some(col => String(r[col] || '').trim().toLowerCase().includes(q)));
+        for (const f of advFields) {
+            const val = document.getElementById(f.id)?.value;
+            if (val) rows = rows.filter(r => String(r[f.col] || '').trim() === val);
+        }
+        return { battery: b, rows, summary: computeSummary(rows) };
+    });
+
+    const type = state._drillType;
+    const summaryKey = type === 'intra' ? 'intraGeneral' : type === 'extra' ? 'extraGeneral' : 'stress';
+    const riskOrder = type === 'stress' ? STRESS_ORDER : RISK_ORDER;
+    renderComparativaDrillContent(filtered, summaryKey, riskOrder);
+}
+
+function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) {
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '';
+
+    if (!filteredBaterias.length) { body.innerHTML = '<p style="color:#94a3b8;padding:40px;text-align:center;">Sin datos</p>'; return; }
+
+    const drillType = summaryKey === 'intraGeneral' ? 'intra' : summaryKey === 'extraGeneral' ? 'extra' : 'stress';
+
+    // Normalize: handle both { battery, rows, summary } and raw battery objects
+    const baterias = filteredBaterias.map(fb => fb.battery ? fb : { battery: fb, rows: fb.rows, summary: fb.summary });
+
+    // ── Cards with risk bars + % crítico + N ──
+    let cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:18px;">';
+    for (const fb of baterias) {
+        const b = fb.battery;
+        const s = fb.summary;
+        const m = b.meta;
+        const dist = s[summaryKey] || {};
+        const total = riskOrder.reduce((sum, r) => sum + (dist[r] || 0), 0);
+        const critCount = (dist["Riesgo alto"] || 0) + (dist["Riesgo muy alto"] || 0);
+        const critPct = total ? Math.round(critCount / total * 100) : 0;
+        const critColor = critPct >= 50 ? '#ef4444' : critPct >= 25 ? '#f97316' : critPct >= 10 ? '#eab308' : '#22c55e';
+
+        cardsHtml += '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;">';
+
+        // Year with gradient + name
+        cardsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+        cardsHtml += '<div style="font-weight:700;font-size:14px;color:#1e293b;">' + (m.name || '');
+        cardsHtml += ' <span style="background:linear-gradient(135deg,#6366f1,#a78bfa);color:#fff;border-radius:6px;padding:1px 10px;font-size:12px;font-weight:700;display:inline-block;">' + (m.year || '?') + '</span>';
+        cardsHtml += '</div>';
+        cardsHtml += '<div style="font-size:12px;color:#64748b;">N=' + (m.totalRows || total) + '</div>';
+        cardsHtml += '</div>';
+
+        // % crítico prominent
+        cardsHtml += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;padding:8px 12px;background:' + critColor + '15;border-radius:8px;border-left:4px solid ' + critColor + ';">';
+        cardsHtml += '<span style="font-size:26px;font-weight:800;color:' + critColor + ';">' + critPct + '%</span>';
+        cardsHtml += '<span style="font-size:12px;font-weight:600;color:' + critColor + ';">crítico</span>';
+        cardsHtml += '<span style="font-size:12px;color:#64748b;margin-left:auto;">' + critCount + ' de ' + total + ' encuestados</span>';
+        cardsHtml += '</div>';
+
+        // Risk bars
+        for (const r of riskOrder) {
+            const cnt = dist[r] || 0;
+            const pct = total ? Math.round(cnt / total * 100) : 0;
+            const rc = riskColor(r);
+            if (pct > 0) {
+                cardsHtml += '<div class="bat-risk-row" style="margin-bottom:2px;">';
+                cardsHtml += '<span class="lbl" style="font-size:11px;width:90px;">' + r + '</span>';
+                cardsHtml += '<div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:' + pct + '%;background:' + (rc ? rc.bg : '#e2e8f0') + '"></div></div>';
+                cardsHtml += '<span class="pct" style="font-size:11px;color:' + (rc ? rc.text : '#475569') + '">' + pct + '%</span>';
+                cardsHtml += '</div>';
+            }
+        }
+        cardsHtml += '</div>';
+    }
+    cardsHtml += '</div>';
+    body.innerHTML = cardsHtml;
+
+    // ── Heatmap ──
+    const dimFilter = document.getElementById('mfDimension')?.value;
+    const domainFilter = document.getElementById('mfDominio')?.value;
+    let availableDims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+    if (drillType === 'intra') availableDims = availableDims.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
+    else if (drillType === 'extra') availableDims = availableDims.filter(d => d.name.startsWith('[Extra]'));
+    if (domainFilter && DOMAIN_DIMS[domainFilter]) {
+        availableDims = availableDims.filter(d => DOMAIN_DIMS[domainFilter].includes(d.name));
+    }
+    if (dimFilter) {
+        availableDims = availableDims.filter(d => {
+            const dName = drillType === 'extra' ? d.name.replace('[Extra] ', '') : d.name;
+            return dName === dimFilter;
+        });
+    }
+    if (availableDims.length === 0) { body.innerHTML += '<p style="color:#94a3b8;">Sin dimensiones</p>'; return; }
+
+    // Compute critical % per battery per dimension for trend
+    const critPctMap = {};
+    for (const fb of baterias) {
+        const id = fb.battery.meta.id;
+        critPctMap[id] = {};
+        for (const dim of availableDims) {
+            const match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            const riskDist = match ? match.risk : {};
+            const total = Object.values(riskDist).reduce((a, b) => a + b, 0);
+            const crit = (riskDist["Riesgo alto"] || 0) + (riskDist["Riesgo muy alto"] || 0);
+            critPctMap[id][dim.name] = total ? Math.round(crit / total * 100) : 0;
+        }
+    }
+
+    // Sort batteries by year for trend comparison
+    const sortedBaterias = [...baterias].sort((a, b) => (a.battery.meta.year || '0') < (b.battery.meta.year || '0') ? 1 : -1);
+
+    let html = '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#f1f5f9;"><th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;font-weight:700;">Dimensión</th>';
+    for (const fb of sortedBaterias) {
+        html += '<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e2e8f0;font-weight:700;white-space:nowrap;">' + bLabelShort(fb.battery) + '</th>';
+    }
+    html += '<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e2e8f0;font-weight:700;white-space:nowrap;">Tendencia</th>';
+    html += '</tr></thead><tbody>';
+
+    for (const dim of availableDims) {
+        html += '<tr><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b;">' + dim.name + '</td>';
+        for (const fb of sortedBaterias) {
+            const match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            const riskDist = match ? match.risk : {};
+            const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '-');
+            const rc = riskColor(dominantRisk);
+            const total = Object.values(riskDist).reduce((a, b) => a + b, 0);
+            const crit = (riskDist["Riesgo alto"] || 0) + (riskDist["Riesgo muy alto"] || 0);
+            const critPct = total ? Math.round(crit / total * 100) : 0;
+            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;background:' + (rc ? rc.bg : '#e2e8f0') + ';color:' + (rc ? rc.text : '#475569') + ';font-weight:600;">';
+            html += dominantRisk + '<br><span style="font-size:12px;font-weight:700;">' + critPct + '% crítico</span>';
+            html += '</td>';
+        }
+
+        // Trend column: compare last two batteries
+        if (sortedBaterias.length >= 2) {
+            const first = critPctMap[sortedBaterias[0].battery.meta.id]?.[dim.name] || 0;
+            const second = critPctMap[sortedBaterias[1].battery.meta.id]?.[dim.name] || 0;
+            let arrow, arrowColor;
+            if (second > first) { arrow = '↑'; arrowColor = '#ef4444'; }
+            else if (second < first) { arrow = '↓'; arrowColor = '#22c55e'; }
+            else { arrow = '→'; arrowColor = '#94a3b8'; }
+            const diff = second - first;
+            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;font-size:16px;color:' + arrowColor + ';">' + arrow + ' <span style="font-size:12px;">' + (diff > 0 ? '+' : '') + diff + '%</span></td>';
+        } else {
+            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#94a3b8;">—</td>';
+        }
+
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    body.innerHTML += html;
 }
 
 function renderComparisonTable(baterias) {

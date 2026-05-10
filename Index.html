@@ -642,16 +642,22 @@
             border-color: #94a3b8;
         }
         .modal-close {
-            background: none;
+            background: linear-gradient(135deg, #f43f5e, #ec4899);
             border: none;
-            font-size: 22px;
-            color: #64748b;
+            font-size: 18px;
+            color: #fff;
             cursor: pointer;
-            padding: 4px 10px;
-            border-radius: 6px;
-            transition: background 0.2s;
+            padding: 5px 14px;
+            border-radius: 8px;
+            transition: all 0.25s ease;
+            font-weight: 700;
+            box-shadow: 0 2px 10px rgba(244,63,94,0.35);
+            line-height: 1;
         }
-        .modal-close:hover { background: #f1f5f9; }
+        .modal-close:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(244,63,94,0.5);
+        }
         .modal-filters {
             background: white;
             border-bottom: 1px solid #e2e8f0;
@@ -725,8 +731,8 @@
         }
         .mf-quick-bar .btn-filtrar:hover { background: #1557b0; }
         .mf-quick-bar .btn-limpiar {
-            background: #64748b;
-            color: white;
+            background: linear-gradient(135deg, #f43f5e, #ec4899);
+            color: #fff;
             border: none;
             width: 34px;
             height: 34px;
@@ -736,9 +742,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: all 0.25s ease;
+            box-shadow: 0 2px 8px rgba(244,63,94,0.3);
         }
-        .mf-quick-bar .btn-limpiar:hover { background: #475569; }
+        .mf-quick-bar .btn-limpiar:hover {
+            transform: scale(1.08);
+            box-shadow: 0 4px 14px rgba(244,63,94,0.45);
+        }
 
         .mf-toggle {
             background: #f1f5f9;
@@ -866,6 +876,157 @@
             margin: 0 auto;
         }
 
+        /* ===== BATTERY CARDS (COMPARATIVA) ===== */
+        .bat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .bat-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            transition: box-shadow 0.2s, transform 0.15s;
+            display: flex;
+            flex-direction: column;
+        }
+        .bat-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .bat-card-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .bat-card-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .bat-card-year {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            margin-top: 3px;
+        }
+        .bat-card-meta {
+            display: flex;
+            gap: 4px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+        .bat-card-meta .tag {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .bat-card-meta .tag.form-b { background: #dcfce7; color: #166534; }
+        .bat-card-meta .tag.form-a { background: #fef3c7; color: #92400e; }
+        .bat-card-body {
+            padding: 10px 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .bat-risk-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bat-risk-row .lbl {
+            font-size: 12px;
+            color: #475569;
+            width: 72px;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+        .bat-risk-bar-bg {
+            flex: 1;
+            height: 12px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .bat-risk-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.4s ease;
+        }
+        .bat-risk-row .pct {
+            font-size: 12px;
+            font-weight: 700;
+            width: 40px;
+            text-align: right;
+        }
+        .bat-card-footer {
+            padding: 8px 16px;
+            background: #f8fafc;
+            font-size: 11px;
+            color: #64748b;
+            border-top: 1px solid #f1f5f9;
+            text-align: center;
+        }
+        /* Trend card */
+        .bat-trend-card {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .bat-trend-card h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .trend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+        .trend-row .trend-label {
+            font-weight: 600;
+            color: #1e293b;
+            width: 100px;
+        }
+        .trend-row .trend-arrow {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .trend-row .trend-arrow.up { color: #ef4444; }
+        .trend-row .trend-arrow.down { color: #22c55e; }
+        .trend-row .trend-arrow.flat { color: #94a3b8; }
+        /* Per-battery heatmap block */
+        .hm-battery-block {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .hm-battery-block h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .hm-battery-grid {
+            display: grid;
+            gap: 2px;
+        }
         /* ===== RESPONSIVE ===== */
         @media (max-width: 800px) {
             .charts-grid { grid-template-columns: 1fr; }
@@ -1013,21 +1174,20 @@
                 </div>
                 <div id="compStatus" class="status-msg"></div>
                 <div id="batteryListContainer" style="margin-top:12px;display:none;">
-                    <div id="batteryList" class="battery-list"></div>
+                    <div id="batteryList" class="bat-grid"></div>
                     <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Carga al menos 2 bater&iacute;as y selecci&oacute;nalas para ver la comparativa.</p>
                 </div>
             </div>
 
             <div id="compContent" style="display:none;">
-                <div id="compCards" style="margin-bottom:16px;"></div>
+                <div id="trendCard" style="display:none;"></div>
                 <div class="charts-grid">
-                    <div class="chart-card full"><h3>Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
-                    <div class="chart-card full"><h3>Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
-                    <div class="chart-card full"><h3>Estr&eacute;s</h3><canvas id="groupedStress"></canvas></div>
-                    <div class="chart-card full"><h3>Perfil T-Score</h3><canvas id="radarCompare"></canvas></div>
+                    <div class="chart-card full" onclick="abrirDrillComparativa('intra')"><h3>Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
+                    <div class="chart-card full" onclick="abrirDrillComparativa('extra')"><h3>Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
+                    <div class="chart-card full" onclick="abrirDrillComparativa('stress')"><h3>Estr&eacute;s</h3><canvas id="groupedStress"></canvas></div>
                 </div>
-                <div class="card">
-                    <h2>Mapa de calor</h2>
+                <div class="card" id="heatmapCard">
+                    <h2>Mapa de calor por bater&iacute;a</h2>
                     <div id="heatmapContainer"></div>
                 </div>
                 <div class="card">
