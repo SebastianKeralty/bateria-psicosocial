@@ -582,7 +582,7 @@ function computeSummary(rows) {
     if (isFormB) {
         summary.intraGeneral = getRiskDistribution("INTRALABORAL(I)");
     } else if (isFormA) {
-        summary.intraGeneral = getRiskDistribution("INTRALABORAL");
+        summary.intraGeneral = getRiskDistribution("INTRALABORAL (I)");
     }
 
     // Extralaboral general
@@ -643,7 +643,7 @@ function computeSummary(rows) {
             summary.dimensions.push({
                 name,
                 avgT: getAvg(tCol),
-                risk: getRiskDistribution(name)
+                risk: getRiskDistribution(name + " (I)")
             });
         }
         const globalCols = [
@@ -655,7 +655,7 @@ function computeSummary(rows) {
             summary.dimensions.push({
                 name: `[Global] ${name}`,
                 avgT: getAvg(tCol),
-                risk: getRiskDistribution(name)
+                risk: getRiskDistribution(name + " (I)")
             });
         }
     }

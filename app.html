@@ -60,6 +60,20 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
+        } else if (tab === 'reportes') {
+            document.getElementById('topbarBadge').style.display = 'none';
+            document.getElementById('btnExport').style.display = 'none';
+            const noData = document.getElementById('reportNoData');
+            const content = document.getElementById('reportContent');
+            const info = document.getElementById('reportFileInfo');
+            if (state.bateriaActiva) {
+                noData.style.display = 'none';
+                content.style.display = 'block';
+                info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
+            } else {
+                noData.style.display = 'block';
+                content.style.display = 'none';
+            }
         } else {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -137,6 +151,11 @@ document.getElementById('inicioFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
     procesarDashboard(file);
+});
+document.getElementById('comparativaFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    procesarComparativa(file);
 });
 
 function mostrarStatus(id, msg, tipo) {
@@ -1917,6 +1936,19 @@ function renderStressChart() {
 // ============================================================
 let compBatteryIdCounter = 0;
 
+function bLabel(b) {
+    const m = b.meta;
+    const name = m.name || m.fileName.replace(/\.xlsx?$/i, '');
+    const year = m.year ? ' ' + m.year : '';
+    return name + year;
+}
+
+function bLabelShort(b, max) {
+    const l = bLabel(b);
+    const m = max || 20;
+    return l.length > m ? l.slice(0, m-2) + '..' : l;
+}
+
 function procesarComparativa(file) {
     mostrarStatus('compStatus', 'Leyendo archivo...', 'info');
     const reader = new FileReader();
@@ -1928,9 +1960,12 @@ function procesarComparativa(file) {
                 return;
             }
             const id = ++compBatteryIdCounter;
+            const baseName = file.name.replace(/\.xlsx?$/i, '');
             result.meta.id = id;
+            result.meta.name = baseName;
+            result.meta.year = new Date().getFullYear() + '';
             state.bateriasComparativa.push(result);
-            mostrarStatus('compStatus', '✔ ' + result.meta.fileName + ' (' + result.meta.totalRows + ' registros) agregada.', 'success');
+            mostrarStatus('compStatus', '✔ ' + baseName + ' (' + result.meta.totalRows + ' reg.) agregada.', 'success');
             renderBatteryList();
             actualizarComparativa();
         } catch(err) {
@@ -1941,30 +1976,32 @@ function procesarComparativa(file) {
     reader.readAsArrayBuffer(file);
 }
 
+function updateBatteryMeta(id, field, value) {
+    const b = state.bateriasComparativa.find(x => x.meta.id === id);
+    if (b) { b.meta[field] = value; actualizarComparativa(); }
+}
+
 function renderBatteryList() {
     const container = document.getElementById('batteryList');
     const listContainer = document.getElementById('batteryListContainer');
-    const countSpan = document.getElementById('batteryCount');
 
     if (state.bateriasComparativa.length === 0) {
         listContainer.style.display = 'none';
         return;
     }
     listContainer.style.display = 'block';
-    countSpan.textContent = state.bateriasComparativa.length;
 
     container.innerHTML = state.bateriasComparativa.map(b => {
-        const s = b.summary;
-        const extraPct = s.extraGeneral ? (Object.keys(s.extraGeneral).length > 0 ? '' : '') : '';
+        const m = b.meta;
         return `<div class="battery-item">
-            <input type="checkbox" class="comp-check" data-id="${b.meta.id}" checked onchange="actualizarComparativa()">
-            <div class="info">
-                <div class="name">${b.meta.fileName}</div>
-                <div class="meta">Forma ${b.meta.forma} · ${b.meta.totalRows} registros</div>
+            <input type="checkbox" class="comp-check" data-id="${m.id}" checked onchange="actualizarComparativa()">
+            <div class="b-name"><input type="text" value="${m.name || ''}" onchange="updateBatteryMeta(${m.id},'name',this.value)"></div>
+            <div class="b-year"><input type="text" value="${m.year || ''}" onchange="updateBatteryMeta(${m.id},'year',this.value)" placeholder="Año"></div>
+            <div class="b-tags">
+                <span class="b-tag form-${m.forma.toLowerCase()}">${m.forma}</span>
+                <span class="b-tag">${m.totalRows} reg.</span>
             </div>
-            <div class="actions">
-                <button class="btn-remove" onclick="eliminarBateria(${b.meta.id})" title="Eliminar">✕</button>
-            </div>
+            <button class="btn-remove" onclick="eliminarBateria(${m.id})" title="Eliminar">✕</button>
         </div>`;
     }).join('');
 }
@@ -1988,6 +2025,38 @@ function getSelectedBaterias() {
     return state.bateriasComparativa.filter(b => ids.includes(b.meta.id));
 }
 
+function pctCriticoDist(dist, total) {
+    if (!dist || !total) return 0;
+    return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/total)*100);
+}
+
+function renderCompCards(baterias) {
+    const container = document.getElementById('compCards');
+    const types = [
+        { key: 'intraGeneral', label: 'Intralaboral' },
+        { key: 'extraGeneral', label: 'Extralaboral' },
+        { key: 'stress', label: 'Estr\u00e9s' }
+    ];
+    let html = '<div class="card" style="padding:12px 16px;"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">';
+    for (const b of baterias) {
+        const s = b.summary;
+        html += `<div style="background:#f8fafc;border-radius:8px;padding:10px;border:1px solid #e2e8f0;">
+            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:6px;">${bLabel(b)}</div>`;
+        for (const t of types) {
+            const dist = s[t.key];
+            const pct = dist ? pctCriticoDist(dist, s.total) : 0;
+            const color = pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+            html += `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
+                <span style="color:#64748b;">${t.label}</span>
+                <span style="font-weight:700;color:${color};">${pct}%</span>
+            </div>`;
+        }
+        html += '</div>';
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+}
+
 function actualizarComparativa() {
     const selected = getSelectedBaterias();
     const container = document.getElementById('compContent');
@@ -1995,49 +2064,49 @@ function actualizarComparativa() {
 
     if (selected.length < 2) {
         container.style.display = 'none';
-        if (hint) hint.textContent = selected.length === 1 ? 'Selecciona al menos una batería más para comparar.' : 'Selecciona al menos 2 baterías para ver la comparativa.';
+        if (hint) hint.textContent = selected.length === 1 ? 'Selecciona al menos una bater\u00eda m\u00e1s para comparar.' : 'Carga al menos 2 bater\u00edas y selecci\u00f3nalas para ver la comparativa.';
         return;
     }
     container.style.display = 'block';
-    if (hint) hint.textContent = 'Comparando ' + selected.length + ' baterías.';
+    if (hint) hint.textContent = 'Comparando ' + selected.length + ' bater\u00edas.';
 
-    renderGroupedBars(selected);
+    renderCompCards(selected);
+    renderGroupedCompare('groupedIntra', 'intraGeneral', selected);
+    renderGroupedCompare('groupedExtra', 'extraGeneral', selected);
+    renderGroupedCompare('groupedStress', 'stress', selected, STRESS_ORDER);
     renderRadarCompare(selected);
     renderHeatmap(selected);
     renderComparisonTable(selected);
 }
 
-function renderGroupedBars(baterias) {
-    destroyChart('groupedBars');
-    const ctx = getChartCtx('groupedBars');
+function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
+    destroyChart(canvasId);
+    const ctx = getChartCtx(canvasId);
     if (!ctx) return;
 
-    const riskKey = baterias[0].summary.intraGeneral ? 'intraGeneral' : null;
-    if (!riskKey) return;
     const allRiskKeys = new Set();
-    baterias.forEach(b => { Object.keys(b.summary[riskKey]||{}).forEach(k => allRiskKeys.add(k)); });
-    const riskLabels = RISK_ORDER.filter(r => allRiskKeys.has(r));
+    baterias.forEach(b => { Object.keys(b.summary[summaryKey]||{}).forEach(k => allRiskKeys.add(k)); });
+    const order = riskOrder || RISK_ORDER;
+    const riskLabels = order.filter(r => allRiskKeys.has(r));
     if (riskLabels.length === 0) return;
 
     const datasets = baterias.map((b, i) => ({
-        label: b.meta.fileName.length > 20 ? b.meta.fileName.slice(0, 17) + '...' : b.meta.fileName,
+        label: bLabelShort(b),
         data: riskLabels.map(r => {
-            const total = b.meta.totalRows;
-            const val = (b.summary[riskKey] && b.summary[riskKey][r]) || 0;
-            return total ? Math.round((val / total) * 100 * 10) / 10 : 0;
+            const t = b.meta.totalRows;
+            const val = (b.summary[summaryKey] && b.summary[summaryKey][r]) || 0;
+            return t ? Math.round((val / t) * 100 * 10) / 10 : 0;
         }),
         backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
         borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        borderWidth: 1,
-        borderRadius: 3
+        borderWidth: 1, borderRadius: 3
     }));
 
-    state.charts['groupedBars'] = new Chart(ctx, {
+    state.charts[canvasId] = new Chart(ctx, {
         type: 'bar',
         data: { labels: riskLabels, datasets },
         options: {
-            responsive: true,
-            maintainAspectRatio: true,
+            responsive: true, maintainAspectRatio: true,
             scales: {
                 x: { ticks: { font: { size: 10 } } },
                 y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } }
@@ -2060,7 +2129,7 @@ function renderRadarCompare(baterias) {
 
     const labels = dims.map(d => d.name.length > 22 ? d.name.slice(0, 20) + '..' : d.name);
     const datasets = baterias.map((b, i) => ({
-        label: b.meta.fileName.length > 20 ? b.meta.fileName.slice(0, 17) + '...' : b.meta.fileName,
+        label: bLabelShort(b),
         data: dims.map(d => {
             const match = b.summary.dimensions.find(dd => dd.name === d.name);
             return match ? (match.avgT || 0) : 0;
@@ -2068,16 +2137,14 @@ function renderRadarCompare(baterias) {
         backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
         borderColor: CHART_COLORS[i % CHART_COLORS.length],
         pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-        pointRadius: 3,
-        borderWidth: 2
+        pointRadius: 3, borderWidth: 2
     }));
 
     state.charts['radarCompare'] = new Chart(ctx, {
         type: 'radar',
         data: { labels, datasets },
         options: {
-            responsive: true,
-            maintainAspectRatio: true,
+            responsive: true, maintainAspectRatio: true,
             scales: {
                 r: {
                     beginAtZero: true, max: 100,
@@ -2099,23 +2166,20 @@ function renderHeatmap(baterias) {
     const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
     if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos suficientes</p>'; return; }
 
-    const selected = baterias.map(b => b.meta.id);
-    const selectedBaterias = baterias;
-
-    const headerHtml = '<div style="display:grid;grid-template-columns:200px repeat(' + selectedBaterias.length + ',1fr);gap:2px;margin-bottom:4px;font-weight:600;font-size:12px;color:#475569;">' +
-        '<div class="hm-label">Dimensión</div>' +
-        selectedBaterias.map(b => '<div style="text-align:center;padding:4px;">' + (b.meta.fileName.length > 18 ? b.meta.fileName.slice(0,15)+'..' : b.meta.fileName) + '</div>').join('') +
+    const headerHtml = '<div style="display:grid;grid-template-columns:200px repeat(' + baterias.length + ',1fr);gap:2px;margin-bottom:4px;font-weight:600;font-size:12px;color:#475569;">' +
+        '<div class="hm-label">Dimensi\u00f3n</div>' +
+        baterias.map(b => '<div style="text-align:center;padding:4px;">' + bLabelShort(b, 18) + '</div>').join('') +
         '</div>';
 
     const rows = dims.map(dim => {
-        const cells = selectedBaterias.map(b => {
+        const cells = baterias.map(b => {
             const match = b.summary.dimensions.find(dd => dd.name === dim.name);
             const riskDist = match ? match.risk : {};
             const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '');
             const rc = riskColor(dominantRisk);
             return '<div class="hm-cell ' + (rc ? rc.cls : 'risk-error') + '">' + (dominantRisk || '-') + '</div>';
         }).join('');
-        return '<div style="display:grid;grid-template-columns:200px repeat(' + selectedBaterias.length + ',1fr);gap:2px;">' +
+        return '<div style="display:grid;grid-template-columns:200px repeat(' + baterias.length + ',1fr);gap:2px;">' +
             '<div class="hm-label">' + (dim.name.length > 40 ? dim.name.slice(0,37)+'...' : dim.name) + '</div>' + cells + '</div>';
     }).join('');
 
@@ -2127,10 +2191,8 @@ function renderComparisonTable(baterias) {
     const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
     if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos</p>'; return; }
 
-    let html = '<div class="table-wrap"><table><thead><tr><th>Dimensión</th>';
-    baterias.forEach(b => {
-        html += `<th>${b.meta.fileName.length > 20 ? b.meta.fileName.slice(0,17)+'..' : b.meta.fileName}</th>`;
-    });
+    let html = '<div class="table-wrap"><table><thead><tr><th>Dimensi\u00f3n</th>';
+    baterias.forEach(b => { html += `<th>${bLabelShort(b)}</th>`; });
     html += '</tr></thead><tbody>';
 
     for (const dim of dims) {
@@ -2147,6 +2209,382 @@ function renderComparisonTable(baterias) {
     }
     html += '</tbody></table></div>';
     container.innerHTML = html;
+}
+
+// ============================================================
+// REPORTES
+// ============================================================
+function _showReportStatus(msg, tipo) {
+    const el = document.getElementById('reportStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg ' + tipo;
+    el.style.display = 'block';
+}
+
+function _captureChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !canvas.getContext) return null;
+    try { return canvas.toDataURL('image/png'); } catch(e) { return null; }
+}
+
+function _dataUrlToBytes(dataUrl) {
+    const bin = atob(dataUrl.split(',')[1]);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf;
+}
+
+function _downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+let _reportHistory = [];
+
+function _addToHistory(filename) {
+    _reportHistory.push({ filename, date: new Date().toLocaleString('es-CO') });
+    const cont = document.getElementById('reportHistory');
+    const list = document.getElementById('reportList');
+    cont.style.display = 'block';
+    list.innerHTML = _reportHistory.map(r =>
+        `<div class="report-item"><span class="r-name">${r.filename}</span><span class="r-meta">${r.date}</span></div>`
+    ).join('');
+}
+
+function _getSelectedSections() {
+    return {
+        resumen: document.getElementById('rptResumen')?.checked ?? true,
+        intra: document.getElementById('rptIntra')?.checked ?? true,
+        extra: document.getElementById('rptExtra')?.checked ?? true,
+        stress: document.getElementById('rptStress')?.checked ?? true,
+        dimTable: document.getElementById('rptDimTable')?.checked ?? true
+    };
+}
+
+function _loadLib(url) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector('script[src="' + url + '"]')) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = url; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+function generarReporte() {
+    if (!state.bateriaActiva) {
+        _showReportStatus('No hay datos cargados.', 'error');
+        return;
+    }
+    const fmt = document.getElementById('reportFormat').value;
+    const btn = document.getElementById('btnGenerarReporte');
+    btn.disabled = true; btn.style.opacity = '0.6';
+    _showReportStatus('Generando reporte...', 'info');
+
+    setTimeout(async () => {
+        try {
+            const data = state.bateriaActiva;
+            const s = data.summary;
+            const baseName = data.meta.fileName.replace(/\.xlsx?$/i, '');
+            const sections = _getSelectedSections();
+            const charts = {
+                intra: _captureChart('intraBars'),
+                extra: _captureChart('extraBars'),
+                stress: _captureChart('stressBars')
+            };
+
+            if (fmt === 'pdf') {
+                await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+                _generarPDF(data, s, charts, baseName, sections);
+            } else if (fmt === 'word') {
+                await _loadLib('https://cdn.jsdelivr.net/npm/docx/build/index.umd.min.js');
+                await _generarWord(data, s, charts, baseName, sections);
+            } else if (fmt === 'ppt') {
+                await _loadLib('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+                _generarPPT(data, s, charts, baseName, sections);
+            }
+
+            _showReportStatus('Reporte generado: ' + baseName + '.' + fmt, 'success');
+            _addToHistory(baseName + '.' + fmt);
+        } catch (err) {
+            _showReportStatus('Error: ' + err.message, 'error');
+            console.error(err);
+        }
+        btn.disabled = false; btn.style.opacity = '1';
+    }, 150);
+}
+
+// ── PDF ──
+function _generarPDF(data, s, charts, baseName, sections) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pw = 190; // page width - margins
+    const margin = 10;
+    let y = margin;
+
+    const addText = (text, size, opts) => {
+        if (y > 270) { doc.addPage(); y = margin; }
+        doc.setFontSize(size || 11);
+        doc.text(text, margin, y, opts || {});
+        y += (size || 11) * 0.5;
+    };
+
+    const addLine = () => {
+        if (y > 275) { doc.addPage(); y = margin; }
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, y, margin + pw, y);
+        y += 4;
+    };
+
+    const addImg = (dataUrl, maxH) => {
+        if (!dataUrl) return;
+        const imgH = maxH || 60;
+        const imgW = pw;
+        if (y + imgH > 275) { doc.addPage(); y = margin; }
+        try { doc.addImage(dataUrl, 'PNG', margin, y, imgW, imgH); y += imgH + 4; } catch(e) {}
+    };
+
+    // Title
+    doc.setFontSize(18);
+    doc.text('Bater\u00eda Psicosocial - Reporte', 105, y + 6, { align: 'center' });
+    y += 14;
+    doc.setFontSize(10);
+    doc.text('Archivo: ' + data.meta.fileName, margin, y);
+    y += 5;
+    doc.text('Forma: ' + data.meta.forma + ' | Encuestados: ' + s.total, margin, y);
+    y += 5;
+    doc.text('Generado: ' + new Date().toLocaleDateString('es-CO'), margin, y);
+    y += 8;
+    addLine();
+
+    if (sections.resumen) {
+        doc.setFontSize(14);
+        doc.text('Resumen Ejecutivo', margin, y); y += 8;
+        doc.setFontSize(11);
+
+        const pct = (dist) => {
+            if (!dist) return 0;
+            return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/s.total)*100);
+        };
+        const intraP = pct(s.intraGeneral);
+        const extraP = pct(s.extraGeneral);
+        const stressP = pct(s.stress);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('Intralaboral: ' + intraP + '% cr\u00edtico', margin, y); y += 5;
+        doc.text('Extralaboral: ' + extraP + '% cr\u00edtico', margin, y); y += 5;
+        doc.text('Estr\u00e9s: ' + stressP + '% cr\u00edtico', margin, y); y += 5;
+        doc.setFont(undefined, 'normal');
+
+        // Risk distribution table for summary
+        y += 2;
+        addLine();
+    }
+
+    if (sections.intra && charts.intra) {
+        doc.setFontSize(14);
+        doc.text('Intralaboral', margin, y); y += 8;
+        addImg(charts.intra, 55);
+        addLine();
+    }
+
+    if (sections.extra && charts.extra) {
+        doc.setFontSize(14);
+        doc.text('Extralaboral', margin, y); y += 8;
+        addImg(charts.extra, 55);
+        addLine();
+    }
+
+    if (sections.stress && charts.stress) {
+        doc.setFontSize(14);
+        doc.text('Estr\u00e9s', margin, y); y += 8;
+        addImg(charts.stress, 55);
+        addLine();
+    }
+
+    if (sections.dimTable) {
+        doc.setFontSize(14);
+        doc.text('Dimensiones', margin, y); y += 8;
+        doc.setFontSize(8);
+
+        const dims = s.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+        for (let i = 0; i < dims.length; i += 20) {
+            if (i > 0) { doc.addPage(); y = margin; }
+            const chunk = dims.slice(i, i + 20);
+            const colW = [70, 24, 24, 24, 24, 24];
+            const headers = ['Dimensi\u00f3n', 'SR', 'RB', 'RM', 'RA', 'RMA'];
+
+            // header
+            doc.setFont(undefined, 'bold');
+            let x = margin;
+            headers.forEach((h, j) => {
+                doc.text(h, x + 1, y);
+                x += colW[j];
+            });
+            y += 3;
+            doc.line(margin, y, margin + colW.reduce((a,b)=>a+b,0), y);
+            y += 2;
+            doc.setFont(undefined, 'normal');
+
+            for (const d of chunk) {
+                if (y > 275) { doc.addPage(); y = margin; }
+                const name = d.name.length > 45 ? d.name.slice(0, 42) + '...' : d.name;
+                let x = margin;
+                doc.text(name, x + 1, y);
+                x += colW[0];
+                for (const r of ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto']) {
+                    const v = d.risk[r] || 0;
+                    doc.text(String(v), x + 4, y);
+                    x += colW[1];
+                }
+                y += 4;
+            }
+        }
+    }
+
+    const fn = 'Reporte_' + baseName + '.pdf';
+    doc.save(fn);
+}
+
+// ── WORD ──
+async function _generarWord(data, s, charts, baseName, sections) {
+    const {
+        Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+        ImageRun, AlignmentType, WidthType, BorderStyle, HeadingLevel
+    } = window.docx;
+
+    const children = [];
+    const push = (el) => children.push(el);
+    const heading = (txt, lvl) => push(new Paragraph({ heading: lvl || HeadingLevel.HEADING_1, children: [new TextRun({ text: txt, bold: true })] }));
+    const para = (txt, opts) => push(new Paragraph({ children: [new TextRun({ text: txt, ...opts })] }));
+
+    // Title
+    push(new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.CENTER, children: [
+        new TextRun({ text: 'Bater\u00eda Psicosocial - Reporte', bold: true, size: 28 })
+    ]}));
+    para('Archivo: ' + data.meta.fileName, { size: 22 });
+    para('Forma: ' + data.meta.forma + ' | Encuestados: ' + s.total, { size: 22 });
+    para('Generado: ' + new Date().toLocaleDateString('es-CO'), { size: 22 });
+
+    // Summary
+    if (sections.resumen) {
+        heading('Resumen Ejecutivo', HeadingLevel.HEADING_1);
+        const pct = (dist) => {
+            if (!dist) return 0;
+            return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/s.total)*100);
+        };
+        para('Intralaboral: ' + pct(s.intraGeneral) + '% cr\u00edtico');
+        para('Extralaboral: ' + pct(s.extraGeneral) + '% cr\u00edtico');
+        para('Estr\u00e9s: ' + pct(s.stress) + '% cr\u00edtico');
+    }
+
+    // Sections with chart images
+    const addChartSection = async (title, chartKey) => {
+        if (!charts[chartKey]) return;
+        heading(title, HeadingLevel.HEADING_1);
+        const imgBuf = _dataUrlToBytes(charts[chartKey]);
+        push(new Paragraph({ children: [
+            new ImageRun({ data: imgBuf, transformation: { width: 500, height: 150 } })
+        ]}));
+    };
+
+    if (sections.intra) await addChartSection('Intralaboral', 'intra');
+    if (sections.extra) await addChartSection('Extralaboral', 'extra');
+    if (sections.stress) await addChartSection('Estr\u00e9s', 'stress');
+
+    // Dimensions table
+    if (sections.dimTable) {
+        heading('Dimensiones', HeadingLevel.HEADING_1);
+        const dims = s.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+        if (dims.length > 0) {
+            const riskLevels = ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto'];
+            const headerRow = new TableRow({
+                tableHeader: true,
+                children: ['Dimensi\u00f3n', ...riskLevels].map(h =>
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18 })] })] })
+                )
+            });
+            const rows = dims.slice(0, 50).map(d =>
+                new TableRow({
+                    children: [d.name.slice(0, 50), ...riskLevels.map(r => String(d.risk[r] || 0))].map(c =>
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: c, size: 16 })] })] })
+                    )
+                })
+            );
+            push(new Table({ rows: [headerRow, ...rows] }));
+        }
+    }
+
+    const doc = new Document({ sections: [{ children }] });
+    const blob = await Packer.toBlob(doc);
+    _downloadBlob(blob, 'Reporte_' + baseName + '.docx');
+}
+
+// ── PPT ──
+function _generarPPT(data, s, charts, baseName, sections) {
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'WIDE', width: 10, height: 7.5 });
+    pptx.layout = 'WIDE';
+
+    const addTitleSlide = () => {
+        const slide = pptx.addSlide();
+        slide.addText('Bater\u00eda Psicosocial', { x: 1, y: 1.5, w: 8, h: 1.5, fontSize: 36, bold: true, align: 'center', color: '1a73e8' });
+        slide.addText('Reporte de resultados', { x: 1, y: 3, w: 8, h: 1, fontSize: 20, align: 'center', color: '475569' });
+        slide.addText('Archivo: ' + data.meta.fileName, { x: 1, y: 4.5, w: 8, h: 0.5, fontSize: 14, align: 'center', color: '64748b' });
+        slide.addText('Encuestados: ' + s.total + ' | Forma: ' + data.meta.forma, { x: 1, y: 5, w: 8, h: 0.5, fontSize: 14, align: 'center', color: '64748b' });
+        slide.addText(new Date().toLocaleDateString('es-CO'), { x: 1, y: 5.5, w: 8, h: 0.5, fontSize: 12, align: 'center', color: '94a3b8' });
+    };
+    addTitleSlide();
+
+    if (sections.resumen) {
+        const slide = pptx.addSlide();
+        slide.addText('Resumen Ejecutivo', { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
+        const pct = (dist) => {
+            if (!dist) return 0;
+            return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/s.total)*100);
+        };
+        const items = [
+            { label: 'Intralaboral', pct: pct(s.intraGeneral), color: 'ef4444' },
+            { label: 'Extralaboral', pct: pct(s.extraGeneral), color: 'f97316' },
+            { label: 'Estr\u00e9s', pct: pct(s.stress), color: 'eab308' }
+        ];
+        items.forEach((item, i) => {
+            const yBase = 1.8 + i * 1.4;
+            slide.addText(item.label, { x: 0.5, y: yBase, w: 3, h: 0.5, fontSize: 16, color: '334155' });
+            slide.addText(item.pct + '% cr\u00edtico', { x: 3.5, y: yBase, w: 3, h: 0.5, fontSize: 18, bold: true, color: item.color });
+            slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: yBase + 0.6, w: 7 * (item.pct / 100), h: 0.25, fill: { color: item.color }, radius: 0.1 });
+        });
+        slide.addText('Total encuestados: ' + s.total, { x: 0.5, y: 6, w: 9, h: 0.5, fontSize: 14, color: '64748b' });
+    }
+
+    const addChartSlide = (title, chartKey) => {
+        if (!charts[chartKey]) return;
+        const slide = pptx.addSlide();
+        slide.addText(title, { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
+        slide.addImage({ data: charts[chartKey], x: 0.5, y: 1.5, w: 9, h: 5 });
+    };
+
+    if (sections.intra) addChartSlide('Intralaboral', 'intra');
+    if (sections.extra) addChartSlide('Extralaboral', 'extra');
+    if (sections.stress) addChartSlide('Estr\u00e9s', 'stress');
+
+    if (sections.dimTable) {
+        const slide = pptx.addSlide();
+        slide.addText('Dimensiones - Resumen', { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
+        const dims = s.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0).slice(0, 30);
+        const rows = dims.map(d => {
+            const rKeys = orderRiskKeys(d.risk);
+            const dom = rKeys.reduce((a, b) => (d.risk[a]||0) > (d.risk[b]||0) ? a : b, '');
+            return [{ text: d.name.length > 35 ? d.name.slice(0,32)+'..' : d.name, options: { fontSize: 10 } }, { text: dom, options: { fontSize: 10 } }];
+        });
+        slide.addTable([[{ text: 'Dimensi\u00f3n', options: { bold: true, fontSize: 10 } }, { text: 'Riesgo Dominante', options: { bold: true, fontSize: 10 } }], ...rows], { x: 0.5, y: 1.5, w: 9 });
+    }
+
+    pptx.writeFile({ fileName: 'Reporte_' + baseName + '.pptx' });
 }
 
 // ============================================================

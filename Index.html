@@ -142,6 +142,54 @@
         }
         .btn-export:hover { opacity: 0.9; transform: translateY(-1px); }
         .btn-export:active { transform: translateY(0); }
+        .battery-item .b-name { flex:1; min-width:0; }
+        .battery-item .b-name input {
+            width:100%;
+            border:1px solid #e2e8f0;
+            border-radius:4px;
+            padding:4px 8px;
+            font-size:13px;
+            font-weight:600;
+            color:#1e293b;
+            background:#f8fafc;
+            transition:border-color 0.15s,background 0.15s;
+        }
+        .battery-item .b-name input:focus {
+            border-color:#6366f1;
+            background:white;
+            outline:none;
+        }
+        .battery-item .b-year { width:70px; flex-shrink:0; }
+        .battery-item .b-year input {
+            width:100%;
+            border:1px solid #e2e8f0;
+            border-radius:4px;
+            padding:4px 6px;
+            font-size:12px;
+            font-weight:600;
+            color:#475569;
+            background:#f8fafc;
+            text-align:center;
+            transition:border-color 0.15s,background 0.15s;
+        }
+        .battery-item .b-year input:focus {
+            border-color:#6366f1;
+            background:white;
+            outline:none;
+        }
+        .battery-item .b-tags { display:flex;gap:4px;flex-shrink:0; }
+        .battery-item .b-tag {
+            font-size:10px;
+            font-weight:700;
+            padding:2px 8px;
+            border-radius:10px;
+            background:#eef2ff;
+            color:#4338ca;
+            white-space:nowrap;
+        }
+        .battery-item .b-tag.form-b { background:#dcfce7; color:#166534; }
+        .battery-item .b-tag.form-a { background:#fef3c7; color:#92400e; }
+        .battery-list { display:flex;flex-direction:column;gap:6px; }
         .btn-export.loading {
             opacity: 0.6;
             pointer-events: none;
@@ -445,6 +493,21 @@
         }
 
         .placeholder { text-align: center; padding: 40px; color: #94a3b8; }
+        .report-check {
+            display:flex;align-items:center;gap:8px;font-size:14px;color:#334155;cursor:pointer;
+            padding:6px 12px;border-radius:6px;transition:background 0.15s;
+        }
+        .report-check:hover { background:#f1f5f9; }
+        .report-check input[type="checkbox"] { width:18px;height:18px;accent-color:#6366f1;cursor:pointer; }
+        .report-item {
+            display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+            border-bottom:1px solid #f1f5f9;font-size:13px;
+        }
+        .report-item:last-child { border-bottom:none; }
+        .report-item .r-name { font-weight:500;color:#1e293b; }
+        .report-item .r-meta { color:#94a3b8;font-size:12px; }
+        .report-item .r-dl { color:#6366f1;cursor:pointer;font-weight:600;text-decoration:none; }
+        .report-item .r-dl:hover { text-decoration:underline; }
 
         /* ===== MODAL ===== */
         .modal-overlay {
@@ -846,9 +909,11 @@
 
         <!-- ============ TAB: COMPARATIVA ============ -->
         <section id="tab-comparativa" class="tab-content">
-            <div class="card">
-                <h2>Agregar baterías para comparar</h2>
-                <p style="font-size:13px;color:#64748b;margin-bottom:12px;">Sube varios archivos Excel para comparar sus resultados. Cada archivo se agrega a la lista.</p>
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <h2 style="margin:0;">Bater&iacute;as</h2>
+                    <button class="btn-clear" onclick="limpiarComparativa()" style="font-size:12px;">Limpiar todo</button>
+                </div>
                 <div class="upload-area" id="compDropZone">
                     <div class="upload-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -863,22 +928,21 @@
                 </div>
                 <div id="compStatus" class="status-msg"></div>
                 <div id="batteryListContainer" style="margin-top:12px;display:none;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <strong style="font-size:14px;">Baterías cargadas (<span id="batteryCount">0</span>)</strong>
-                        <button class="btn-clear" onclick="limpiarComparativa()">Limpiar todo</button>
-                    </div>
                     <div id="batteryList" class="battery-list"></div>
-                    <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Selecciona al menos 2 baterías para ver la comparativa.</p>
+                    <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Carga al menos 2 bater&iacute;as y selecci&oacute;nalas para ver la comparativa.</p>
                 </div>
             </div>
 
             <div id="compContent" style="display:none;">
+                <div id="compCards" style="margin-bottom:16px;"></div>
                 <div class="charts-grid">
-                    <div class="chart-card full"><h3>Comparativa: Distribución Intralaboral</h3><canvas id="groupedBars"></canvas></div>
-                    <div class="chart-card full"><h3>Comparativa: Perfil de puntajes T</h3><canvas id="radarCompare"></canvas></div>
+                    <div class="chart-card full"><h3>Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
+                    <div class="chart-card full"><h3>Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
+                    <div class="chart-card full"><h3>Estr&eacute;s</h3><canvas id="groupedStress"></canvas></div>
+                    <div class="chart-card full"><h3>Perfil T-Score</h3><canvas id="radarCompare"></canvas></div>
                 </div>
                 <div class="card">
-                    <h2>Mapa de calor: Riesgo por dimensión y batería</h2>
+                    <h2>Mapa de calor</h2>
                     <div id="heatmapContainer"></div>
                 </div>
                 <div class="card">
@@ -890,10 +954,51 @@
 
         <!-- ============ TAB: REPORTES ============ -->
         <section id="tab-reportes" class="tab-content">
-            <div class="card placeholder" style="padding:60px;">
-                <p style="font-size:24px;margin-bottom:12px;">📄</p>
-                <h2 style="color:#94a3b8;">Próximamente</h2>
-                <p style="color:#94a3b8;margin-top:8px;">La generación de reportes Word y PowerPoint estará disponible en la próxima versión.</p>
+            <div id="reportNoData" class="placeholder" style="padding:60px;display:block;">
+                <p style="font-size:24px;margin-bottom:12px;">📊</p>
+                <h2 style="color:#94a3b8;">No hay datos cargados</h2>
+                <p style="color:#94a3b8;margin-top:8px;">Carga un archivo en la pesta&ntilde;a Inicio para generar reportes.</p>
+            </div>
+            <div id="reportContent" style="display:none;max-width:800px;margin:0 auto;">
+                <div class="card">
+                    <h2>Generar Reporte</h2>
+                    <p style="font-size:13px;color:#64748b;margin-bottom:14px;" id="reportFileInfo"></p>
+
+                    <div style="margin-bottom:14px;">
+                        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">Incluir en el reporte</h3>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            <label class="report-check"><input type="checkbox" id="rptResumen" checked> Resumen ejecutivo</label>
+                            <label class="report-check"><input type="checkbox" id="rptIntra" checked> Intralaboral</label>
+                            <label class="report-check"><input type="checkbox" id="rptExtra" checked> Extralaboral</label>
+                            <label class="report-check"><input type="checkbox" id="rptStress" checked> Estr&eacute;s</label>
+                            <label class="report-check"><input type="checkbox" id="rptDimTable" checked> Tabla de dimensiones</label>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <label style="font-weight:600;font-size:14px;">Formato:</label>
+                        <select id="reportFormat" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white;">
+                            <option value="pdf">PDF</option>
+                            <option value="word">Word (.docx)</option>
+                            <option value="ppt">PowerPoint (.pptx)</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button class="btn-success" onclick="generarReporte()" id="btnGenerarReporte">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Generar Reporte
+                        </button>
+                        <span id="reportStatus" class="status-msg"></span>
+                    </div>
+                </div>
+
+                <div id="reportHistory" style="display:none;">
+                    <div class="card">
+                        <h3>Reportes generados</h3>
+                        <div id="reportList" style="font-size:13px;color:#64748b;"></div>
+                    </div>
+                </div>
             </div>
         </section>
 
