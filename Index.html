@@ -185,15 +185,7 @@
             flex-direction: column;
         }
         .topbar {
-            background: white;
-            padding: 16px 28px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 50;
+            display: none;
         }
         .topbar h2 {
             font-size: 18px;
@@ -1271,29 +1263,23 @@
 <!-- ===== MAIN ===== -->
 <div class="main-wrapper">
 
-    <header class="topbar">
-        <h2 id="topbarTitle">Inicio</h2>
-        <span id="topbarBadge" class="badge-data" style="display:none;"></span>
-        <button id="btnExport" class="btn-export" style="display:none;" onclick="exportarDashboard()" title="Exportar dashboard como imagen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar
-        </button>
-    </header>
-
     <div class="main">
 
         <!-- ============ TAB: INICIO ============ -->
         <section id="tab-inicio" class="tab-content active">
             <div class="inicio-layout">
+                <div style="text-align:center;padding:20px 0 30px;">
+                    <h2 style="font-size:32px;margin:0;font-weight:800;background:linear-gradient(135deg, #6366f1, #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Importar Batería Psicosocial</h2>
+                    <p style="color:#64748b;margin:12px 0 0;font-size:16px;font-weight:500;">Sube tu archivo consolidado y la IA mapea automáticamente los datos</p>
+                </div>
                 <div class="card" style="padding:0;overflow:hidden;">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
                         <div style="padding:32px;display:flex;align-items:center;justify-content:center;margin-bottom:-24px;">
                             <img src="https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800" alt="Batería Psicosocial" style="width:90%;max-width:500px;">
                         </div>
                         <div style="padding:32px 24px;display:flex;flex-direction:column;gap:16px;">
-                            <div style="text-align:center;margin-bottom:8px;">
-                                <h2 style="color:#1e293b;font-size:26px;margin:0;font-weight:800;background:linear-gradient(135deg, #6366f1, #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Cargar archivo Excel</h2>
-                                <p style="color:#64748b;margin:8px 0 0;font-size:14px;font-weight:500;">Sube tu archivo para analizar los resultados psicosociales de tu organización</p>
+                            <div style="text-align:center;margin-bottom:12px;">
+                                <h2 style="color:#1e293b;font-size:18px;margin:0;font-weight:700;">CARGAR ARCHIVO EXCEL</h2>
                             </div>
                             <div class="upload-area" id="dropZone" style="margin:8px 0;background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border:2px dashed #6366f1;border-radius:16px;padding:32px 24px;">
                                 <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;">
@@ -1305,10 +1291,10 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <div class="main-text" style="font-size:16px;font-weight:700;color:#1e293b;">Arrastra tu archivo .xlsx aqu&iacute;</div>
+                                        <div class="main-text" style="font-size:16px;font-weight:700;color:#1e293b;">Arrastra tu archivo aqu&iacute;</div>
                                         <div class="sub-text" style="color:#64748b;margin-top:4px;">o haz clic para seleccionar</div>
                                     </div>
-                                    <div style="background:linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);color:#fff;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;">Formatos: FORMA A / FORMA B</div>
+                                    <div style="background:linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);color:#fff;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;">Formatos: .xlsx</div>
                                 </div>
                                 <input type="file" id="inicioFile" accept=".xlsx,.xls">
                             </div>
