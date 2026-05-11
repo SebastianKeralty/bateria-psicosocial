@@ -30,7 +30,10 @@ const state = {
     _drillType: null,
     _viewMode: 'table',
     _detailSortDir: 1,
-    _sortDir: 1
+    _sortDir: 1,
+    _compSortCol: null,
+    _compSortDir: 1,
+    _compViewMode: 'cards'
 };
 
 function destroyChart(key) {
@@ -217,11 +220,11 @@ function pctCritico(dist, total) {
 }
 
 const CRIT_RANGES = [
-    { max: 29, label: "Sin riesgo", color: "#22c55e" },
-    { max: 49, label: "Riesgo bajo", color: "#84cc16" },
-    { max: 69, label: "Riesgo medio", color: "#eab308" },
-    { max: 84, label: "Riesgo alto", color: "#f97316" },
-    { max: 100, label: "Riesgo muy alto", color: "#ef4444" }
+    { max: 29, label: "Sin riesgo", color: "#22c55e", bg: "#dcfce7", cls: "risk-sr" },
+    { max: 49, label: "Riesgo bajo", color: "#84cc16", bg: "#d9f99d", cls: "risk-rb" },
+    { max: 69, label: "Riesgo medio", color: "#eab308", bg: "#fef08a", cls: "risk-rm" },
+    { max: 84, label: "Riesgo alto", color: "#f97316", bg: "#fed7aa", cls: "risk-ra" },
+    { max: 100, label: "Riesgo muy alto", color: "#ef4444", bg: "#fca5a5", cls: "risk-rma" }
 ];
 
 function clasificarCritico(pct) {
@@ -246,7 +249,7 @@ function renderSummaryCards(data) {
 
     const buildCard = (num, label, sublabel, color, pct) => {
         const isTotal = label === 'Total Encuestados';
-        const bgColor = isTotal ? '#eef2ff' : pct >= 50 ? '#fef2f2' : pct >= 25 ? '#fff7ed' : pct >= 10 ? '#fefce8' : '#f0fdf4';
+        const bgColor = isTotal ? '#eef2ff' : clasificarCritico(pct).bg;
         const borderColor = isTotal ? '#1a73e8' : color;
         return `<div style="background:${bgColor};border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,0.07);border-left:5px solid ${borderColor};text-align:center;display:flex;flex-direction:column;gap:6px;">
             <div style="font-size:${isTotal ? 36 : 22}px;font-weight:800;color:${isTotal ? '#1a73e8' : color};line-height:1.1;">${num}</div>
@@ -274,6 +277,8 @@ function buildDashboardFilters(rows) {
     bar.style.marginBottom = '14px';
     bar.innerHTML = '';
 
+    const autoApply = () => aplicarFiltrosDashboard();
+
     const topRow = document.createElement('div');
     topRow.className = 'mf-quick-bar mf-row-top';
 
@@ -289,6 +294,7 @@ function buildDashboardFilters(rows) {
             opt.value = o; opt.textContent = o;
             sel.appendChild(opt);
         });
+        sel.onchange = autoApply;
         topRow.appendChild(sel);
     };
 
@@ -306,6 +312,11 @@ function buildDashboardFilters(rows) {
     inp.id = 'dfBusqueda';
     inp.placeholder = 'Buscar (ID, nombre, cargo\u2026)';
     inp.className = 'mf-search-input';
+    let debounceTimer;
+    inp.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(autoApply, 300);
+    };
     bottomRow.appendChild(inp);
 
     const toggleBtn = document.createElement('button');
@@ -322,14 +333,6 @@ function buildDashboardFilters(rows) {
         toggleBtn.classList.toggle('open', !isOpen);
     };
     bottomRow.appendChild(toggleBtn);
-
-    const btnF = document.createElement('button');
-    btnF.className = 'btn-filtrar';
-    btnF.title = 'Filtrar';
-    btnF.style.background = 'linear-gradient(135deg,#6366f1,#06b6d4)';
-    btnF.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-    btnF.onclick = aplicarFiltrosDashboard;
-    bottomRow.appendChild(btnF);
 
     const btnL = document.createElement('button');
     btnL.className = 'btn-limpiar';
@@ -409,6 +412,7 @@ function buildDashboardFilters(rows) {
                 opt.value = o; opt.textContent = o;
                 sel.appendChild(opt);
             });
+            sel.onchange = autoApply;
             wrapper.appendChild(sel);
             grid.appendChild(wrapper);
         }
@@ -479,8 +483,10 @@ function aplicarFiltrosDashboard() {
     closeDrillModal();
     const filtered = getFilteredRows();
     const s = state.bateriaActiva ? computeSummary(filtered) : null;
-    if (s) renderChartsDashboard(filtered, s);
-    if (s) renderDetailTable(filtered, s);
+    if (s) {
+        renderChartsDashboard(filtered, s);
+        renderDetailTable(filtered, s);
+    }
 }
 
 function limpiarFiltrosDashboard() {
@@ -658,7 +664,7 @@ function renderTopCritical(canvasId, topCriticas) {
     if (top.length === 0) return;
     const labels = top.map(d => d.name);
     const values = top.map(d => d.pctAlto);
-    const colors = values.map(v => v >= 50 ? '#ef4444' : v >= 30 ? '#f97316' : v >= 15 ? '#eab308' : '#22c55e');
+    const colors = values.map(v => clasificarCritico(v).color);
 
     state.charts[canvasId] = new Chart(ctx, {
         type: 'bar',
@@ -718,7 +724,7 @@ function renderDetailTable(rows, summary) {
     const buildRow = (dim) => {
         if (!dim.risk) return '';
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        const rowBg = clasificarCritico(pctAlto).bg;
         const displayName = dim.name.replace('[Global] ', '').replace('[Extra] ', '');
         let r = `<tr style="background:${rowBg};"><td><strong>${displayName}</strong></td>`;
         for (const k of RISK_ORDER) {
@@ -726,7 +732,7 @@ function renderDetailTable(rows, summary) {
             const pct = total ? Math.round((v/total)*100) : 0;
             r += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        const badgeClass = clasificarCritico(pctAlto).cls;
         r += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
         return r;
     };
@@ -873,7 +879,7 @@ function rebuildDimensionOptions(type) {
     let availDims = [];
     if (type === 'intra') {
         availDims = (state._drillSummary.dimensions || [])
-            .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
+            .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
         if (domain) {
             const domainDims = DOMAIN_DIMS[domain] || [];
             availDims = availDims.filter(d => domainDims.includes(d.name));
@@ -903,6 +909,8 @@ function buildModalFilters(type) {
     const src = state._drillBatteryData || state.bateriaActiva;
     const allRows = src.rows;
 
+    const autoApply = aplicarFiltrosModal;
+
     // ── Top row: selects ──
     const topRow = document.createElement('div');
     topRow.className = 'mf-quick-bar mf-row-top';
@@ -916,6 +924,7 @@ function buildModalFilters(type) {
         opt.textContent = v ? 'Forma ' + v : 'Forma: Todas';
         formaSel.appendChild(opt);
     });
+    formaSel.onchange = autoApply;
     topRow.appendChild(formaSel);
 
     const addSelect = (id, placeholder, col) => {
@@ -930,6 +939,7 @@ function buildModalFilters(type) {
             opt.value = o; opt.textContent = o;
             sel.appendChild(opt);
         });
+        sel.onchange = autoApply;
         topRow.appendChild(sel);
     };
 
@@ -964,7 +974,7 @@ function buildModalFilters(type) {
         let availDims = [];
         if (type === 'intra') {
             availDims = (state._drillSummary.dimensions || [])
-                .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'))
+                .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'))
                 .map(d => d.name);
         } else {
             availDims = (state._drillSummary.dimensions || [])
@@ -1019,7 +1029,7 @@ function buildModalFilters(type) {
 
     container.appendChild(topRow);
 
-    // ── Bottom row: big search + buttons ──
+    // ── Bottom row: search + toggle + clear ──
     const bottomRow = document.createElement('div');
     bottomRow.className = 'mf-quick-bar mf-row-bottom';
 
@@ -1027,6 +1037,11 @@ function buildModalFilters(type) {
     inp.id = 'mfBusqueda';
     inp.placeholder = 'Buscar (ID, nombre, cargo\u2026)';
     inp.className = 'mf-search-input';
+    let debounceTimer;
+    inp.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(autoApply, 300);
+    };
     bottomRow.appendChild(inp);
 
     const toggleBtn = document.createElement('button');
@@ -1037,14 +1052,6 @@ function buildModalFilters(type) {
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
     toggleBtn.onclick = toggleAdvancedFilters;
     bottomRow.appendChild(toggleBtn);
-
-    const btnF = document.createElement('button');
-    btnF.className = 'btn-filtrar';
-    btnF.title = 'Filtrar';
-    btnF.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-    btnF.onclick = aplicarFiltrosModal;
-    bottomRow.appendChild(btnF);
 
     const btnL = document.createElement('button');
     btnL.className = 'btn-limpiar';
@@ -1128,6 +1135,7 @@ function buildModalFilters(type) {
                 opt.value = o; opt.textContent = o;
                 sel.appendChild(opt);
             });
+            sel.onchange = autoApply;
             wrapper.appendChild(sel);
             grid.appendChild(wrapper);
         }
@@ -1277,11 +1285,34 @@ function showDrillFromComparativa(type, batteryData) {
 
     document.getElementById('modalTitle').textContent = 'Comparativa — ' + (type === 'intra' ? 'Intralaboral' : type === 'extra' ? 'Extralaboral' : 'Estrés');
 
+    state._compSortCol = null;
+    state._compSortDir = 1;
+    state._compViewMode = 'cards';
     const toggleContainer = document.getElementById('modalViewToggle');
-    toggleContainer.style.display = 'none';
-    toggleContainer.innerHTML = '';
+    toggleContainer.style.display = 'block';
+    toggleContainer.innerHTML = '<button class="btn-view-toggle" onclick="toggleComparativaDrillView()">📊 Gráfica</button>';
 
     renderComparativaDrillModal(type);
+}
+
+function toggleComparativaDrillView() {
+    state._compViewMode = state._compViewMode === 'chart' ? 'cards' : 'chart';
+    const btn = document.querySelector('#modalViewToggle button');
+    if (btn) {
+        btn.innerHTML = state._compViewMode === 'cards' ? '📊 Gráfica' : '📋 Tarjetas';
+        btn.title = state._compViewMode === 'cards' ? 'Ver gráfica' : 'Ver tarjetas';
+    }
+    aplicarFiltrosComparativaDrill();
+}
+
+function sortComparativaHeatmap(col) {
+    if (state._compSortCol === col) {
+        state._compSortDir = state._compSortDir === 1 ? -1 : 1;
+    } else {
+        state._compSortCol = col;
+        state._compSortDir = 1;
+    }
+    aplicarFiltrosComparativaDrill();
 }
 
 function toggleDrillView() {
@@ -1297,6 +1328,8 @@ function toggleDrillView() {
 function closeDrillModal() {
     state._drillBatteryData = null;
     state._drillComparativaBaterias = null;
+    destroyChart('comparativaLineChart');
+    destroyChart('comparativaBarChart');
     document.getElementById('drillModal').style.display = 'none';
 }
 
@@ -1354,7 +1387,7 @@ function renderIntraCards() {
         return { name: toTitleCase(domainName), pctAlto };
     };
 
-    const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+    const pctColor = (pct) => clasificarCritico(pct).color;
 
     const makeHorizBar = (name, pctAlto) => {
         const barColor = pctColor(pctAlto);
@@ -1412,7 +1445,7 @@ function renderIntraCards() {
             const dr = computeDomainRisk(domain);
             if (dr) {
                 const heroColor = pctColor(dr.pctAlto);
-                const heroBg = dr.pctAlto >= 50 ? '#fef2f2' : dr.pctAlto >= 25 ? '#fff7ed' : dr.pctAlto >= 10 ? '#fefce8' : '#f0fdf4';
+                const heroBg = clasificarCritico(dr.pctAlto).bg;
                 html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
                     <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${dr.name}</div>
                     <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${dr.pctAlto}%</div>
@@ -1470,14 +1503,14 @@ function renderIntraTable() {
     for (const dim of sortedDims) {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        const rowBg = clasificarCritico(pctAlto).bg;
         html += `<tr style="background:${rowBg};"><td><strong>${dim.name}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
             html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        const badgeClass = clasificarCritico(pctAlto).cls;
         html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
     }
     html += '</tbody></table></div>';
@@ -1512,7 +1545,7 @@ function renderIntraChart() {
 
     const labels = chartDims.map(d => d.name.length > 35 ? d.name.slice(0, 32) + '...' : d.name);
     const values = chartDims.map(d => total ? Math.round((((d.risk["Riesgo alto"]||0)+(d.risk["Riesgo muy alto"]||0))/total)*100) : 0);
-    const colors = values.map(v => v >= 50 ? '#ef4444' : v >= 30 ? '#f97316' : v >= 15 ? '#eab308' : '#22c55e');
+    const colors = values.map(v => clasificarCritico(v).color);
 
     state.charts['intraChart'] = new Chart(ctx, {
         type: 'bar',
@@ -1542,7 +1575,7 @@ function renderExtraCards() {
         return;
     }
 
-    const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+    const pctColor = (pct) => clasificarCritico(pct).color;
 
     const makeHorizBar = (name, pctAlto) => {
         const barColor = pctColor(pctAlto);
@@ -1610,7 +1643,7 @@ function renderExtraCards() {
             const dr = computeExtraDimRisk('[Extra] ' + dimFilter);
             if (dr) {
                 const heroColor = pctColor(dr.pctAlto);
-                const heroBg = dr.pctAlto >= 50 ? '#fef2f2' : dr.pctAlto >= 25 ? '#fff7ed' : dr.pctAlto >= 10 ? '#fefce8' : '#f0fdf4';
+                const heroBg = clasificarCritico(dr.pctAlto).bg;
                 html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
                     <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${dr.name}</div>
                     <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${dr.pctAlto}%</div>
@@ -1661,14 +1694,14 @@ function renderExtraTable() {
     for (const dim of sortedDims) {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        const rowBg = clasificarCritico(pctAlto).bg;
         html += `<tr style="background:${rowBg};"><td><strong>${dim.name.replace('[Extra] ','')}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
             html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        const badgeClass = clasificarCritico(pctAlto).cls;
         html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
     }
     html += '</tbody></table></div>';
@@ -1699,7 +1732,7 @@ function renderExtraChart() {
 
     const labels = chartDims.map(d => (d.name.replace('[Extra] ', '')).length > 35 ? (d.name.replace('[Extra] ', '')).slice(0, 32) + '...' : d.name.replace('[Extra] ', ''));
     const values = chartDims.map(d => total ? Math.round((((d.risk["Riesgo alto"]||0)+(d.risk["Riesgo muy alto"]||0))/total)*100) : 0);
-    const colors = values.map(v => v >= 50 ? '#ef4444' : v >= 30 ? '#f97316' : v >= 15 ? '#eab308' : '#22c55e');
+    const colors = values.map(v => clasificarCritico(v).color);
 
     state.charts['extraChart'] = new Chart(ctx, {
         type: 'bar',
@@ -1732,7 +1765,7 @@ function renderStressCards() {
         return;
     }
 
-    const pctColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+    const pctColor = (pct) => clasificarCritico(pct).color;
 
     const makeHorizBar = (name, pctAlto) => {
         const barColor = pctColor(pctAlto);
@@ -1799,7 +1832,7 @@ function renderStressCards() {
             const cr = computeStressCatRisk(catFilter);
             if (cr) {
                 const heroColor = pctColor(cr.pctAlto);
-                const heroBg = cr.pctAlto >= 50 ? '#fef2f2' : cr.pctAlto >= 25 ? '#fff7ed' : cr.pctAlto >= 10 ? '#fefce8' : '#f0fdf4';
+                const heroBg = clasificarCritico(cr.pctAlto).bg;
                 html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
                     <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${cr.name}</div>
                     <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${cr.pctAlto}%</div>
@@ -1866,14 +1899,14 @@ function renderStressTable() {
         const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
         const fullTxt = STRESS_QUESTIONS[num] || '';
         const pctAlto = total ? Math.round((((q.risk["Riesgo alto"]||0)+(q.risk["Riesgo muy alto"]||0))/total)*100) : 0;
-        const rowBg = pctAlto >= 85 ? '#f87171' : pctAlto >= 70 ? '#fca5a5' : pctAlto >= 50 ? '#fed7aa' : pctAlto >= 30 ? '#fef08a' : '#bbf7d0';
+        const rowBg = clasificarCritico(pctAlto).bg;
         html += `<tr style="background:${rowBg};"><td><strong title="${fullTxt}">${num}. ${qText(num)}</strong></td>`;
         for (const r of STRESS_ORDER) {
             const v = q.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
             html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
         }
-        const badgeClass = pctAlto >= 85 ? 'risk-rma' : pctAlto >= 70 ? 'risk-ra' : pctAlto >= 50 ? 'risk-rm' : pctAlto >= 30 ? 'risk-rb' : 'risk-sr';
+        const badgeClass = clasificarCritico(pctAlto).cls;
         html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
     }
 
@@ -1925,7 +1958,7 @@ function renderStressChart() {
         return num + '. ' + (txt.length > 35 ? txt.slice(0, 32) + '...' : txt);
     });
     const values = filteredQs.map(q => total ? Math.round((((q.risk["Riesgo alto"]||0)+(q.risk["Riesgo muy alto"]||0))/total)*100) : 0);
-    const colors = values.map(v => v >= 50 ? '#ef4444' : v >= 30 ? '#f97316' : v >= 15 ? '#eab308' : '#22c55e');
+    const colors = values.map(v => clasificarCritico(v).color);
 
     state.charts['stressChart'] = new Chart(ctx, {
         type: 'bar',
@@ -2013,7 +2046,7 @@ function procesarComparativa(file) {
 
 function updateBatteryMeta(id, field, value) {
     const b = state.bateriasComparativa.find(x => x.meta.id === id);
-    if (b) { b.meta[field] = value; actualizarComparativa(); }
+    if (b && b.meta[field] !== value) { b.meta[field] = value; actualizarComparativa(); }
 }
 
 function renderBatteryList() {
@@ -2026,7 +2059,7 @@ function renderBatteryList() {
     }
     listContainer.style.display = 'block';
 
-    const sorted = [...state.bateriasComparativa].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...state.bateriasComparativa].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
 
     container.innerHTML = sorted.map(b => {
         const m = b.meta;
@@ -2034,14 +2067,14 @@ function renderBatteryList() {
         const pctIntra = pctCriticoDist(s.intraGeneral, s.total);
         const pctExtra = pctCriticoDist(s.extraGeneral, s.total);
         const pctStress = pctCriticoDist(s.stress, s.total);
-        const barColor = (pct) => pct >= 50 ? '#ef4444' : pct >= 25 ? '#f97316' : pct >= 10 ? '#eab308' : '#22c55e';
+        const barColor = (pct) => clasificarCritico(pct).color;
         return `<div class="bat-card">
             <div class="bat-card-header">
-                <div class="bat-card-name">
-                    <span>${m.name || ''}</span>
-                    <button class="btn-remove" onclick="event.stopPropagation();eliminarBateria(${m.id})" title="Eliminar" style="margin-left:auto;font-size:14px;">✕</button>
+                <div class="bat-card-name" style="display:flex;align-items:center;gap:6px;">
+                    <input class="bat-name-input" value="${(m.name || '').replace(/"/g,'&quot;')}" onchange="updateBatteryMeta(${m.id},'name',this.value)" onclick="event.stopPropagation();" placeholder="Nombre" style="flex:1;min-width:0;">
+                    <button class="btn-remove" onclick="event.stopPropagation();eliminarBateria(${m.id})" title="Eliminar" style="flex-shrink:0;font-size:14px;">✕</button>
                 </div>
-                <div class="bat-card-year">${m.year || 'Año?'}</div>
+                <div class="bat-card-year"><input class="bat-year-input" value="${m.year || ''}" onchange="updateBatteryMeta(${m.id},'year',this.value)" onclick="event.stopPropagation();" placeholder="Año" style="width:70px;text-align:center;"></div>
                 <div class="bat-card-meta">
                     <span class="tag form-${(m.forma||'').toLowerCase()}">${m.forma || '?'}</span>
                     <span class="tag">${m.totalRows} reg.</span>
@@ -2114,7 +2147,7 @@ function actualizarComparativa() {
 
 function renderTrendCard(baterias) {
     const container = document.getElementById('trendCard');
-    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
     if (sorted.length < 2) { container.style.display = 'none'; return; }
     container.style.display = 'block';
 
@@ -2165,7 +2198,7 @@ function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
     const riskLabels = order.filter(r => allRiskKeys.has(r));
     if (riskLabels.length === 0) return;
 
-    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') < (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
 
     const datasets = sorted.map((b, i) => ({
         label: bLabelShort(b),
@@ -2198,7 +2231,7 @@ function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
 
 function renderHeatmap(baterias) {
     const container = document.getElementById('heatmapContainer');
-    const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
+    const dims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0 && !d.name.startsWith('[Stress]'));
     if (dims.length === 0) { container.innerHTML = '<p style="color:#94a3b8;">Sin datos suficientes</p>'; return; }
 
     let html = '';
@@ -2348,13 +2381,12 @@ function buildComparativaDrillFilters(type, baterias) {
     searchInput.id = 'mfBusqueda';
     searchInput.className = 'mf-search-input';
     searchInput.placeholder = 'Buscar por nombre, ID, cargo...';
+    let debounceTimer;
+    searchInput.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(aplicarFiltrosComparativaDrill, 300);
+    };
     bottomRow.appendChild(searchInput);
-
-    const btnFiltrar = document.createElement('button');
-    btnFiltrar.className = 'btn-filtrar';
-    btnFiltrar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-    btnFiltrar.onclick = aplicarFiltrosComparativaDrill;
-    bottomRow.appendChild(btnFiltrar);
 
     const btnLimpiar = document.createElement('button');
     btnLimpiar.className = 'btn-limpiar';
@@ -2443,13 +2475,14 @@ function rebuildComparativaDimensionOptions(type, baterias) {
     const currentVal = dimSel.value;
     dimSel.innerHTML = '<option value="">Dimensi\u00f3n: Todas</option>';
     const firstSummary = baterias[0] ? baterias[0].summary : null;
-    let dims = firstSummary ? firstSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]')) : [];
+    let dims = firstSummary ? firstSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]')) : [];
     if (domain && DOMAIN_DIMS[domain]) {
         dims = dims.filter(d => DOMAIN_DIMS[domain].includes(d.name));
     }
     dims.sort((a, b) => a.name.localeCompare(b.name)).forEach(d => {
         const opt = document.createElement('option');
-        opt.value = d.name; opt.textContent = d.name;
+        const dimName = d && d.name ? String(d.name) : '';
+        opt.value = dimName; opt.textContent = dimName;
         dimSel.appendChild(opt);
     });
     if (currentVal) dimSel.value = currentVal;
@@ -2507,6 +2540,8 @@ function aplicarFiltrosComparativaDrill() {
 
 function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) {
     const body = document.getElementById('modalBody');
+    destroyChart('comparativaLineChart');
+    destroyChart('comparativaBarChart');
     body.innerHTML = '';
 
     if (!filteredBaterias.length) { body.innerHTML = '<p style="color:#94a3b8;padding:40px;text-align:center;">Sin datos</p>'; return; }
@@ -2516,54 +2551,7 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
     // Normalize: handle both { battery, rows, summary } and raw battery objects
     const baterias = filteredBaterias.map(fb => fb.battery ? fb : { battery: fb, rows: fb.rows, summary: fb.summary });
 
-    // ── Cards with risk bars + % crítico + N ──
-    let cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:18px;">';
-    for (const fb of baterias) {
-        const b = fb.battery;
-        const s = fb.summary;
-        const m = b.meta;
-        const dist = s[summaryKey] || {};
-        const total = riskOrder.reduce((sum, r) => sum + (dist[r] || 0), 0);
-        const critCount = (dist["Riesgo alto"] || 0) + (dist["Riesgo muy alto"] || 0);
-        const critPct = total ? Math.round(critCount / total * 100) : 0;
-        const critColor = critPct >= 50 ? '#ef4444' : critPct >= 25 ? '#f97316' : critPct >= 10 ? '#eab308' : '#22c55e';
-
-        cardsHtml += '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;">';
-
-        // Year with gradient + name
-        cardsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-        cardsHtml += '<div style="font-weight:700;font-size:14px;color:#1e293b;">' + (m.name || '');
-        cardsHtml += ' <span style="background:linear-gradient(135deg,#6366f1,#a78bfa);color:#fff;border-radius:6px;padding:1px 10px;font-size:12px;font-weight:700;display:inline-block;">' + (m.year || '?') + '</span>';
-        cardsHtml += '</div>';
-        cardsHtml += '<div style="font-size:12px;color:#64748b;">N=' + (m.totalRows || total) + '</div>';
-        cardsHtml += '</div>';
-
-        // % crítico prominent
-        cardsHtml += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;padding:8px 12px;background:' + critColor + '15;border-radius:8px;border-left:4px solid ' + critColor + ';">';
-        cardsHtml += '<span style="font-size:26px;font-weight:800;color:' + critColor + ';">' + critPct + '%</span>';
-        cardsHtml += '<span style="font-size:12px;font-weight:600;color:' + critColor + ';">crítico</span>';
-        cardsHtml += '<span style="font-size:12px;color:#64748b;margin-left:auto;">' + critCount + ' de ' + total + ' encuestados</span>';
-        cardsHtml += '</div>';
-
-        // Risk bars
-        for (const r of riskOrder) {
-            const cnt = dist[r] || 0;
-            const pct = total ? Math.round(cnt / total * 100) : 0;
-            const rc = riskColor(r);
-            if (pct > 0) {
-                cardsHtml += '<div class="bat-risk-row" style="margin-bottom:2px;">';
-                cardsHtml += '<span class="lbl" style="font-size:11px;width:90px;">' + r + '</span>';
-                cardsHtml += '<div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:' + pct + '%;background:' + (rc ? rc.bg : '#e2e8f0') + '"></div></div>';
-                cardsHtml += '<span class="pct" style="font-size:11px;color:' + (rc ? rc.text : '#475569') + '">' + pct + '%</span>';
-                cardsHtml += '</div>';
-            }
-        }
-        cardsHtml += '</div>';
-    }
-    cardsHtml += '</div>';
-    body.innerHTML = cardsHtml;
-
-    // ── Heatmap ──
+    // ── Compute shared data ──
     const dimFilter = document.getElementById('mfDimension')?.value;
     const domainFilter = document.getElementById('mfDominio')?.value;
     let availableDims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
@@ -2578,9 +2566,9 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
             return dName === dimFilter;
         });
     }
-    if (availableDims.length === 0) { body.innerHTML += '<p style="color:#94a3b8;">Sin dimensiones</p>'; return; }
+    if (availableDims.length === 0) { body.innerHTML = '<p style="color:#94a3b8;padding:40px;text-align:center;">Sin dimensiones</p>'; return; }
 
-    // Compute critical % per battery per dimension for trend
+    // Compute critical % per battery per dimension
     const critPctMap = {};
     for (const fb of baterias) {
         const id = fb.battery.meta.id;
@@ -2594,50 +2582,229 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
         }
     }
 
-    // Sort batteries by year for trend comparison
-    const sortedBaterias = [...baterias].sort((a, b) => (a.battery.meta.year || '0') < (b.battery.meta.year || '0') ? 1 : -1);
+    // Sort batteries ASC by year (oldest → newest left → right)
+    const sortedBaterias = [...baterias].sort((a, b) => (a.battery.meta.year || '0') > (b.battery.meta.year || '0') ? 1 : -1);
 
-    let html = '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
-    html += '<thead><tr style="background:#f1f5f9;"><th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;font-weight:700;">Dimensión</th>';
-    for (const fb of sortedBaterias) {
-        html += '<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e2e8f0;font-weight:700;white-space:nowrap;">' + bLabelShort(fb.battery) + '</th>';
+    // ── CHART MODE ──
+    if (state._compViewMode === 'chart') {
+        renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, summaryKey, riskOrder);
+        return;
     }
-    html += '<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e2e8f0;font-weight:700;white-space:nowrap;">Tendencia</th>';
+
+    // ── CARDS ──
+    let cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:18px;">';
+    for (const fb of baterias) {
+        const b = fb.battery;
+        const s = fb.summary;
+        const m = b.meta;
+        const dist = s[summaryKey] || {};
+        const distTotal = riskOrder.reduce((sum, r) => sum + (dist[r] || 0), 0);
+        const critCount = (dist["Riesgo alto"] || 0) + (dist["Riesgo muy alto"] || 0);
+        const totalRows = s.total || distTotal;
+        const critPct = totalRows ? Math.round(critCount / totalRows * 100) : 0;
+        const critColor = clasificarCritico(critPct).color;
+
+        cardsHtml += '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;text-align:center;">';
+        cardsHtml += '<div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">' + (m.name || 'Sin nombre') + '</div>';
+        cardsHtml += '<div style="margin-bottom:12px;"><span style="background:linear-gradient(135deg,#6366f1,#a78bfa);color:#fff;border-radius:6px;padding:2px 14px;font-size:12px;font-weight:700;display:inline-block;">' + (m.year || '?') + '</span></div>';
+        cardsHtml += '<div style="margin-bottom:2px;font-size:34px;font-weight:800;color:' + critColor + ';line-height:1.1;">' + critPct + '%</div>';
+        cardsHtml += '<div style="font-size:12px;font-weight:600;color:' + critColor + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Crítico</div>';
+        cardsHtml += '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">👤 ' + totalRows + ' encuestados</div>';
+        cardsHtml += '<div style="height:1px;background:#e2e8f0;margin-bottom:10px;"></div>';
+        cardsHtml += '<div style="text-align:left;">';
+        for (const r of riskOrder) {
+            const cnt = dist[r] || 0;
+            const pct = distTotal ? Math.round(cnt / distTotal * 100) : 0;
+            const rc = riskColor(r);
+            if (pct > 0) {
+                cardsHtml += '<div class="bat-risk-row" style="margin-bottom:2px;">';
+                cardsHtml += '<span class="lbl" style="font-size:11px;width:90px;">' + r + '</span>';
+                cardsHtml += '<div class="bat-risk-bar-bg"><div class="bat-risk-bar-fill" style="width:' + pct + '%;background:' + (rc ? rc.bg : '#e2e8f0') + '"></div></div>';
+                cardsHtml += '<span class="pct" style="font-size:11px;color:' + (rc ? rc.text : '#475569') + '">' + pct + '%</span>';
+                cardsHtml += '</div>';
+            }
+        }
+        cardsHtml += '</div></div>';
+    }
+    cardsHtml += '</div>';
+    body.innerHTML = cardsHtml;
+
+    // ── Sort dimensions ──
+    const sortedDims = [...availableDims];
+    if (state._compSortCol) {
+        sortedDims.sort((a, b) => {
+            let va, vb;
+            if (state._compSortCol === 'dim') {
+                va = a.name; vb = b.name;
+                return va.localeCompare(vb) * state._compSortDir;
+            } else if (state._compSortCol === 'trend') {
+                const ni = sortedBaterias.length - 1, oi = sortedBaterias.length - 2;
+                if (oi < 0) return 0;
+                const idN = sortedBaterias[ni]?.battery?.meta?.id;
+                const idO = sortedBaterias[oi]?.battery?.meta?.id;
+                va = (critPctMap[idN]?.[a.name] || 0) - (critPctMap[idO]?.[a.name] || 0);
+                vb = (critPctMap[idN]?.[b.name] || 0) - (critPctMap[idO]?.[b.name] || 0);
+                return (va - vb) * state._compSortDir;
+            } else {
+                va = critPctMap[state._compSortCol]?.[a.name] || 0;
+                vb = critPctMap[state._compSortCol]?.[b.name] || 0;
+                return (va - vb) * state._compSortDir;
+            }
+        });
+    }
+
+    // ── Heatmap with sortable headers ──
+    const sortInd = (col) => state._compSortCol === col ? (state._compSortDir === 1 ? ' ▴' : ' ▾') : '';
+
+    let html = '<div class="table-wrap" style="margin-top:12px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    html += '<thead><tr style="background:#f1f5f9;">';
+    html += '<th onclick="sortComparativaHeatmap(\'dim\')" style="cursor:pointer;padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;color:#475569;user-select:none;">Dimensión' + sortInd('dim') + '</th>';
+    for (const fb of sortedBaterias) {
+        const colId = fb.battery.meta.id;
+        const bLabel = (fb.battery.meta.year || '') + ' ' + (fb.battery.meta.name || '').substring(0,12);
+        html += '<th onclick="sortComparativaHeatmap(\'' + colId + '\')" style="cursor:pointer;padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:600;font-size:11px;white-space:nowrap;color:#475569;user-select:none;">' + bLabel.trim() + sortInd(colId) + '</th>';
+    }
+    html += '<th onclick="sortComparativaHeatmap(\'trend\')" style="cursor:pointer;padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:600;font-size:11px;white-space:nowrap;color:#475569;user-select:none;">Tendencia' + sortInd('trend') + '</th>';
     html += '</tr></thead><tbody>';
 
-    for (const dim of availableDims) {
-        html += '<tr><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b;">' + dim.name + '</td>';
+    let rowNum = 0;
+    for (const dim of sortedDims) {
+        const rowBg = rowNum % 2 === 0 ? '#fff' : '#f8fafc';
+        html += '<tr style="background:' + rowBg + ';"><td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b;font-size:12px;">' + dim.name + '</td>';
         for (const fb of sortedBaterias) {
             const match = fb.summary.dimensions.find(dd => dd.name === dim.name);
             const riskDist = match ? match.risk : {};
             const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '-');
-            const rc = riskColor(dominantRisk);
             const total = Object.values(riskDist).reduce((a, b) => a + b, 0);
             const crit = (riskDist["Riesgo alto"] || 0) + (riskDist["Riesgo muy alto"] || 0);
-            const critPct = total ? Math.round(crit / total * 100) : 0;
-            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;background:' + (rc ? rc.bg : '#e2e8f0') + ';color:' + (rc ? rc.text : '#475569') + ';font-weight:600;">';
-            html += dominantRisk + '<br><span style="font-size:12px;font-weight:700;">' + critPct + '% crítico</span>';
+            const cp = total ? Math.round(crit / total * 100) : 0;
+            const baremo = clasificarCritico(cp);
+            html += '<td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center;background:' + baremo.bg + ';">';
+            html += '<span style="font-weight:600;font-size:11px;color:' + baremo.color + ';">' + dominantRisk + '</span>';
+            html += '<br><span style="font-size:10px;color:' + baremo.color + ';font-weight:500;">' + cp + '% crit.</span>';
             html += '</td>';
         }
 
-        // Trend column: compare last two batteries
+        // Trend column (compare rightmost = newest vs second-to-last)
         if (sortedBaterias.length >= 2) {
-            const first = critPctMap[sortedBaterias[0].battery.meta.id]?.[dim.name] || 0;
-            const second = critPctMap[sortedBaterias[1].battery.meta.id]?.[dim.name] || 0;
+            const ni = sortedBaterias.length - 1, oi = sortedBaterias.length - 2;
+            const newest = critPctMap[sortedBaterias[ni].battery.meta.id]?.[dim.name] || 0;
+            const older = critPctMap[sortedBaterias[oi].battery.meta.id]?.[dim.name] || 0;
             let arrow, arrowColor;
-            if (second > first) { arrow = '↑'; arrowColor = '#ef4444'; }
-            else if (second < first) { arrow = '↓'; arrowColor = '#22c55e'; }
+            if (newest > older) { arrow = '↑'; arrowColor = '#ef4444'; }
+            else if (newest < older) { arrow = '↓'; arrowColor = '#22c55e'; }
             else { arrow = '→'; arrowColor = '#94a3b8'; }
-            const diff = second - first;
-            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;font-size:16px;color:' + arrowColor + ';">' + arrow + ' <span style="font-size:12px;">' + (diff > 0 ? '+' : '') + diff + '%</span></td>';
+            const diff = newest - older;
+            html += '<td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;font-size:13px;color:' + arrowColor + ';">' + arrow + ' <span style="font-size:10px;font-weight:600;">' + (diff > 0 ? '+' : '') + diff + '%</span></td>';
         } else {
-            html += '<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#94a3b8;">—</td>';
+            html += '<td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center;color:#94a3b8;font-size:11px;">—</td>';
         }
 
         html += '</tr>';
+        rowNum++;
     }
     html += '</tbody></table></div>';
     body.innerHTML += html;
+}
+
+function renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, summaryKey, riskOrder) {
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '';
+
+    // ── Bar chart: dimensions grouped by battery ──
+    const dimLabels = availableDims.map(d => d.name.length > 30 ? d.name.substring(0, 27) + '...' : d.name);
+    const barDatasets = sortedBaterias.map((fb, i) => ({
+        label: (fb.battery.meta.year || '') + ' ' + (fb.battery.meta.name || '').substring(0,10),
+        data: availableDims.map(dim => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        borderWidth: 1,
+        borderRadius: 3
+    }));
+
+    const barCanvas = document.createElement('canvas');
+    barCanvas.id = 'comparativaBarChart';
+    barCanvas.style.width = '100%';
+    barCanvas.style.height = '300px';
+    barCanvas.style.marginBottom = '16px';
+    body.appendChild(barCanvas);
+
+    destroyChart('comparativaBarChart');
+    state.charts['comparativaBarChart'] = new Chart(barCanvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels: dimLabels, datasets: barDatasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { font: { size: 9 } }, grid: { display: false } },
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' }, title: { display: true, text: '% Crítico', font: { size: 11 } } }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%' } }
+            }
+        }
+    });
+
+    // ── Line chart: dimension trend ──
+    const lineCanvas = document.createElement('canvas');
+    lineCanvas.id = 'comparativaLineChart';
+    lineCanvas.style.width = '100%';
+    lineCanvas.style.height = '400px';
+    body.appendChild(lineCanvas);
+
+    const ctx = lineCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const labels = sortedBaterias.map(fb => fb.battery.meta.year || fb.battery.meta.name || '?');
+
+    const datasets = availableDims.map((dim, i) => ({
+        label: dim.name.length > 30 ? dim.name.substring(0, 27) + '...' : dim.name,
+        data: sortedBaterias.map(fb => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
+        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2,
+        tension: 0.3,
+        fill: false
+    }));
+
+    destroyChart('comparativaLineChart');
+    state.charts['comparativaLineChart'] = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: {
+                    ticks: { font: { size: 11, weight: 'bold' } },
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { font: { size: 11 }, callback: v => v + '%' },
+                    grid: { color: '#f1f5f9' },
+                    title: { display: true, text: '% Crítico', font: { size: 12 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { size: 10 }, boxWidth: 14, padding: 12 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%'
+                    }
+                }
+            }
+        }
+    });
 }
 
 function renderComparisonTable(baterias) {
