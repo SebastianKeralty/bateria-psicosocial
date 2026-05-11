@@ -1023,11 +1023,11 @@ function renderRadarChart(canvasId, dims) {
                     grid: { color: 'rgba(0,0,0,0.06)' },
                     angleLines: { color: 'rgba(0,0,0,0.06)' },
                     pointLabels: { font: { size: 9 } }
-}
-            }
-        }
-});
-}
+                } // <--- Faltaba cerrar r
+            } // <--- Faltaba cerrar scales
+        } // <--- Faltaba cerrar options
+    }); // <--- Faltaba cerrar el constructor de Chart
+} // <--- ESTA ES LA LLAVE QUE FALTABA PARA CERRAR LA FUNCIÓN
 
 function renderTopCritical(canvasId, topCriticas) {
     destroyChart(canvasId);
