@@ -79,16 +79,37 @@ const stressCategories = {
 };
 const stress4Order = ["Dato perdido","Sin riesgo","Riesgo medio","Riesgo alto","Riesgo muy alto"];
 
+function normalizeColumnName(name) {
+    if (!name) return "";
+    return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function findColumnValue(row, targetName) {
+    const normTarget = normalizeColumnName(targetName);
+    for (let key in row) {
+        if (normalizeColumnName(key) === normTarget) return row[key];
+    }
+    return undefined;
+}
+
 function procesarFormaB(data) {
     const categorias = ['CIRUGIA', 'CONSULTA EXTERNA', 'DIRECCION ADMINISTRATIVA', 'HOSPITALIZACION', 'ONCOLOGIA', 'UNIDAD DE CUIDADOS INTENSIVOS', 'URGENCIAS', 'CARDIOLOGIA', 'CENTRAL DE MEZCLAS FARMACEUTICAS', 'CENTRAL DE SEGURIDAD', 'CUIDADO PALIATIVO', 'DIRECCION MEDICA', 'GASTROENTEROLOGIA', 'HEMODINAMIA', 'IMAGENOLOGIA', 'OTROS PROCEDIMIENTOS TERAPEUTICOS', 'REHABILITACION CARDIACA', 'TPR (TRABAJO DE PARTOS Y RECUPERACION)', 'TRANSPLANTE RENAL', 'UNIDAD DE CUIDADO DE HEMATOLO ONCOLOGIA', 'UNIDAD DE CUIDADO INTENSIVO', 'UNIDAD DE CUIDADO NEONATAL', 'UNIDAD DE TRASPLANTE MEDULA OSEA', 'VICEPRESIDENCIA DE INFRAESTRUCTURA', 'VPDH- DESARROLLO HUMANO', 'VPE-GCIA DE SALUD'];
 
     let df = JSON.parse(JSON.stringify(data));
     df = df.filter(row => {
-        if (!row["Unidad de Análisis"] || String(row["Unidad de Análisis"]).trim() === "") return false;
-        if (row.hasOwnProperty("val_consulta") && String(row["val_consulta"]).trim() === "0") return false;
+        const unidad = findColumnValue(row, "Unidad de Análisis") || findColumnValue(row, "Unidad de Analisis");
+        if (!unidad || String(unidad).trim() === "") return false;
+        
+        const valCons = findColumnValue(row, "val_consulta");
+        if (valCons !== undefined && String(valCons).trim() === "0") return false;
+        
         return true;
     });
     for (let row of df) {
+        // Ensure standard column names exist for later logic
+        const unidadOriginal = findColumnValue(row, "Unidad de Análisis");
+        row["Unidad de Análisis"] = unidadOriginal;
+
         row["_forma"] = "B";
         row["Val consulta"] = categorias.includes(row["Unidad de Análisis"]) ? 1 : 0;
 
@@ -293,11 +314,19 @@ function procesarFormaB(data) {
 function procesarFormaA(data) {
     let df = JSON.parse(JSON.stringify(data));
     df = df.filter(row => {
-        if (!row["Unidad de Análisis"] || String(row["Unidad de Análisis"]).trim() === "") return false;
-        if (row.hasOwnProperty("val_consulta") && String(row["val_consulta"]).trim() === "0") return false;
+        const unidad = findColumnValue(row, "Unidad de Análisis") || findColumnValue(row, "Unidad de Analisis");
+        if (!unidad || String(unidad).trim() === "") return false;
+        
+        const valCons = findColumnValue(row, "val_consulta");
+        if (valCons !== undefined && String(valCons).trim() === "0") return false;
+        
         return true;
     });
     for (let row of df) {
+        // Ensure standard column names exist for later logic
+        const unidadOriginal = findColumnValue(row, "Unidad de Análisis");
+        row["Unidad de Análisis"] = unidadOriginal;
+
         row["_forma"] = "A";
         let nums_normales_intra = [1, 2, 3, 7, 8, 10, 11, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33, 35, 36, 37, 38, 52, 80];
         for (let i = 1; i <= 105; i++) {
@@ -710,25 +739,34 @@ function procesarExcel(arrayBuffer, fileName) {
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     let result = { meta: { fileName, forma: '', totalRows: 0 }, rows: [], summary: null };
 
-    if (workbook.Sheets["FORMA B digitacion"]) {
-        const data = XLSX.utils.sheet_to_json(workbook.Sheets["FORMA B digitacion"], { defval: "" });
+    // Find sheet names case-insensitively
+    const findSheet = (pattern) => {
+        const lowerPattern = pattern.toLowerCase();
+        return workbook.SheetNames.find(s => s.toLowerCase().includes(lowerPattern));
+    };
+
+    const sheetB = findSheet("FORMA B digitacion") || findSheet("FORMA B");
+    const sheetA = findSheet("FORMA A Digitacion") || findSheet("FORMA A");
+
+    if (sheetB) {
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetB], { defval: "" });
         result.rows = procesarFormaB(data);
         result.meta.forma = 'B';
-        result.meta.totalRows = result.rows.length;
     }
-    if (workbook.Sheets["FORMA A Digitacion"]) {
-        const data = XLSX.utils.sheet_to_json(workbook.Sheets["FORMA A Digitacion"], { defval: "" });
+    
+    if (sheetA) {
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetA], { defval: "" });
         const processedA = procesarFormaA(data);
         if (result.rows.length > 0) {
             result.rows = result.rows.concat(processedA);
-            result.meta.forma = 'AB';
+            result.meta.forma = result.meta.forma === 'B' ? 'AB' : 'A';
         } else {
             result.rows = processedA;
             result.meta.forma = 'A';
         }
-        result.meta.totalRows = result.rows.length;
     }
 
+    result.meta.totalRows = result.rows.length;
     result.summary = computeSummary(result.rows);
     return result;
 }
