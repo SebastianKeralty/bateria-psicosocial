@@ -2557,6 +2557,21 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
     let availableDims = baterias[0].summary.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0);
     if (drillType === 'intra') availableDims = availableDims.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
     else if (drillType === 'extra') availableDims = availableDims.filter(d => d.name.startsWith('[Extra]'));
+    else if (drillType === 'stress') {
+        availableDims = availableDims.filter(d => d.name.startsWith('[Stress]'));
+        const questions = baterias[0].summary.stressQuestions || [];
+        for (const q of questions) {
+            const num = parseInt(q.name.replace('Estrés ', ''));
+            const text = STRESS_QUESTIONS[num] || '';
+            availableDims.push({
+                name: q.name,
+                fullName: `${num}. ${text}`,
+                risk: q.risk,
+                avgT: null,
+                _isStressQuestion: true
+            });
+        }
+    }
     if (domainFilter && DOMAIN_DIMS[domainFilter]) {
         availableDims = availableDims.filter(d => DOMAIN_DIMS[domainFilter].includes(d.name));
     }
@@ -2574,7 +2589,12 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
         const id = fb.battery.meta.id;
         critPctMap[id] = {};
         for (const dim of availableDims) {
-            const match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            let match;
+            if (dim._isStressQuestion) {
+                match = fb.summary.stressQuestions.find(q => q.name === dim.name);
+            } else {
+                match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            }
             const riskDist = match ? match.risk : {};
             const total = Object.values(riskDist).reduce((a, b) => a + b, 0);
             const crit = (riskDist["Riesgo alto"] || 0) + (riskDist["Riesgo muy alto"] || 0);
@@ -2604,7 +2624,7 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
         const critPct = totalRows ? Math.round(critCount / totalRows * 100) : 0;
         const critColor = clasificarCritico(critPct).color;
 
-        cardsHtml += '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;text-align:center;">';
+        cardsHtml += '<div class="drill-card">';
         cardsHtml += '<div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">' + (m.name || 'Sin nombre') + '</div>';
         cardsHtml += '<div style="margin-bottom:12px;"><span style="background:linear-gradient(135deg,#6366f1,#a78bfa);color:#fff;border-radius:6px;padding:2px 14px;font-size:12px;font-weight:700;display:inline-block;">' + (m.year || '?') + '</span></div>';
         cardsHtml += '<div style="margin-bottom:2px;font-size:34px;font-weight:800;color:' + critColor + ';line-height:1.1;">' + critPct + '%</div>';
@@ -2670,9 +2690,15 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
     let rowNum = 0;
     for (const dim of sortedDims) {
         const rowBg = rowNum % 2 === 0 ? '#fff' : '#f8fafc';
-        html += '<tr style="background:' + rowBg + ';"><td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b;font-size:12px;">' + dim.name + '</td>';
+        const displayName = dim.fullName || dim.name;
+        html += '<tr style="background:' + rowBg + ';"><td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b;font-size:12px;">' + displayName + '</td>';
         for (const fb of sortedBaterias) {
-            const match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            let match;
+            if (dim._isStressQuestion) {
+                match = fb.summary.stressQuestions.find(q => q.name === dim.name);
+            } else {
+                match = fb.summary.dimensions.find(dd => dd.name === dim.name);
+            }
             const riskDist = match ? match.risk : {};
             const dominantRisk = orderRiskKeys(riskDist).reduce((a, b) => (riskDist[a]||0) > (riskDist[b]||0) ? a : b, '-');
             const total = Object.values(riskDist).reduce((a, b) => a + b, 0);
@@ -2712,7 +2738,10 @@ function renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, s
     body.innerHTML = '';
 
     // ── Bar chart: dimensions grouped by battery ──
-    const dimLabels = availableDims.map(d => d.name.length > 30 ? d.name.substring(0, 27) + '...' : d.name);
+    const dimLabels = availableDims.map(d => {
+        const label = d.fullName || d.name;
+        return label.length > 30 ? label.substring(0, 27) + '...' : label;
+    });
     const barDatasets = sortedBaterias.map((fb, i) => ({
         label: (fb.battery.meta.year || '') + ' ' + (fb.battery.meta.name || '').substring(0,10),
         data: availableDims.map(dim => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
@@ -2758,8 +2787,10 @@ function renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, s
 
     const labels = sortedBaterias.map(fb => fb.battery.meta.year || fb.battery.meta.name || '?');
 
-    const datasets = availableDims.map((dim, i) => ({
-        label: dim.name.length > 30 ? dim.name.substring(0, 27) + '...' : dim.name,
+    const datasets = availableDims.map((dim, i) => {
+        const label = dim.fullName || dim.name;
+        return {
+            label: label.length > 30 ? label.substring(0, 27) + '...' : label,
         data: sortedBaterias.map(fb => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
         borderColor: CHART_COLORS[i % CHART_COLORS.length],
         backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
@@ -2769,7 +2800,8 @@ function renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, s
         borderWidth: 2,
         tension: 0.3,
         fill: false
-    }));
+    };
+});
 
     destroyChart('comparativaLineChart');
     state.charts['comparativaLineChart'] = new Chart(ctx, {
