@@ -312,22 +312,37 @@
 
         .upload-area {
             border: 2px dashed #cbd5e1;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 48px 24px;
             text-align: center;
-            background: #fafbfc;
-            transition: all 0.25s ease;
+            background: linear-gradient(135deg, #fafbfc, #f8faff);
+            transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             cursor: pointer;
             position: relative;
+            overflow: hidden;
         }
         .upload-area:hover {
-            border-color: #3b82f6;
-            background: #f0f5ff;
+            border-color: #6366f1;
+            background: linear-gradient(135deg, #f0f5ff, #f5f3ff);
+            box-shadow: 0 4px 24px rgba(99, 102, 241, 0.08);
         }
         .upload-area.drag-over {
-            border-color: #2563eb;
-            background: #e8f0fe;
+            border-color: #4f46e5;
+            background: linear-gradient(135deg, #eef2ff, #ede9fe);
             border-style: solid;
+            box-shadow: 0 4px 32px rgba(99, 102, 241, 0.15);
+        }
+        .upload-area.loading {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .upload-area.loading::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: loadingPulse 1.5s ease-in-out infinite;
+            pointer-events: none;
         }
         .upload-area input[type="file"] {
             position: absolute;
@@ -344,14 +359,94 @@
 
         .status-msg {
             margin-top: 10px;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 16px;
+            border-radius: 10px;
             font-size: 13px;
+            font-weight: 600;
             display: none;
+            position: relative;
         }
-        .status-msg.success { display: block; background: #dcfce7; color: #166534; }
-        .status-msg.error { display: block; background: #fce4ec; color: #c62828; }
-        .status-msg.info { display: block; background: #e8f0fe; color: #1a73e8; }
+        .status-msg.success {
+            display: block;
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #166534;
+            border: 1px solid rgba(22, 101, 52, 0.15);
+        }
+        .status-msg.error {
+            display: block;
+            background: linear-gradient(135deg, #fce4ec, #fbc4c4);
+            color: #c62828;
+            border: 1px solid rgba(198, 40, 40, 0.15);
+        }
+        .status-msg.info {
+            display: block;
+            background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+            color: #5b21b6;
+            border: 1px solid rgba(91, 33, 182, 0.15);
+        }
+        .status-msg.info .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(91, 33, 182, 0.2);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: compSpin 0.7s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes compSpin { to { transform: rotate(360deg); } }
+        .loading-skeleton {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 24px;
+            margin-top: 16px;
+            padding: 4px;
+        }
+        .loading-skeleton .sk-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8faff 50%, #fef7ff 100%);
+            border-radius: 20px;
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            padding: 20px 22px;
+            box-shadow: 0 4px 24px rgba(99, 102, 241, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        .loading-skeleton .sk-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+            background-size: 200% 100%;
+            animation: shimmerBorder 4s ease-in-out infinite;
+            border-radius: 20px 20px 0 0;
+        }
+        .loading-skeleton .sk-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: loadingPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes loadingPulse {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .loading-skeleton .sk-line {
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
+            background-size: 200% 100%;
+            animation: skeletonShimmer 1.5s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+        .loading-skeleton .sk-line.short { width: 60%; }
+        .loading-skeleton .sk-line.med { width: 80%; }
+        .loading-skeleton .sk-line.bar { height: 16px; width: 100%; border-radius: 8px; }
+        @keyframes skeletonShimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
 
         .cards-row {
             display: grid;
@@ -382,15 +477,24 @@
             gap: 16px;
         }
         .chart-card {
-            background: white;
-            border-radius: 10px;
-            padding: 16px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            background: linear-gradient(145deg, #ffffff, #f8faff);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 2px 12px rgba(99,102,241,0.04);
             cursor: pointer;
-            transition: box-shadow 0.2s, transform 0.15s;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
             position: relative;
+            border: 1px solid rgba(99, 102, 241, 0.08);
+            overflow: hidden;
         }
-        .chart-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-2px); }
+        .chart-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            border-radius: 16px 16px 0 0;
+        }
+        .chart-card:hover { box-shadow: 0 12px 40px rgba(99,102,241,0.10); transform: translateY(-3px); border-color: rgba(99, 102, 241, 0.15); }
         .chart-card .click-hint {
             position: absolute;
             top: 12px;
@@ -522,47 +626,49 @@
         .battery-item .actions { display: flex; gap: 8px; }
         .battery-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; }
         .btn-remove {
-            background: none;
-            border: none;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.15);
             color: #ef4444;
             cursor: pointer;
-            font-size: 18px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: background 0.2s;
+            font-size: 14px;
+            padding: 2px 10px;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            font-weight: 700;
+            line-height: 1.4;
         }
-        .btn-remove:hover { background: #fce4ec; }
+        .btn-remove:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+            transform: scale(1.05);
+        }
         .btn-clear {
-            background: #ef4444;
+            background: linear-gradient(135deg, #ef4444, #f87171);
             color: white;
             border: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 13px;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+            letter-spacing: 0.3px;
         }
-        .btn-clear:hover { background: #dc2626; }
+        .btn-clear:hover {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+        }
 
         .heatmap-grid {
             display: grid;
             gap: 2px;
             margin-top: 8px;
         }
-        .hm-cell {
-            padding: 6px 8px;
-            text-align: center;
-            font-size: 12px;
-            font-weight: 500;
-            border-radius: 4px;
-            min-height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .hm-label { font-weight: 600; color: #1e293b; font-size: 12px; padding: 4px 8px; text-align: left; }
 
-        .risk-sr { background: #bbf7d0; color: #166534; }
-        .risk-rb { background: #fef08a; color: #854d0e; }
+        .risk-sr { background: #e0f2fe; color: #0369a1; }
+        .risk-rb { background: #ccfbf1; color: #0f766e; }
         .risk-rm { background: #fed7aa; color: #9a3412; }
         .risk-ra { background: #fca5a5; color: #991b1b; }
         .risk-rma { background: #f87171; color: #7f1d1d; font-weight: 700; }
@@ -575,6 +681,7 @@
             border-radius: 10px;
             font-size: 11px;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .placeholder { text-align: center; padding: 40px; color: #94a3b8; }
@@ -881,40 +988,75 @@
         .bat-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-            gap: 16px;
-            margin-top: 10px;
+            gap: 24px;
+            margin-top: 16px;
+            padding: 4px;
         }
         .bat-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
+            background: linear-gradient(145deg, #ffffff 0%, #f8faff 50%, #fef7ff 100%);
+            border-radius: 20px;
+            border: 1px solid rgba(99, 102, 241, 0.12);
             overflow: hidden;
-            transition: box-shadow 0.2s, transform 0.15s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
             display: flex;
             flex-direction: column;
+            position: relative;
+            box-shadow:
+                0 4px 24px rgba(99, 102, 241, 0.06),
+                0 1px 4px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+        .bat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+            background-size: 200% 100%;
+            animation: shimmerBorder 4s ease-in-out infinite;
+            z-index: 2;
+            border-radius: 20px 20px 0 0;
+        }
+        @keyframes shimmerBorder {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
         }
         .bat-card:hover {
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
+            transform: translateY(-8px) scale(1.015);
+            box-shadow:
+                0 24px 80px rgba(99, 102, 241, 0.15),
+                0 10px 24px rgba(0, 0, 0, 0.06);
+            border-color: rgba(99, 102, 241, 0.25);
         }
         .drill-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            padding: 16px;
+            background: linear-gradient(145deg, #ffffff, #f8faff);
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            padding: 18px;
             text-align: center;
-            transition: box-shadow 0.2s, transform 0.15s;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 2px 12px rgba(99,102,241,0.04);
+            position: relative;
+            overflow: hidden;
         }
         .drill-card:hover {
-            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(99,102,241,0.12);
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.2);
         }
         .bat-card-header {
-            padding: 14px 16px 10px;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 20px 22px 14px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+            background: linear-gradient(135deg,
+                rgba(99, 102, 241, 0.04) 0%,
+                rgba(168, 85, 247, 0.06) 50%,
+                rgba(236, 72, 153, 0.03) 100%);
+            position: relative;
         }
         .bat-card-name {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
             color: #1e293b;
             white-space: nowrap;
@@ -922,86 +1064,132 @@
             text-overflow: ellipsis;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
         .bat-card-year {
             font-size: 12px;
             font-weight: 600;
             color: #64748b;
-            margin-top: 3px;
+            margin-top: 4px;
+            letter-spacing: 0.3px;
         }
         .bat-card-meta {
             display: flex;
-            gap: 4px;
-            margin-top: 5px;
+            gap: 6px;
+            margin-top: 8px;
             flex-wrap: wrap;
         }
         .bat-card-meta .tag {
             font-size: 11px;
             font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 10px;
-            background: #eef2ff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
             color: #4338ca;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
         }
-        .bat-card-meta .tag.form-b { background: #dcfce7; color: #166534; }
-        .bat-card-meta .tag.form-a { background: #fef3c7; color: #92400e; }
+        .bat-card-meta .tag.form-b {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #166534;
+            border-color: rgba(22, 101, 52, 0.15);
+        }
+        .bat-card-meta .tag.form-a {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            border-color: rgba(146, 64, 14, 0.15);
+        }
         .bat-card-body {
-            padding: 10px 16px 12px;
+            padding: 14px 22px 16px;
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 10px;
         }
         .bat-risk-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
         .bat-risk-row .lbl {
             font-size: 12px;
             color: #475569;
             width: 72px;
             flex-shrink: 0;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .bat-risk-bar-bg {
             flex: 1;
-            height: 12px;
-            background: #f1f5f9;
-            border-radius: 6px;
+            height: 16px;
+            background: linear-gradient(90deg, #f1f5f9, #e2e8f0);
+            border-radius: 8px;
             overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
         }
         .bat-risk-bar-fill {
             height: 100%;
-            border-radius: 6px;
-            transition: width 0.4s ease;
+            border-radius: 8px;
+            transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .bat-risk-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: barShimmer 2.5s ease-in-out infinite;
+        }
+        @keyframes barShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
         .bat-risk-row .pct {
-            font-size: 12px;
-            font-weight: 700;
-            width: 40px;
+            font-size: 13px;
+            font-weight: 800;
+            width: 44px;
             text-align: right;
+            font-variant-numeric: tabular-nums;
         }
         .bat-card-footer {
-            padding: 8px 16px;
-            background: #f8fafc;
-            font-size: 11px;
+            padding: 10px 22px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.03), rgba(168, 85, 247, 0.04));
+            font-size: 12px;
+            font-weight: 600;
             color: #64748b;
-            border-top: 1px solid #f1f5f9;
+            border-top: 1px solid rgba(99, 102, 241, 0.06);
             text-align: center;
+            letter-spacing: 0.3px;
         }
         /* Trend card */
         .bat-trend-card {
-            background: #fff;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            padding: 16px;
-            margin-bottom: 16px;
+            background: linear-gradient(145deg, #ffffff, #f8faff);
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(99,102,241,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .bat-trend-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            border-radius: 16px 16px 0 0;
         }
         .bat-trend-card h3 {
-            font-size: 14px;
-            margin-bottom: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 14px;
         }
         .trend-row {
             display: flex;
@@ -1022,38 +1210,26 @@
         .trend-row .trend-arrow.up { color: #ef4444; }
         .trend-row .trend-arrow.down { color: #22c55e; }
         .trend-row .trend-arrow.flat { color: #94a3b8; }
-        /* Per-battery heatmap block */
-        .hm-battery-block {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-        .hm-battery-block h4 {
-            font-size: 13px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-        .hm-battery-grid {
-            display: grid;
-            gap: 2px;
-        }
         .bat-name-input, .bat-year-input {
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            padding: 3px 6px;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            border-radius: 8px;
+            padding: 5px 10px;
             font-size: 13px;
             font-weight: 600;
             color: #1e293b;
-            background: #f8fafc;
-            transition: border-color 0.15s, background 0.15s;
+            background: rgba(255,255,255,0.8);
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(4px);
+        }
+        .bat-name-input:hover, .bat-year-input:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(255,255,255,0.95);
         }
         .bat-name-input:focus, .bat-year-input:focus {
             border-color: #6366f1;
             background: #fff;
             outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         /* ===== RESPONSIVE ===== */
         @media (max-width: 800px) {
@@ -1198,7 +1374,7 @@
                     </div>
                     <div class="main-text">Arrastra un archivo .xlsx aqu&iacute;</div>
                     <div class="sub-text">o haz clic para seleccionar</div>
-                    <input type="file" id="comparativaFile" accept=".xlsx,.xls">
+                    <input type="file" id="comparativaFile" accept=".xlsx,.xls" multiple>
                 </div>
                 <div id="compStatus" class="status-msg"></div>
                 <div id="batteryListContainer" style="margin-top:12px;display:none;">
@@ -1213,10 +1389,6 @@
                     <div class="chart-card full" onclick="abrirDrillComparativa('intra')"><h3>Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
                     <div class="chart-card full" onclick="abrirDrillComparativa('extra')"><h3>Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
                     <div class="chart-card full" onclick="abrirDrillComparativa('stress')"><h3>Estr&eacute;s</h3><canvas id="groupedStress"></canvas></div>
-                </div>
-                <div class="card" id="heatmapCard">
-                    <h2>Mapa de calor por bater&iacute;a</h2>
-                    <div id="heatmapContainer"></div>
                 </div>
                 <div class="card">
                     <h2>Tabla comparativa</h2>

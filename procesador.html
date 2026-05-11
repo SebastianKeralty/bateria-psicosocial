@@ -244,24 +244,21 @@ function procesarFormaB(data) {
             }
         }
 
-        // Stress categories (moda)
-        for (const [catName, questions] of Object.entries(stressCategories)) {
-            const levels = questions.map(i => row[`Estrés ${i} (I)`]);
-            const freq = {};
-            for (const lv of levels) freq[lv] = (freq[lv] || 0) + 1;
-            let maxCount = 0, bestIdx = 0;
-            for (const [lv, cnt] of Object.entries(freq)) {
-                const idx = stress4Order.indexOf(lv);
-                if (cnt > maxCount || (cnt === maxCount && idx > bestIdx)) {
-                    maxCount = cnt;
-                    bestIdx = idx;
-                }
-            }
-            row[`${catName} (I)`] = stress4Order[bestIdx];
+        // Stress categories (T-score based)
+        const rangos_estres_4 = [[0, 11.8, "Sin riesgo"], [11.8, 17, "Riesgo medio"], [17, 23.4, "Riesgo alto"], [23.4, 100, "Riesgo muy alto"]];
+        const stressCatPROMs = [
+            { name: 'Síntomas Fisiológicos', prom: 'PROM 1-8', maxPROM: 25.5 },
+            { name: 'Síntomas de Comportamiento Social', prom: 'PROM 9-12', maxPROM: 18 },
+            { name: 'Síntomas Intelectuales y Laborales', prom: 'PROM 13-22', maxPROM: 12 },
+            { name: 'Síntomas Psicoemocionales', prom: 'PROM 23-31', maxPROM: 5.667 }
+        ];
+        for (const cp of stressCatPROMs) {
+            const promVal = parseFloat(row[cp.prom]);
+            const tScore = promVal > 0 ? (promVal / cp.maxPROM) * 100 : 0;
+            row[`${cp.name} (I)`] = clasificarRiesgo(tScore, rangos_estres_4);
         }
 
         // Interpretación global (4 levels)
-        const rangos_estres_4 = [[0, 11.8, "Sin riesgo"], [11.8, 17, "Riesgo medio"], [17, 23.4, "Riesgo alto"], [23.4, 100, "Riesgo muy alto"]];
         row['Interpretación'] = clasificarRiesgo(row['Puntaje Bruto Total (T) Estres'], rangos_estres_4);
     }
 
@@ -472,26 +469,24 @@ function procesarFormaA(data) {
             }
         }
 
-        // Stress categories (moda)
-        for (const [catName, questions] of Object.entries(stressCategories)) {
-            const levels = questions.map(i => row[`Estrés ${i} (I)`]);
-            const freq = {};
-            for (const lv of levels) freq[lv] = (freq[lv] || 0) + 1;
-            let maxCount = 0, bestIdx = 0;
-            for (const [lv, cnt] of Object.entries(freq)) {
-                const idx = stress4Order.indexOf(lv);
-                if (cnt > maxCount || (cnt === maxCount && idx > bestIdx)) {
-                    maxCount = cnt;
-                    bestIdx = idx;
-                }
-            }
-            row[`${catName} (I)`] = stress4Order[bestIdx];
+        // Stress categories (T-score based)
+        const stressCatPROMs = [
+            { name: 'Síntomas Fisiológicos', prom: 'PROM 1-8', maxPROM: 25.5 },
+            { name: 'Síntomas de Comportamiento Social', prom: 'PROM 9-12', maxPROM: 18 },
+            { name: 'Síntomas Intelectuales y Laborales', prom: 'PROM 13-22', maxPROM: 12 },
+            { name: 'Síntomas Psicoemocionales', prom: 'PROM 23-31', maxPROM: 5.667 }
+        ];
+        const baremos_estres_4 = [0, 11.8, 17, 23.4, 100];
+        const labels_estres_4 = ["Sin riesgo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
+        const rangos_estres_4 = crearRangos(baremos_estres_4, labels_estres_4);
+        for (const cp of stressCatPROMs) {
+            const promVal = parseFloat(row[cp.prom]);
+            const tScore = promVal > 0 ? (promVal / cp.maxPROM) * 100 : 0;
+            row[`${cp.name} (I)`] = clasificarRiesgo(tScore, rangos_estres_4);
         }
 
         // Interpretación global (4 levels)
-        const baremos_estres_4 = [0, 11.8, 17, 23.4, 100];
-        const labels_estres_4 = ["Sin riesgo", "Riesgo medio", "Riesgo alto", "Riesgo muy alto"];
-        row['Interpretación'] = clasificarRiesgo(row['Puntaje Bruto Total (T) Estres'], crearRangos(baremos_estres_4, labels_estres_4));
+        row['Interpretación'] = clasificarRiesgo(row['Puntaje Bruto Total (T) Estres'], rangos_estres_4);
     }
 
     const colsA = [
