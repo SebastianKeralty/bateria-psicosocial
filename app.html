@@ -3445,7 +3445,7 @@ function generarReporte() {
                 await _generarWord(data, s, charts, baseName, sections);
             } else if (fmt === 'ppt') {
                 await _loadLib('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
-                _generarPPT(data, s, charts, baseName, sections);
+                await _generarPPT(data, s, charts, baseName, sections);
             }
 
             _showReportStatus('Reporte generado: ' + baseName + '.' + fmt, 'success');
@@ -3665,65 +3665,579 @@ async function _generarWord(data, s, charts, baseName, sections) {
 }
 
 // ── PPT ──
-function _generarPPT(data, s, charts, baseName, sections) {
+function _pctCriticoDist(dist, total) {
+    if (!dist || !total) return 0;
+    return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/total)*100);
+}
+
+function _getAreasFromRows(rows) {
+    const areas = new Set();
+    rows.forEach(r => { const a = (r["Unidad de Análisis"] || '').trim(); if (a) areas.add(a); });
+    return Array.from(areas).sort();
+}
+
+function _loadImageAsBase64(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width; c.height = img.height;
+            c.getContext('2d').drawImage(img, 0, 0);
+            resolve(c.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = url;
+    });
+}
+
+async function _generarPPT(data, s, charts, baseName, sections) {
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'WIDE', width: 10, height: 7.5 });
     pptx.layout = 'WIDE';
 
-    const addTitleSlide = () => {
-        const slide = pptx.addSlide();
-        slide.addText('Bater\u00eda Psicosocial', { x: 1, y: 1.5, w: 8, h: 1.5, fontSize: 36, bold: true, align: 'center', color: '1a73e8' });
-        slide.addText('Reporte de resultados', { x: 1, y: 3, w: 8, h: 1, fontSize: 20, align: 'center', color: '475569' });
-        slide.addText('Archivo: ' + data.meta.fileName, { x: 1, y: 4.5, w: 8, h: 0.5, fontSize: 14, align: 'center', color: '64748b' });
-        slide.addText('Encuestados: ' + s.total + ' | Forma: ' + data.meta.forma, { x: 1, y: 5, w: 8, h: 0.5, fontSize: 14, align: 'center', color: '64748b' });
-        slide.addText(new Date().toLocaleDateString('es-CO'), { x: 1, y: 5.5, w: 8, h: 0.5, fontSize: 12, align: 'center', color: '94a3b8' });
-    };
-    addTitleSlide();
+    // Pre-load logo
+    let logoData = null;
+    try {
+        logoData = await _loadImageAsBase64('https://lh3.googleusercontent.com/d/1UCkhtVxKgwT_KcjHFZPpxH05QqKiufeP=w400');
+    } catch(e) { console.warn('Logo could not be loaded', e); }
 
-    if (sections.resumen) {
+    const COLORS = {
+        green1: '14532d', green2: '16a34a', green3: '22c55e', green4: '86efac',
+        white: 'FFFFFF', cream: 'f0fdf4', gray: '94a3b8', dark: '1e293b',
+        accent1: 'f59e0b', accent2: 'ef4444', accent3: '3b82f6', accent4: '8b5cf6'
+    };
+
+    // ── Helper: add background to any slide ──
+    const addBg = (slide) => {
+        slide.background = { fill: COLORS.green1 };
+        // Nebula-like decorative ellipses
+        slide.addShape(pptx.ShapeType.ellipse, { x: -1.5, y: -1, w: 5, h: 4, fill: { color: COLORS.green2, transparency: 80 } });
+        slide.addShape(pptx.ShapeType.ellipse, { x: 6.5, y: 4, w: 5, h: 4.5, fill: { color: COLORS.green3, transparency: 85 } });
+        slide.addShape(pptx.ShapeType.ellipse, { x: 8, y: -0.5, w: 3, h: 3, fill: { color: COLORS.green4, transparency: 85 } });
+        // Sparkles
+        const sparkles = [[0.3,0.4],[8.5,0.6],[1.2,6.8],[9.2,6.5],[5.5,0.3],[0.8,3.5],[9.5,3.2],[4.8,6.9]];
+        sparkles.forEach(([sx, sy]) => {
+            slide.addShape(pptx.ShapeType.ellipse, { x: sx, y: sy, w: 0.08, h: 0.08, fill: { color: COLORS.white, transparency: 40 } });
+        });
+    };
+
+    // ── Helper: add logo to a slide ──
+    const addLogo = (slide) => {
+        if (logoData) {
+            slide.addImage({ data: logoData, x: 0.3, y: 0.2, w: 1.2, h: 0.5 });
+        }
+    };
+
+    // ── Helper: add title band at top ──
+    const addTitleBand = (slide, title, subtitle) => {
+        slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: COLORS.green3 } });
+        slide.addText(title, { x: 0.5, y: 0.25, w: 9, h: 0.7, fontSize: 22, bold: true, color: COLORS.white, fontFace: 'Arial' });
+        if (subtitle) {
+            slide.addText(subtitle, { x: 0.5, y: 0.8, w: 9, h: 0.4, fontSize: 12, color: COLORS.green4, fontFace: 'Arial' });
+        }
+        addLogo(slide);
+    };
+
+    // ── Helper: white card background ──
+    const addCard = (slide, x, y, w, h) => {
+        slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, fill: { color: COLORS.white, transparency: 10 }, shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }, rectRadius: 0.1 });
+    };
+
+    // ── Helper: risk bar ──
+    const addRiskBar = (slide, x, y, w, pct, color) => {
+        slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h: 0.25, fill: { color: 'ffffff', transparency: 80 }, rectRadius: 0.05 });
+        if (pct > 0) {
+            slide.addShape(pptx.ShapeType.roundRect, { x, y, w: w * Math.min(pct / 100, 1), h: 0.25, fill: { color }, rectRadius: 0.05 });
+        }
+    };
+
+    // ── Helper: risk distribution table ──
+    const addRiskTable = (slide, x, y, w, riskDist, title) => {
+        const keys = orderRiskKeys(riskDist);
+        if (keys.length === 0) return y;
+        const total = keys.reduce((acc, k) => acc + (riskDist[k] || 0), 0);
+        const colW = [w * 0.35, w * 0.15, w * 0.15, w * 0.15, w * 0.2];
+        const headerRow = ['Nivel', 'N', '%', '', ''].map((t, i) => ({
+            text: t, options: { fontSize: 10, bold: true, color: COLORS.white, fill: { color: COLORS.green2 }, align: 'center', valign: 'middle' }
+        }));
+        headerRow[0].text = title || 'Nivel';
+        const rows = keys.map(k => {
+            const v = riskDist[k] || 0;
+            const p = total ? Math.round(v / total * 100) : 0;
+            const isCrit = k === 'Riesgo alto' || k === 'Riesgo muy alto';
+            return [
+                { text: k, options: { fontSize: 9, color: COLORS.dark, align: 'left', valign: 'middle' } },
+                { text: String(v), options: { fontSize: 9, color: COLORS.dark, align: 'center', valign: 'middle' } },
+                { text: p + '%', options: { fontSize: 9, color: COLORS.dark, align: 'center', valign: 'middle', bold: isCrit } },
+                { text: '', options: { fontSize: 9 } },
+                { text: '', options: { fontSize: 9 } }
+            ];
+        });
+        const tableRows = [headerRow, ...rows];
+        slide.addTable(tableRows, { x, y, w, colW, rowH: 0.25, border: { type: 'solid', pt: 0.5, color: 'd1d5db' } });
+        return y + (rows.length + 1) * 0.25 + 0.15;
+    };
+
+    const totalStr = s.total + ' encuestados';
+    const areas = _getAreasFromRows(data.rows);
+    const numAreas = areas.length;
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 1: PORTADA
+    // ════════════════════════════════════════════════════════════
+    {
         const slide = pptx.addSlide();
-        slide.addText('Resumen Ejecutivo', { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
-        const pct = (dist) => {
-            if (!dist) return 0;
-            return Math.round((((dist["Riesgo alto"]||0)+(dist["Riesgo muy alto"]||0))/s.total)*100);
-        };
+        addBg(slide);
+        // Logo grande centrado arriba
+        if (logoData) {
+            slide.addImage({ data: logoData, x: 3.5, y: 0.8, w: 3, h: 1.2 });
+        }
+        // Título principal
+        slide.addText('Keralty Vital', { x: 0.5, y: 2.3, w: 9, h: 1, fontSize: 40, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' });
+        // Línea decorativa
+        slide.addShape(pptx.ShapeType.rect, { x: 3, y: 3.3, w: 4, h: 0.04, fill: { color: COLORS.green3 } });
+        // Descripción
+        slide.addText('Plan Integral de Análisis de Riesgo Psicosocial', { x: 0.5, y: 3.6, w: 9, h: 0.6, fontSize: 18, color: COLORS.green4, align: 'center', fontFace: 'Arial' });
+        slide.addText('e Intervención - CUC 2026', { x: 0.5, y: 4.1, w: 9, h: 0.6, fontSize: 18, color: COLORS.green4, align: 'center', fontFace: 'Arial' });
+        // Info archivo
+        slide.addShape(pptx.ShapeType.roundRect, { x: 2.5, y: 5, w: 5, h: 1.2, fill: { color: COLORS.white, transparency: 85 }, rectRadius: 0.1 });
+        slide.addText('Archivo: ' + data.meta.fileName, { x: 2.5, y: 5.05, w: 5, h: 0.35, fontSize: 11, color: COLORS.green4, align: 'center' });
+        slide.addText(numAreas + ' áreas médicas  •  ' + totalStr + '  •  Forma ' + data.meta.forma, { x: 2.5, y: 5.4, w: 5, h: 0.35, fontSize: 11, color: COLORS.green4, align: 'center' });
+        slide.addText(new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' }), { x: 2.5, y: 5.75, w: 5, h: 0.35, fontSize: 10, color: COLORS.gray, align: 'center' });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 2: ÍNDICE DE CONTENIDO
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Contenido');
         const items = [
-            { label: 'Intralaboral', pct: pct(s.intraGeneral), color: 'ef4444' },
-            { label: 'Extralaboral', pct: pct(s.extraGeneral), color: 'f97316' },
-            { label: 'Estr\u00e9s', pct: pct(s.stress), color: 'eab308' }
+            'Factores de Riesgo Psicosocial',
+            'Participantes y Cobertura',
+            'Estadísticas Generales',
+            'Intralaboral - Dominios y Dimensiones',
+            'Extralaboral - Dominios',
+            'Estrés - Categorías',
+            'Análisis por Áreas',
+            'Conclusiones y Recomendaciones'
         ];
         items.forEach((item, i) => {
-            const yBase = 1.8 + i * 1.4;
-            slide.addText(item.label, { x: 0.5, y: yBase, w: 3, h: 0.5, fontSize: 16, color: '334155' });
-            slide.addText(item.pct + '% cr\u00edtico', { x: 3.5, y: yBase, w: 3, h: 0.5, fontSize: 18, bold: true, color: item.color });
-            slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: yBase + 0.6, w: 7 * (item.pct / 100), h: 0.25, fill: { color: item.color }, radius: 0.1 });
+            const yPos = 1.4 + i * 0.65;
+            slide.addShape(pptx.ShapeType.ellipse, { x: 0.8, y: yPos + 0.08, w: 0.25, h: 0.25, fill: { color: COLORS.green3 } });
+            slide.addText(item, { x: 1.2, y: yPos, w: 7, h: 0.4, fontSize: 14, color: COLORS.white, fontFace: 'Arial' });
         });
-        slide.addText('Total encuestados: ' + s.total, { x: 0.5, y: 6, w: 9, h: 0.5, fontSize: 14, color: '64748b' });
     }
 
-    const addChartSlide = (title, chartKey) => {
-        if (!charts[chartKey]) return;
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 3: FACTORES DE RIESGO PSICOSOCIAL
+    // ════════════════════════════════════════════════════════════
+    {
         const slide = pptx.addSlide();
-        slide.addText(title, { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
-        slide.addImage({ data: charts[chartKey], x: 0.5, y: 1.5, w: 9, h: 5 });
-    };
+        addBg(slide);
+        addTitleBand(slide, 'Factores de Riesgo Psicosocial', 'Composición de las encuestas aplicadas');
 
-    if (sections.intra) addChartSlide('Intralaboral', 'intra');
-    if (sections.extra) addChartSlide('Extralaboral', 'extra');
-    if (sections.stress) addChartSlide('Estr\u00e9s', 'stress');
+        const FACTORS = [
+            {
+                title: 'INTRALABORAL',
+                subtitle: 'Evalúa condiciones del trabajo que afectan la salud',
+                domains: [
+                    'Liderazgo y Relaciones Sociales',
+                    'Control sobre el Trabajo',
+                    'Demandas del Trabajo',
+                    'Recompensas'
+                ],
+                dims: '16 dimensiones: Liderazgo, Relaciones Sociales, Control, Participación, Claridad de Rol, Capacitación, Demandas cuantitativas, carga mental, emocionales, ambientales, jornada, influencia extra, reconocimiento, recompensas, retroalimentación, oportunidades de desarrollo',
+                color: COLORS.accent1
+            },
+            {
+                title: 'EXTRALABORAL',
+                subtitle: 'Evalúa condiciones del entorno social y familiar',
+                domains: [
+                    'Tiempo fuera del Trabajo',
+                    'Relaciones Familiares',
+                    'Comunicación y Relaciones',
+                    'Situación Económica',
+                    'Características de la Vivienda',
+                    'Influencia del Entorno',
+                    'Desplazamiento'
+                ],
+                dims: '7 dimensiones que abordan el impacto del entorno familiar, social y económico en el bienestar del trabajador',
+                color: COLORS.accent3
+            },
+            {
+                title: 'ESTRÉS',
+                subtitle: 'Evalúa síntomas asociados a respuestas de estrés',
+                domains: [
+                    'Síntomas Fisiológicos',
+                    'Síntomas de Comportamiento Social',
+                    'Síntomas Intelectuales y Laborales',
+                    'Síntomas Psicoemocionales'
+                ],
+                dims: '31 preguntas distribuidas en 4 categorías que miden la frecuencia de síntomas de estrés',
+                color: COLORS.accent2
+            }
+        ];
 
-    if (sections.dimTable) {
-        const slide = pptx.addSlide();
-        slide.addText('Dimensiones - Resumen', { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1a73e8' });
-        const dims = s.dimensions.filter(d => d.risk && Object.keys(d.risk).length > 0).slice(0, 30);
-        const rows = dims.map(d => {
-            const rKeys = orderRiskKeys(d.risk);
-            const dom = rKeys.reduce((a, b) => (d.risk[a]||0) > (d.risk[b]||0) ? a : b, '');
-            return [{ text: d.name.length > 35 ? d.name.slice(0,32)+'..' : d.name, options: { fontSize: 10 } }, { text: dom, options: { fontSize: 10 } }];
+        FACTORS.forEach((f, i) => {
+            const yBase = 1.3 + i * 2;
+            addCard(slide, 0.4, yBase, 9.2, 1.8);
+            slide.addText(f.title, { x: 0.7, y: yBase + 0.1, w: 3, h: 0.35, fontSize: 13, bold: true, color: f.color, fontFace: 'Arial' });
+            slide.addText(f.subtitle, { x: 0.7, y: yBase + 0.45, w: 8.5, h: 0.25, fontSize: 9, color: COLORS.gray, fontFace: 'Arial' });
+            slide.addText(f.domains.map((d, j) => (j + 1) + '. ' + d).join('  |  '), { x: 0.7, y: yBase + 0.75, w: 8.5, h: 0.35, fontSize: 9, color: COLORS.dark, fontFace: 'Arial' });
+            slide.addText(f.dims, { x: 0.7, y: yBase + 1.15, w: 8.5, h: 0.4, fontSize: 8, color: COLORS.gray, fontFace: 'Arial' });
         });
-        slide.addTable([[{ text: 'Dimensi\u00f3n', options: { bold: true, fontSize: 10 } }, { text: 'Riesgo Dominante', options: { bold: true, fontSize: 10 } }], ...rows], { x: 0.5, y: 1.5, w: 9 });
     }
 
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 4: PARTICIPANTES, COBERTURA, PERÍODO
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Participantes y Cobertura');
+
+        // Placeholder fields for manual editing
+        addCard(slide, 0.4, 1.2, 4.5, 1.8);
+        slide.addText('Período de Aplicación', { x: 0.7, y: 1.35, w: 4, h: 0.3, fontSize: 12, bold: true, color: COLORS.green2, fontFace: 'Arial' });
+        slide.addText('[[Editar en PowerPoint]]', { x: 0.7, y: 1.7, w: 4, h: 0.3, fontSize: 10, color: COLORS.gray, fontFace: 'Arial' });
+        slide.addText('Inicio: ___________  Fin: ___________', { x: 0.7, y: 2.2, w: 4, h: 0.3, fontSize: 10, color: COLORS.dark, fontFace: 'Arial' });
+
+        addCard(slide, 5.1, 1.2, 4.5, 1.8);
+        slide.addText('Cobertura', { x: 5.4, y: 1.35, w: 4, h: 0.3, fontSize: 12, bold: true, color: COLORS.green2, fontFace: 'Arial' });
+        slide.addText('[[Editar en PowerPoint]]', { x: 5.4, y: 1.7, w: 4, h: 0.3, fontSize: 10, color: COLORS.gray, fontFace: 'Arial' });
+        slide.addText('Total encuestados: ' + s.total, { x: 5.4, y: 2.2, w: 4, h: 0.3, fontSize: 10, color: COLORS.dark, fontFace: 'Arial' });
+        slide.addText('Áreas cubiertas: ' + numAreas, { x: 5.4, y: 2.5, w: 4, h: 0.3, fontSize: 10, color: COLORS.dark, fontFace: 'Arial' });
+
+        // Risk cards
+        const critItems = [
+            { label: 'Intralaboral', pct: _pctCriticoDist(s.intraGeneral, s.total), color: COLORS.accent1 },
+            { label: 'Extralaboral', pct: _pctCriticoDist(s.extraGeneral, s.total), color: COLORS.accent3 },
+            { label: 'Estrés', pct: _pctCriticoDist(s.stress, s.total), color: COLORS.accent2 }
+        ];
+        critItems.forEach((item, i) => {
+            const cx = 0.6 + i * 3.15;
+            addCard(slide, cx, 3.4, 2.9, 1.6);
+            slide.addText(item.label, { x: cx + 0.15, y: 3.55, w: 2.6, h: 0.35, fontSize: 12, bold: true, color: COLORS.dark, align: 'center', fontFace: 'Arial' });
+            slide.addText(item.pct + '% crítico', { x: cx + 0.15, y: 3.95, w: 2.6, h: 0.45, fontSize: 28, bold: true, color: item.color, align: 'center', fontFace: 'Arial' });
+            addRiskBar(slide, cx + 0.3, 4.5, 2.3, item.pct, item.color);
+        });
+
+        slide.addText('[[Editar: Notas sobre participantes, cobertura y período de aplicación]]', { x: 0.5, y: 5.5, w: 9, h: 0.4, fontSize: 9, italic: true, color: COLORS.gray, align: 'center', fontFace: 'Arial' });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 5: ESTADÍSTICAS 3 ENCUESTAS
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Estadísticas Generales', 'Distribución de riesgo por encuesta');
+
+        const encuestas = [
+            { title: 'Intralaboral', dist: s.intraGeneral, totalLabel: 'A + B (Intralaboral)', color: COLORS.accent1 },
+            { title: 'Extralaboral', dist: s.extraGeneral, totalLabel: 'Extralaboral', color: COLORS.accent3 },
+            { title: 'Estrés', dist: s.stress, totalLabel: 'Estrés', color: COLORS.accent2 }
+        ];
+
+        let yPos = 1.3;
+        encuestas.forEach((enc, i) => {
+            const cx = 0.3 + i * 3.3;
+            const keys = orderRiskKeys(enc.dist);
+            const total = keys.reduce((acc, k) => acc + (enc.dist[k] || 0), 0);
+
+            addCard(slide, cx, yPos, 3.1, 3.2);
+            slide.addText(enc.title, { x: cx + 0.15, y: yPos + 0.1, w: 2.8, h: 0.35, fontSize: 14, bold: true, color: enc.color, align: 'center', fontFace: 'Arial' });
+
+            // Risk distribution as stacked colored rectangles bar
+            const barY = yPos + 0.55;
+            const barW = 2.6;
+            const barH = 0.4;
+            const riskColors = { 'Sin riesgo': COLORS.green3, 'Riesgo bajo': COLORS.green4, 'Riesgo medio': COLORS.accent1, 'Riesgo alto': COLORS.accent2, 'Riesgo muy alto': '991b1b' };
+            let xOff = 0;
+            keys.forEach(k => {
+                const pct = total ? (enc.dist[k] || 0) / total : 0;
+                const w = barW * pct;
+                if (w > 0.02) {
+                    slide.addShape(pptx.ShapeType.rect, { x: cx + 0.25 + xOff, y: barY, w, h: barH, fill: { color: riskColors[k] || COLORS.gray }, rectRadius: 0.02 });
+                    xOff += w;
+                }
+            });
+
+            // Table with values
+            let tableY = yPos + 1.15;
+            keys.forEach((k, j) => {
+                const v = enc.dist[k] || 0;
+                const p = total ? Math.round(v / total * 100) : 0;
+                const isCrit = k === 'Riesgo alto' || k === 'Riesgo muy alto';
+                const rowColor = j % 2 === 0 ? 'f8fafc' : 'ffffff';
+                slide.addShape(pptx.ShapeType.rect, { x: cx + 0.15, y: tableY, w: 2.8, h: 0.28, fill: { color: rowColor, transparency: 50 } });
+                slide.addText(k, { x: cx + 0.2, y: tableY, w: 1.5, h: 0.28, fontSize: 8, color: COLORS.dark, bold: isCrit, fontFace: 'Arial', valign: 'middle' });
+                slide.addText(v + ' (' + p + '%)', { x: cx + 1.7, y: tableY, w: 1.2, h: 0.28, fontSize: 8, color: isCrit ? COLORS.accent2 : COLORS.dark, bold: isCrit, align: 'right', fontFace: 'Arial', valign: 'middle' });
+                tableY += 0.28;
+            });
+
+            // Critical sum
+            const critPct = _pctCriticoDist(enc.dist, total);
+            slide.addShape(pptx.ShapeType.rect, { x: cx + 0.15, y: tableY + 0.05, w: 2.8, h: 0.3, fill: { color: enc.color, transparency: 80 } });
+            slide.addText('Riesgo Crítico: ' + critPct + '%', { x: cx + 0.2, y: tableY + 0.05, w: 2.6, h: 0.3, fontSize: 10, bold: true, color: enc.color, align: 'center', fontFace: 'Arial', valign: 'middle' });
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 6: INTRALABORAL - DOMINIOS Y DIMENSIONES
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Intralaboral', 'Dominios globales y dimensiones');
+
+        const globalDims = s.dimensions.filter(d => d.name.startsWith('[Global]') && d.risk);
+        const intraDims = s.dimensions.filter(d => !d.name.startsWith('[') && d.risk);
+
+        let yPos = 1.3;
+
+        // Global domains table
+        if (globalDims.length > 0) {
+            slide.addText('Dominios Globales', { x: 0.5, y: yPos, w: 4, h: 0.35, fontSize: 13, bold: true, color: COLORS.accent1, fontFace: 'Arial' });
+            yPos += 0.4;
+            const colW = [3.5, 0.8, 0.8, 0.8, 0.8, 1.2];
+            const header = ['Dominio', 'SR', 'RB', 'RM', 'RA', 'RMA'].map(t => ({
+                text: t, options: { fontSize: 8, bold: true, color: COLORS.white, fill: { color: COLORS.green2 }, align: 'center', valign: 'middle' }
+            }));
+            const rows = globalDims.slice(0, 5).map(d => {
+                const name = d.name.replace('[Global] ', '');
+                return ['SR', 'RB', 'RM', 'RA', 'RMA'].reduce((acc, k) => {
+                    const full = { SR: 'Sin riesgo', RB: 'Riesgo bajo', RM: 'Riesgo medio', RA: 'Riesgo alto', RMA: 'Riesgo muy alto' }[k];
+                    acc.push({ text: String(d.risk[full] || 0), options: { fontSize: 8, color: COLORS.dark, align: 'center', valign: 'middle' } });
+                    return acc;
+                }, [{ text: name.length > 25 ? name.slice(0, 22) + '..' : name, options: { fontSize: 8, bold: true, color: COLORS.dark, align: 'left', valign: 'middle' } }]);
+            });
+            slide.addTable([header, ...rows], { x: 0.5, y: yPos, w: 9, colW, rowH: 0.22, border: { type: 'solid', pt: 0.3, color: 'd1d5db' } });
+            yPos += (rows.length + 1) * 0.22 + 0.25;
+        }
+
+        // Individual dimensions table
+        if (intraDims.length > 0) {
+            slide.addText('Dimensiones', { x: 0.5, y: yPos, w: 4, h: 0.35, fontSize: 13, bold: true, color: COLORS.accent1, fontFace: 'Arial' });
+            yPos += 0.4;
+            const colW = [3.2, 0.7, 0.7, 0.7, 0.7, 0.7, 1.2];
+            const header = ['Dimensión', 'SR', 'RB', 'RM', 'RA', 'RMA', 'Crítico'].map(t => ({
+                text: t, options: { fontSize: 7, bold: true, color: COLORS.white, fill: { color: COLORS.green2 }, align: 'center', valign: 'middle' }
+            }));
+            const dimRows = intraDims.slice(0, 16).map(d => {
+                const total = Object.values(d.risk).reduce((a, b) => a + b, 0);
+                const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
+                const cells = [
+                    { text: d.name.length > 22 ? d.name.slice(0, 19) + '..' : d.name, options: { fontSize: 7, bold: true, color: COLORS.dark, align: 'left', valign: 'middle' } }
+                ];
+                ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
+                    cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 7, color: COLORS.dark, align: 'center', valign: 'middle' } });
+                });
+                cells.push({ text: critPct + '%', options: { fontSize: 7, bold: true, color: critPct > 50 ? COLORS.accent2 : critPct > 30 ? COLORS.accent1 : COLORS.green3, align: 'center', valign: 'middle' } });
+                return cells;
+            });
+            slide.addTable([header, ...dimRows], { x: 0.5, y: yPos, w: 9, colW, rowH: 0.2, border: { type: 'solid', pt: 0.3, color: 'd1d5db' } });
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 7: EXTRALABORAL - DOMINIOS
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Extralaboral', 'Dimensiones del entorno extralaboral');
+
+        const extraDims = s.dimensions.filter(d => d.name.startsWith('[Extra]') && d.risk);
+
+        let yPos = 1.3;
+        if (extraDims.length > 0) {
+            const colW = [3.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1.2];
+            const header = ['Dimensión', 'SR', 'RB', 'RM', 'RA', 'RMA', 'Crítico'].map(t => ({
+                text: t, options: { fontSize: 8, bold: true, color: COLORS.white, fill: { color: COLORS.green2 }, align: 'center', valign: 'middle' }
+            }));
+            const rows = extraDims.slice(0, 7).map(d => {
+                const name = d.name.replace('[Extra] ', '');
+                const total = Object.values(d.risk).reduce((a, b) => a + b, 0);
+                const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
+                const cells = [
+                    { text: name.length > 25 ? name.slice(0, 22) + '..' : name, options: { fontSize: 8, bold: true, color: COLORS.dark, align: 'left', valign: 'middle' } }
+                ];
+                ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
+                    cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 8, color: COLORS.dark, align: 'center', valign: 'middle' } });
+                });
+                cells.push({ text: critPct + '%', options: { fontSize: 8, bold: true, color: critPct > 50 ? COLORS.accent2 : critPct > 30 ? COLORS.accent1 : COLORS.green3, align: 'center', valign: 'middle' } });
+                return cells;
+            });
+            slide.addTable([header, ...rows], { x: 0.5, y: yPos, w: 9, colW, rowH: 0.25, border: { type: 'solid', pt: 0.3, color: 'd1d5db' } });
+            yPos += (rows.length + 1) * 0.25 + 0.3;
+        }
+
+        // Extra bar chart summary
+        if (extraDims.length > 0) {
+            slide.addText('% Crítico por Dimensión Extralaboral', { x: 0.5, y: yPos, w: 9, h: 0.35, fontSize: 12, bold: true, color: COLORS.accent3, fontFace: 'Arial' });
+            yPos += 0.4;
+            extraDims.slice(0, 7).forEach((d, i) => {
+                const name = d.name.replace('[Extra] ', '');
+                const total = Object.values(d.risk).reduce((a, b) => a + b, 0);
+                const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
+                const by = yPos + i * 0.4;
+                slide.addText(name.length > 18 ? name.slice(0, 15) + '..' : name, { x: 0.5, y: by, w: 2.5, h: 0.3, fontSize: 8, color: COLORS.white, valign: 'middle', fontFace: 'Arial' });
+                addRiskBar(slide, 3.2, by + 0.05, 4, critPct, critPct > 50 ? COLORS.accent2 : critPct > 30 ? COLORS.accent1 : COLORS.green3);
+                slide.addText(critPct + '%', { x: 7.4, y: by, w: 1, h: 0.3, fontSize: 9, bold: true, color: COLORS.white, valign: 'middle', fontFace: 'Arial' });
+            });
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 8: ESTRÉS - CATEGORÍAS
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Estrés', 'Categorías de síntomas');
+
+        const stressDims = s.dimensions.filter(d => d.name.startsWith('[Stress]') && d.risk);
+
+        let yPos = 1.3;
+        if (stressDims.length > 0) {
+            const colW = [3.5, 0.8, 0.8, 0.8, 0.8, 1.2];
+            const header = ['Categoría', 'SR', 'RM', 'RA', 'RMA', 'Crítico'].map(t => ({
+                text: t, options: { fontSize: 9, bold: true, color: COLORS.white, fill: { color: COLORS.green2 }, align: 'center', valign: 'middle' }
+            }));
+            const rows = stressDims.slice(0, 4).map(d => {
+                const name = d.name.replace('[Stress] ', '');
+                const total = Object.values(d.risk).reduce((a, b) => a + b, 0);
+                const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
+                const cells = [
+                    { text: name, options: { fontSize: 9, bold: true, color: COLORS.dark, align: 'left', valign: 'middle' } }
+                ];
+                ['Sin riesgo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
+                    cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 9, color: COLORS.dark, align: 'center', valign: 'middle' } });
+                });
+                cells.push({ text: critPct + '%', options: { fontSize: 9, bold: true, color: critPct > 50 ? COLORS.accent2 : critPct > 30 ? COLORS.accent1 : COLORS.green3, align: 'center', valign: 'middle' } });
+                return cells;
+            });
+            slide.addTable([header, ...rows], { x: 0.5, y: yPos, w: 8.5, colW, rowH: 0.3, border: { type: 'solid', pt: 0.3, color: 'd1d5db' } });
+            yPos += (rows.length + 1) * 0.3 + 0.3;
+        }
+
+        // Stress distribution chart (horizontal bars)
+        const stressDist = s.stress || {};
+        const keys = orderRiskKeys(stressDist);
+        const totalStress = keys.reduce((acc, k) => acc + (stressDist[k] || 0), 0);
+
+        if (keys.length > 0) {
+            slide.addText('Distribución General de Estrés', { x: 0.5, y: yPos, w: 9, h: 0.35, fontSize: 13, bold: true, color: COLORS.accent2, fontFace: 'Arial' });
+            yPos += 0.45;
+            const stressColors = { 'Sin riesgo': COLORS.green3, 'Riesgo medio': COLORS.accent1, 'Riesgo alto': COLORS.accent2, 'Riesgo muy alto': '991b1b' };
+            keys.forEach((k, i) => {
+                const v = stressDist[k] || 0;
+                const p = totalStress ? v / totalStress : 0;
+                const by = yPos + i * 0.5;
+                slide.addText(k, { x: 0.5, y: by, w: 2, h: 0.35, fontSize: 10, color: COLORS.white, valign: 'middle', fontFace: 'Arial' });
+                slide.addShape(pptx.ShapeType.roundRect, { x: 2.7, y: by + 0.05, w: 4.5 * p, h: 0.3, fill: { color: stressColors[k] || COLORS.gray }, rectRadius: 0.04 });
+                slide.addText(v + ' (' + Math.round(p * 100) + '%)', { x: 7.5, y: by, w: 1.5, h: 0.35, fontSize: 10, bold: true, color: COLORS.white, valign: 'middle', fontFace: 'Arial' });
+            });
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 9: EN BLANCO
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        slide.addText('', { x: 0, y: 0, w: 10, h: 7.5 });
+        slide.addText('[[Esta diapositiva está reservada para contenido adicional]]', { x: 1, y: 3.2, w: 8, h: 0.5, fontSize: 14, italic: true, color: COLORS.gray, align: 'center', fontFace: 'Arial' });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 10: ANÁLISIS POR ÁREAS (2 áreas por slide)
+    // ════════════════════════════════════════════════════════════
+    if (areas.length > 0) {
+        // Group areas in pairs
+        for (let ai = 0; ai < areas.length; ai += 2) {
+            const slide = pptx.addSlide();
+            addBg(slide);
+            const slideNum = Math.floor(ai / 2) + 1;
+            const totalSlides = Math.ceil(areas.length / 2);
+            addTitleBand(slide, 'Análisis por Áreas', 'Área ' + (ai + 1) + ' a ' + Math.min(ai + 2, areas.length) + ' de ' + areas.length);
+
+            for (let j = 0; j < 2 && ai + j < areas.length; j++) {
+                const areaName = areas[ai + j];
+                const areaRows = data.rows.filter(r => (r["Unidad de Análisis"] || '').trim() === areaName);
+                const areaSummary = computeSummary(areaRows);
+
+                if (!areaSummary) continue;
+
+                const xOffset = j * 4.8;
+                const yBase = 1.3;
+
+                // Area card
+                addCard(slide, 0.3 + xOffset, yBase, 4.5, 5.7);
+
+                // Area name
+                slide.addText(areaName, { x: 0.5 + xOffset, y: yBase + 0.1, w: 4.1, h: 0.35, fontSize: 13, bold: true, color: COLORS.green2, align: 'center', fontFace: 'Arial' });
+                slide.addText(areaSummary.total + ' encuestados', { x: 0.5 + xOffset, y: yBase + 0.45, w: 4.1, h: 0.25, fontSize: 9, color: COLORS.gray, align: 'center', fontFace: 'Arial' });
+
+                // 3 risk bars
+                const riskItems = [
+                    { label: 'Intralaboral', pct: _pctCriticoDist(areaSummary.intraGeneral, areaSummary.total), color: COLORS.accent1 },
+                    { label: 'Extralaboral', pct: _pctCriticoDist(areaSummary.extraGeneral, areaSummary.total), color: COLORS.accent3 },
+                    { label: 'Estrés', pct: _pctCriticoDist(areaSummary.stress, areaSummary.total), color: COLORS.accent2 }
+                ];
+
+                riskItems.forEach((ri, riIdx) => {
+                    const ry = yBase + 0.85 + riIdx * 0.55;
+                    slide.addText(ri.label, { x: 0.5 + xOffset, y: ry, w: 1.5, h: 0.3, fontSize: 9, color: COLORS.dark, valign: 'middle', fontFace: 'Arial' });
+                    addRiskBar(slide, 2.1 + xOffset, ry + 0.03, 1.8, ri.pct, ri.color);
+                    slide.addText(ri.pct + '%', { x: 4 + xOffset, y: ry, w: 0.6, h: 0.3, fontSize: 10, bold: true, color: ri.color, valign: 'middle', fontFace: 'Arial' });
+                });
+
+                // Top 3 critical factors
+                const topCriticas = areaSummary.topCriticas.slice(0, 3);
+                if (topCriticas.length > 0) {
+                    slide.addText('Factores más críticos:', { x: 0.5 + xOffset, y: yBase + 2.6, w: 4.1, h: 0.3, fontSize: 9, bold: true, color: COLORS.dark, fontFace: 'Arial' });
+                    topCriticas.forEach((tc, tcIdx) => {
+                        const ty = yBase + 2.95 + tcIdx * 0.85;
+                        slide.addShape(pptx.ShapeType.roundRect, { x: 0.5 + xOffset, y: ty, w: 4.1, h: 0.75, fill: { color: COLORS.white, transparency: 70 }, rectRadius: 0.05 });
+                        const displayName = tc.name.replace('[Global] ', '').replace('[Extra] ', '').replace('[Stress] ', '');
+                        slide.addText((tcIdx + 1) + '. ' + (displayName.length > 28 ? displayName.slice(0, 25) + '..' : displayName), { x: 0.6 + xOffset, y: ty + 0.02, w: 3.8, h: 0.35, fontSize: 8, bold: true, color: COLORS.dark, fontFace: 'Arial' });
+                        slide.addText(tc.pctAlto + '% crítico  |  T: ' + (tc.avgT || 'N/A'), { x: 0.6 + xOffset, y: ty + 0.38, w: 3.8, h: 0.3, fontSize: 8, color: tc.pctAlto > 50 ? COLORS.accent2 : tc.pctAlto > 30 ? COLORS.accent1 : COLORS.gray, fontFace: 'Arial' });
+                    });
+                }
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SLIDE 11: CONCLUSIONES Y RECOMENDACIONES
+    // ════════════════════════════════════════════════════════════
+    {
+        const slide = pptx.addSlide();
+        addBg(slide);
+        addTitleBand(slide, 'Conclusiones y Recomendaciones');
+
+        addCard(slide, 0.4, 1.3, 9.2, 1.5);
+        slide.addText('Conclusiones', { x: 0.7, y: 1.4, w: 8.6, h: 0.35, fontSize: 14, bold: true, color: COLORS.green2, fontFace: 'Arial' });
+        slide.addText('[[Editar en PowerPoint - Describir las conclusiones del análisis]]', { x: 0.7, y: 1.85, w: 8.6, h: 0.8, fontSize: 11, italic: true, color: COLORS.gray, fontFace: 'Arial' });
+
+        addCard(slide, 0.4, 3.1, 9.2, 1.5);
+        slide.addText('Recomendaciones', { x: 0.7, y: 3.2, w: 8.6, h: 0.35, fontSize: 14, bold: true, color: COLORS.accent1, fontFace: 'Arial' });
+        slide.addText('[[Editar en PowerPoint - Detallar las recomendaciones basadas en los resultados]]', { x: 0.7, y: 3.65, w: 8.6, h: 0.8, fontSize: 11, italic: true, color: COLORS.gray, fontFace: 'Arial' });
+
+        addCard(slide, 0.4, 4.9, 9.2, 1.5);
+        slide.addText('Plan de Intervención', { x: 0.7, y: 5.0, w: 8.6, h: 0.35, fontSize: 14, bold: true, color: COLORS.accent3, fontFace: 'Arial' });
+        slide.addText('[[Editar en PowerPoint - Definir el plan de intervención con actividades, responsables y plazos]]', { x: 0.7, y: 5.45, w: 8.6, h: 0.8, fontSize: 11, italic: true, color: COLORS.gray, fontFace: 'Arial' });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // GENERATE FILE
+    // ════════════════════════════════════════════════════════════
     pptx.writeFile({ fileName: 'Reporte_' + baseName + '.pptx' });
 }
 
