@@ -51,6 +51,7 @@ function getChartCtx(id) {
 // ============================================================
 const tabLabels = {
     inicio: 'Inicio',
+    baterias: 'Baterías',
     dashboard: 'Dashboard',
     comparativa: 'Comparativa',
     reportes: 'Reportes'
@@ -71,6 +72,10 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
+        } else if (tab === 'baterias') {
+            document.getElementById('topbarBadge').style.display = 'none';
+            document.getElementById('btnExport').style.display = 'none';
+            renderBaterias();
         } else if (tab === 'reportes') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -167,6 +172,11 @@ if (inicioFile) {
         procesarDashboard(file);
     });
 }
+document.getElementById('bateriasFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadBateria(file);
+});
 document.getElementById('comparativaFile').addEventListener('change', function(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -251,6 +261,217 @@ function procesarDashboard(file) {
         mostrarStatus('inicioStatus', 'Error al leer el archivo', 'error');
     };
     reader.readAsArrayBuffer(file);
+}
+
+// ── BATERÍAS: subir + guardar en Drive ──
+function uploadBateria(file) {
+    showLoadingModal('Guardando batería en Drive...');
+    mostrarStatus('bateriasStatus', 'Procesando archivo...', 'info');
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const result = procesarExcel(new Uint8Array(e.target.result), file.name);
+            if (!result.rows || result.rows.length === 0) {
+                hideLoadingModal();
+                mostrarStatus('bateriasStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
+                return;
+            }
+            const datosParaGuardar = { meta: result.meta, summary: result.summary };
+            const baseName = file.name.replace(/\.xlsx?$/i, '');
+            const currentYear = new Date().getFullYear();
+
+            google.script.run
+                .withSuccessHandler(function(entry) {
+                    hideLoadingModal();
+                    mostrarStatus('bateriasStatus', '✔ ' + baseName + ' guardada en Drive (' + entry.total + ' registros)', 'success');
+                    renderBaterias();
+                })
+                .withFailureHandler(function(err) {
+                    hideLoadingModal();
+                    mostrarStatus('bateriasStatus', 'Error al guardar: ' + err.message, 'error');
+                    console.error(err);
+                })
+                .guardarBateria(datosParaGuardar, baseName, currentYear);
+        } catch(err) {
+            hideLoadingModal();
+            mostrarStatus('bateriasStatus', 'Error al procesar: ' + err.message, 'error');
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ── BATERÍAS: renderizar lista ──
+let _bateriasData = [];
+function renderBaterias() {
+    const grid = document.getElementById('bateriasGrid');
+    const filter = document.getElementById('bateriasYearFilter');
+    const status = document.getElementById('bateriasStatus');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:4px solid #e2e8f0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div><p style="color:#94a3b8;">Cargando baterías...</p></div>';
+    filter.innerHTML = '';
+    if (status) status.style.display = 'none';
+
+    google.script.run
+        .withSuccessHandler(function(lista) {
+            _bateriasData = lista || [];
+            renderBateriasGrid();
+        })
+        .withFailureHandler(function(err) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><p style="color:#ef4444;">Error al cargar: ' + err.message + '</p></div>';
+            console.error(err);
+        })
+        .listarBaterias();
+}
+
+function renderBateriasGrid() {
+    const grid = document.getElementById('bateriasGrid');
+    const filter = document.getElementById('bateriasYearFilter');
+
+    const years = [...new Set(_bateriasData.map(b => b.anio))].sort((a, b) => b - a);
+    let selectedYear = filter.dataset.selected || (years.length > 0 ? years[0] : '');
+
+    // Build year filter
+    filter.innerHTML = '';
+    years.forEach(y => {
+        const btn = document.createElement('button');
+        btn.textContent = y;
+        btn.className = 'btn-year' + (y === selectedYear ? ' active' : '');
+        btn.style.cssText = 'padding:6px 18px;border-radius:20px;border:1px solid #16a34a;font-weight:600;font-size:13px;cursor:pointer;background:' + (y === selectedYear ? '#16a34a' : 'transparent') + ';color:' + (y === selectedYear ? '#fff' : '#16a34a') + ';transition:all 0.2s;';
+        btn.onclick = function() { filter.dataset.selected = y; renderBateriasGrid(); };
+        filter.appendChild(btn);
+    });
+
+    const filtered = selectedYear ? _bateriasData.filter(b => b.anio === selectedYear) : _bateriasData;
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;"><p style="font-size:48px;margin-bottom:12px;">📂</p><h3 style="color:#94a3b8;">No hay baterías guardadas</h3><p style="color:#94a3b8;margin-top:8px;">Sube un archivo Excel para guardarlo en Drive.</p></div>';
+        return;
+    }
+
+    grid.innerHTML = filtered.map(b => {
+        const color = b.psicoPct > 50 ? '#ef4444' : b.psicoPct > 30 ? '#f59e0b' : '#16a34a';
+        return '<div class="bateria-card" style="background:white;border-radius:16px;border:1px solid #e2e8f0;padding:20px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onclick="cargarBateriaDesdeDrive(\'' + b.id + '\')" onmouseover="this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.05)\';this.style.transform=\'none\'">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+                '<span style="font-size:28px;">📊</span>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-weight:700;font-size:15px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + b.nombre + '</div>' +
+                    '<div style="font-size:12px;color:#94a3b8;">' + b.total + ' encuestados · Forma ' + b.forma + ' · ' + b.fecha + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:8px;">' +
+                '<div style="height:100%;width:' + b.psicoPct + '%;background:' + color + ';border-radius:3px;transition:width 0.5s;"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;">' +
+                '<span>Psicosocial: <strong style="color:' + color + ';">' + b.psicoPct + '%</strong></span>' +
+                '<span>Intra ' + b.intraP + '% · Extra ' + b.extraP + '% · Stress ' + b.stressP + '%</span>' +
+            '</div>' +
+            '<div style="margin-top:12px;display:flex;gap:8px;">' +
+                '<button class="btn-cargar" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();cargarBateriaDesdeDrive(\'' + b.id + '\')">Cargar en Dashboard</button>' +
+                '<button class="btn-eliminar" style="padding:8px 12px;border:1px solid #fca5a5;border-radius:8px;background:transparent;color:#ef4444;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();eliminarBateria(\'' + b.id + '\')">✕</button>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+// ── BATERÍAS: cargar desde Drive ──
+function cargarBateriaDesdeDrive(id) {
+    showLoadingModal('Cargando batería...');
+    google.script.run
+        .withSuccessHandler(function(datos) {
+            state.bateriaActiva = datos;
+            hideLoadingModal();
+            renderDashboard();
+            setTimeout(() => irADashboard(), 500);
+        })
+        .withFailureHandler(function(err) {
+            hideLoadingModal();
+            alert('Error al cargar batería: ' + err.message);
+            console.error(err);
+        })
+        .cargarBateria(id);
+}
+
+// ── BATERÍAS: eliminar ──
+function eliminarBateria(id) {
+    if (!confirm('¿Eliminar esta batería?')) return;
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            alert('Error al eliminar: ' + err.message);
+        })
+        .eliminarBateria(id);
+}
+
+// ── COMPARATIVA: selector desde Drive ──
+function abrirSelectorComparativa() {
+    google.script.run
+        .withSuccessHandler(function(lista) {
+            if (!lista || lista.length === 0) {
+                alert('No hay baterías guardadas en Drive.');
+                return;
+            }
+            const alreadyIds = state.bateriasComparativa.map(b => b.meta.id);
+            const disponibles = lista.filter(b => !alreadyIds.includes(b.id));
+            if (disponibles.length === 0) {
+                alert('Todas las baterías guardadas ya están agregadas.');
+                return;
+            }
+
+            const sel = document.createElement('div');
+            sel.id = 'compDriveSelector';
+            sel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:5000;display:flex;align-items:center;justify-content:center;';
+            sel.onclick = function(e) { if (e.target === sel) sel.remove(); };
+
+            const box = document.createElement('div');
+            box.style.cssText = 'background:white;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;';
+            box.innerHTML = '<h3 style="margin:0 0 16px;color:#14532d;">Seleccionar baterías para comparar</h3>' +
+                '<div id="compDriveList">' + disponibles.map(b => {
+                    const checked = alreadyIds.includes(b.id) ? 'checked disabled' : '';
+                    return '<label style="display:block;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;cursor:pointer;">' +
+                        '<input type="checkbox" class="comp-drive-cb" value="' + b.id + '" ' + checked + '> ' +
+                        '<strong>' + b.nombre + '</strong> (' + b.anio + ') · ' + b.total + ' enc. · ' + b.psicoPct + '% psicosocial' +
+                    '</label>';
+                }).join('') + '</div>' +
+                '<div style="display:flex;gap:8px;margin-top:16px;">' +
+                    '<button onclick="agregarDriveAComparativa()" style="flex:1;padding:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Agregar seleccionadas</button>' +
+                    '<button onclick="this.closest(\'#compDriveSelector\').remove()" style="padding:10px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+                '</div>';
+            sel.appendChild(box);
+            document.body.appendChild(sel);
+        })
+        .withFailureHandler(function(err) {
+            alert('Error: ' + err.message);
+        })
+        .listarBaterias();
+}
+
+function agregarDriveAComparativa() {
+    const cbs = document.querySelectorAll('.comp-drive-cb:checked');
+    const ids = Array.from(cbs).map(cb => cb.value);
+    if (ids.length === 0) return;
+    document.getElementById('compDriveSelector')?.remove();
+
+    ids.forEach((id, idx) => {
+        setTimeout(() => {
+            google.script.run
+                .withSuccessHandler(function(datos) {
+                    const newId = ++compBatteryIdCounter;
+                    const baseName = datos.meta.fileName.replace(/\.xlsx?$/i, '');
+                    datos.meta.id = newId;
+                    datos.meta.name = baseName;
+                    datos.meta.year = new Date().getFullYear() + '';
+                    state.bateriasComparativa.push(datos);
+                    renderBatteryList();
+                    actualizarComparativa();
+                })
+                .withFailureHandler(function(err) {
+                    mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
+                })
+                .cargarBateria(id);
+        }, idx * 300);
+    });
 }
 
 function renderDashboard() {

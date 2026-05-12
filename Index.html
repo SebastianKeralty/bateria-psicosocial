@@ -503,6 +503,12 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+        .bateria-card:hover .btn-cargar {
+            box-shadow: 0 4px 12px rgba(22,163,74,0.4);
+        }
+        .bateria-card:hover .btn-eliminar {
+            background: #fef2f2;
+        }
         @keyframes cardReveal {
             0% { opacity: 0; transform: rotateY(90deg) scale(0.5); }
             100% { opacity: 1; transform: rotateY(0deg) scale(1); }
@@ -1381,6 +1387,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span class="label">Inicio</span>
         </button>
+        <button class="side-btn" data-tab="baterias">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span class="label">Baterías</span>
+        </button>
         <button class="side-btn" data-tab="dashboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             <span class="label">Dashboard</span>
@@ -1537,6 +1547,33 @@
             </div>
         </section>
 
+        <!-- ============ TAB: BATERÍAS ============ -->
+        <section id="tab-baterias" class="tab-content" style="min-height:100vh;background:#dcfce7;padding:24px;">
+            <div id="bateriasContainer">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h2 style="font-size:28px;margin:0;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Baterías Guardadas</h2>
+                    <div class="upload-area" id="bateriasDropZone" style="width:auto;padding:8px 20px;border:2px dashed rgba(34,197,94,0.4);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span style="font-weight:600;color:#15803d;font-size:14px;">Subir y guardar batería</span>
+                        <input type="file" id="bateriasFile" accept=".xlsx,.xls" style="display:none;">
+                    </div>
+                </div>
+                <div id="bateriasStatus" class="status-msg"></div>
+
+                <!-- Year filter -->
+                <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="bateriasYearFilter"></div>
+
+                <!-- Grid -->
+                <div id="bateriasGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+                    <div style="grid-column:1/-1;text-align:center;padding:60px 20px;">
+                        <p style="font-size:48px;margin-bottom:12px;">📂</p>
+                        <h3 style="color:#94a3b8;">No hay baterías guardadas</h3>
+                        <p style="color:#94a3b8;margin-top:8px;">Sube un archivo Excel para guardarlo en Drive y compartirlo con tu equipo.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- ============ TAB: DASHBOARD ============ -->
         <section id="tab-dashboard" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;">
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 10% 90%, rgba(34,197,94,0.15) 0%, transparent 40%);radial-gradient(circle at 90% 10%, rgba(16,185,129,0.1) 0%, transparent 40%);pointer-events:none;"></div>
@@ -1544,8 +1581,8 @@
             <div id="dashNoData" class="card" style="margin-top:20px; text-align:center; padding:60px 20px; border-radius:24px; box-shadow:0 10px 25px rgba(0,0,0,0.05); border:1px solid rgba(34,197,94,0.1);">
                 <div style="font-size: 64px; margin-bottom: 24px; animation: float 3s ease-in-out infinite;">📊</div>
                 <h2 style="font-size: 28px; color: #14532d; font-weight: 800;">Dashboard de Análisis</h2>
-                <p style="color: #4b5563; margin: 16px auto; max-width: 400px; line-height: 1.6;">Aún no se han cargado datos para analizar. Por favor, sube tu archivo Excel en la sección de inicio para comenzar.</p>
-                <button onclick="document.querySelector('.side-btn[data-tab=\'inicio\']').click()" style="margin-top: 24px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 12px 32px; border-radius: 12px; border: none; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(22,163,74,0.3); transition: all 0.3s ease;">
+                <p style="color: #4b5563; margin: 16px auto; max-width: 400px; line-height: 1.6;">Selecciona una batería desde la sección Baterías para comenzar el análisis.</p>
+                <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top: 24px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 12px 32px; border-radius: 12px; border: none; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(22,163,74,0.3); transition: all 0.3s ease;">
                     Volver a Inicio
                 </button>
             </div>
@@ -1606,7 +1643,10 @@
             <div class="card" style="margin-bottom:16px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <h2 style="margin:0;">Bater&iacute;as</h2>
-                    <button class="btn-clear" onclick="limpiarComparativa()" style="font-size:12px;">Limpiar todo</button>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn-clear" style="font-size:12px;" onclick="abrirSelectorComparativa()">+ Desde Drive</button>
+                        <button class="btn-clear" onclick="limpiarComparativa()" style="font-size:12px;">Limpiar todo</button>
+                    </div>
                 </div>
                 <div class="upload-area" id="compDropZone">
                     <div class="upload-icon">
