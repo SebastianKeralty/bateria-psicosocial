@@ -1025,6 +1025,65 @@
             flex: 1;
         }
 
+        /* ===== LOADING MODAL ===== */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .loading-modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 48px 56px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            min-width: 320px;
+        }
+        .loading-spinner {
+            width: 56px;
+            height: 56px;
+            border: 5px solid #e2e8f0;
+            border-top-color: #16a34a;
+            border-radius: 50%;
+            animation: loadingSpin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes loadingSpin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #14532d;
+            margin-bottom: 16px;
+        }
+        .loading-progress-bar {
+            width: 240px;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .loading-progress-fill {
+            height: 100%;
+            width: 30%;
+            background: linear-gradient(90deg, #16a34a, #22c55e, #16a34a);
+            border-radius: 4px;
+            animation: loadingProgress 1.5s ease-in-out infinite;
+        }
+        @keyframes loadingProgress {
+            0% { transform: translateX(-100%); width: 30%; }
+            50% { width: 60%; }
+            100% { transform: translateX(400%); width: 30%; }
+        }
+
         /* ===== BAR CHART HOVER ===== */
         .bar-row {
             transition: transform 0.15s ease;
@@ -1516,6 +1575,15 @@
                 </div>
                 <div class="modal-filters" id="modalFilters"></div>
                 <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+
+        <!-- ============ MODAL DE CARGA ============ -->
+        <div id="loadingModal" class="loading-overlay" style="display:none;">
+            <div class="loading-modal-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" id="loadingText">Procesando archivo...</div>
+                <div class="loading-progress-bar"><div class="loading-progress-fill"></div></div>
             </div>
         </div>
 

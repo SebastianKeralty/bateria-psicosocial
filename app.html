@@ -187,11 +187,26 @@ function mostrarStatus(id, msg, tipo) {
     el.style.display = 'block';
 }
 
+function showLoadingModal(msg) {
+    const overlay = document.getElementById('loadingModal');
+    const text = document.getElementById('loadingText');
+    if (text && msg) text.textContent = msg;
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function hideLoadingModal() {
+    const overlay = document.getElementById('loadingModal');
+    if (overlay) overlay.style.display = 'none';
+}
+
 function procesarDashboard(file) {
     console.log('Processing dashboard file:', file.name);
+    showLoadingModal('Leyendo y procesando archivo...');
     mostrarStatus('inicioStatus', 'Leyendo archivo...', 'info');
     const inicioSuccess = document.getElementById('inicioSuccess');
     if (inicioSuccess) inicioSuccess.style.display = 'none';
+    const inicioFile = document.getElementById('inicioFile');
+    if (inicioFile) inicioFile.value = '';
     
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -202,12 +217,14 @@ function procesarDashboard(file) {
             console.log('Excel processed, rows:', result.rows?.length);
 
             if (!result.rows || result.rows.length === 0) {
+                hideLoadingModal();
                 mostrarStatus('inicioStatus', 'No se encontraron datos en las hojas esperadas (FORMA B digitacion / FORMA A Digitacion). Asegúrate de que los nombres de las hojas sean correctos.', 'error');
                 console.error('procesarExcel returned no rows.');
                 return;
             }
 
             state.bateriaActiva = result;
+            hideLoadingModal();
             mostrarStatus('inicioStatus', '✔ ' + result.meta.fileName + ' — ' + result.meta.totalRows + ' registros (Forma ' + result.meta.forma + ')', 'success');
 
             const inicioSuccess = document.getElementById('inicioSuccess');
@@ -227,10 +244,13 @@ function procesarDashboard(file) {
                 irADashboard();
             }, 1500);
         } catch(err) {
+            hideLoadingModal();
             console.error('Error processing:', err);
             mostrarStatus('inicioStatus', 'Error al procesar: ' + err.message, 'error');
-        }    };
+        }
+    };
     reader.onerror = function(err) {
+        hideLoadingModal();
         console.error('FileReader error:', err);
         mostrarStatus('inicioStatus', 'Error al leer el archivo', 'error');
     };
@@ -835,6 +855,7 @@ function renderFilteredCards(nTotal, intraPct, extraPct, stressPct) {
     }, 900);
     
     // Add hover effects with magnetic feel
+    const cards = document.querySelectorAll('#summaryCards .summary-card');
     cards.forEach(card => {
         card.addEventListener('mouseenter', function() {
             this.style.transform = 'translateY(-15px) scale(1.05) rotateY(5deg)';
@@ -2394,12 +2415,16 @@ function bLabelShort(b, max) {
 }
 
 function procesarComparativa(file) {
+    showLoadingModal('Procesando archivo para comparativa...');
     mostrarStatus('compStatus', 'Leyendo archivo...', 'info');
+    const compFile = document.getElementById('comparativaFile');
+    if (compFile) compFile.value = '';
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const result = procesarExcel(new Uint8Array(e.target.result), file.name);
             if (!result.rows || result.rows.length === 0) {
+                hideLoadingModal();
                 mostrarStatus('compStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
                 return;
             }
@@ -2409,13 +2434,19 @@ function procesarComparativa(file) {
             result.meta.name = baseName;
             result.meta.year = new Date().getFullYear() + '';
             state.bateriasComparativa.push(result);
+            hideLoadingModal();
             mostrarStatus('compStatus', '✔ ' + baseName + ' (' + result.meta.totalRows + ' reg.) agregada.', 'success');
             renderBatteryList();
             actualizarComparativa();
         } catch(err) {
+            hideLoadingModal();
             mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
             console.error(err);
         }
+    };
+    reader.onerror = function() {
+        hideLoadingModal();
+        mostrarStatus('compStatus', 'Error al leer el archivo', 'error');
     };
     reader.readAsArrayBuffer(file);
 }
