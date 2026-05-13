@@ -101,6 +101,7 @@ document.querySelectorAll('.side-btn').forEach(btn => {
                 noData.style.display = 'none';
                 content.style.display = 'block';
                 info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
+                actualizarPreview();
                 [img1, img2].forEach(function(img) {
                     if (!img) return;
                     img.src = 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800';
@@ -3910,6 +3911,13 @@ function _loadLib(url) {
         s.src = url; s.onload = resolve; s.onerror = reject;
         document.head.appendChild(s);
     });
+}
+
+function actualizarPreview() {
+    const fmt = document.getElementById('reportFormat')?.value || 'pdf';
+    document.querySelectorAll('.mockup').forEach(el => el.style.display = 'none');
+    const target = document.getElementById('mockup' + fmt.charAt(0).toUpperCase() + fmt.slice(1));
+    if (target) target.style.display = 'block';
 }
 
 function generarReporte() {
