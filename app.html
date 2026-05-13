@@ -92,31 +92,30 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         } else if (tab === 'reportes') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
-            const noData = document.getElementById('reportNoData');
-            const content = document.getElementById('reportContent');
-            const info = document.getElementById('reportFileInfo');
-            const img1 = document.getElementById('reportesImg1');
-            const img2 = document.getElementById('reportesImg2');
-            if (state.bateriaActiva) {
+            var noData = document.getElementById('reportNoData');
+            var content = document.getElementById('reportContent');
+            var info = document.getElementById('reportFileInfo');
+            var img1 = document.getElementById('reportesImg1');
+            var img2 = document.getElementById('reportesImg2');
+            if (!noData || !content) return;
+            if (state.bateriaActiva && state.bateriaActiva.meta) {
                 noData.style.display = 'none';
                 content.style.display = 'block';
-                info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
-                setTimeout(actualizarPreview, 100);
-                [img1, img2].forEach(function(img) {
-                    if (!img) return;
-                    img.src = 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800';
-                    img.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800');
-                    img.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1IYw0VYt_ohAnJU-Be3S--E-1wLBsbYKX=w800');
-                });
+                if (info) info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
+                try { setTimeout(function(){ actualizarPreview(); }, 100); } catch(e) {}
+                if (img2) {
+                    img2.src = 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800';
+                    img2.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800');
+                    img2.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1IYw0VYt_ohAnJU-Be3S--E-1wLBsbYKX=w800');
+                }
             } else {
                 noData.style.display = 'block';
                 content.style.display = 'none';
-                [img1, img2].forEach(function(img) {
-                    if (!img) return;
-                    img.src = 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800';
-                    img.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800');
-                    img.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1OoZ6wz27aVM0j1Hy8tD3VjdVUv-YQxb8=w800');
-                });
+                if (img1) {
+                    img1.src = 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800';
+                    img1.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800');
+                    img1.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1OoZ6wz27aVM0j1Hy8tD3VjdVUv-YQxb8=w800');
+                }
             }
         } else {
             document.getElementById('topbarBadge').style.display = 'none';
@@ -409,6 +408,8 @@ function uploadBateria(file, nombre, anio) {
 
             // Guardar el resultado procesado para carga rápida posterior
             const datosProcesados = { meta: result.meta, summary: result.summary, rows: result.rows };
+
+            state.bateriaActiva = result;
 
             google.script.run
                 .withSuccessHandler(function(entry) {
@@ -3894,37 +3895,46 @@ function _buildPreview() {
     var pdfTrack = document.getElementById('previewTrackPdf');
     var pptTrack = document.getElementById('previewTrackPpt');
     if (pdfTrack && !pdfTrack.children.length) {
-        var rows = [];
-        for (var r = 0; r < 4; r++) {
-            var idx = r % 4;
-            var colors = ['#16a34a','#f59e0b','#3b82f6','#8b5cf6'];
-            var pcts = [42, 28, 58, 35];
-            var c = colors[idx];
-            var p = pcts[idx];
-            rows.push('<div style="display:flex;gap:6px;padding:4px 0;flex-shrink:0;"><div class="preview-page" style="width:calc(50% - 3px);min-height:88px;padding:8px 10px;"><div style="font-size:7px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (r+1) + '</div><div style="height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:3px;width:70%;"></div><div style="height:10px;background:' + c + ';border-radius:3px;margin-bottom:4px;width:100%;"></div><div style="height:4px;background:' + c + ';border-radius:2px;width:55%;opacity:0.4;margin-bottom:2px;"></div><div style="font-size:7px;font-weight:700;color:' + c + ';">' + p + '%</div></div><div class="preview-page" style="width:calc(50% - 3px);min-height:88px;padding:8px 10px;"><div style="font-size:7px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (r+5) + '</div><div style="height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:3px;width:70%;"></div><div style="height:10px;background:' + c + ';border-radius:3px;margin-bottom:4px;width:85%;"></div><div style="height:4px;background:' + c + ';border-radius:2px;width:45%;opacity:0.4;margin-bottom:2px;"></div><div style="font-size:7px;font-weight:700;color:' + c + ';">' + (p+10) + '%</div></div></div>');
-        }
-        pdfTrack.innerHTML = rows.join('') + rows.join('');
+        var pageColors = ['#16a34a','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+        var pagePcts = [42, 28, 58, 35, 45, 50];
+        var makePage = function(idx) {
+            var c = pageColors[idx % 6];
+            var p = pagePcts[idx % 6];
+            return '<div class="preview-page" style="width:100%;min-height:120px;padding:10px 12px;margin-bottom:8px;"><div style="font-size:8px;font-weight:700;color:#374151;margin-bottom:6px;">Pag ' + (idx+1) + '</div><div style="height:4px;background:#e2e8f0;border-radius:2px;margin-bottom:4px;width:70%;"></div><div style="height:16px;background:' + c + ';border-radius:4px;margin-bottom:6px;width:100%;"></div><div style="height:4px;background:' + c + ';border-radius:2px;width:55%;opacity:0.4;margin-bottom:4px;"></div><div style="font-size:8px;font-weight:700;color:' + c + ';">' + p + '%</div></div>';
+        };
+        var buildCol = function(startIdx, step, anim) {
+            var h = '';
+            for (var i = 0; i < 4; i++) {
+                h += makePage(startIdx + i * step);
+            }
+            return '<div style="flex:1;display:flex;flex-direction:column;animation:' + anim + ' 12s linear infinite;" onmouseover="this.style.animationPlayState=\'paused\'" onmouseout="this.style.animationPlayState=\'running\'">' + h + h + '</div>';
+        };
+        pdfTrack.innerHTML = buildCol(0, 1, 'scrollUp') + buildCol(3, -1, 'scrollDown') + buildCol(5, 1, 'scrollUp');
+        pdfTrack.style.display = 'flex';
+        pdfTrack.style.flexDirection = 'row';
+        pdfTrack.style.gap = '10px';
+        pdfTrack.style.padding = '4px 0';
     }
     if (pptTrack && !pptTrack.children.length) {
         var slides = [
-            { t: 'PORTADA', p: 'Keralty Vital', d: [42, 28, 58], bg: '#14532d' },
-            { t: 'INTRA', p: '4 Dominios', d: [42, 35, 50], bg: '#1e40af' },
-            { t: 'EXTRA', p: '7 Dimensiones', d: [28, 18, 38], bg: '#7c3aed' },
-            { t: 'ESTRES', p: '4 Categorias', d: [58, 30, 45], bg: '#be123c' },
-            { t: 'CONCLU.', p: 'Recomendaciones', d: [55, 40, 62], bg: '#b45309' },
-            { t: 'RESULT.', p: 'Generales', d: [38, 25, 48], bg: '#0f766e' }
+            { t: 'PORTADA', s: 'Keralty Vital', d: [42, 28, 58], bg: '#14532d' },
+            { t: 'INTRALABORAL', s: '4 Dominios', d: [42, 35, 50], bg: '#1e40af' },
+            { t: 'EXTRALABORAL', s: '7 Dimensiones', d: [28, 18, 38], bg: '#7c3aed' },
+            { t: 'ESTRES', s: '4 Categorias', d: [58, 30, 45], bg: '#be123c' },
+            { t: 'CONCLUSIONES', s: 'Recomendaciones', d: [55, 40, 62], bg: '#b45309' },
+            { t: 'RESULTADOS', s: 'Generales', d: [38, 25, 48], bg: '#0f766e' }
         ];
         var h = '';
         for (var i = 0; i < 6; i++) {
             var s = slides[i];
             var prom = Math.round((s.d[0]+s.d[1]+s.d[2])/3);
             var bars =
-                '<div style="display:flex;gap:4px;margin-top:6px;">' +
-                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[0] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[0] + '%;background:#22c55e;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">I</div></div>' +
-                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[1] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[1] + '%;background:#fbbf24;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">E</div></div>' +
-                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[2] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[2] + '%;background:#60a5fa;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">S</div></div>' +
+                '<div style="display:flex;gap:8px;margin-top:10px;">' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:15px;font-weight:900;color:white;">' + s.d[0] + '</div><div style="height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + s.d[0] + '%;background:#22c55e;border-radius:4px;"></div></div><div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:3px;">Intra</div></div>' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:15px;font-weight:900;color:white;">' + s.d[1] + '</div><div style="height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + s.d[1] + '%;background:#fbbf24;border-radius:4px;"></div></div><div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:3px;">Extra</div></div>' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:15px;font-weight:900;color:white;">' + s.d[2] + '</div><div style="height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + s.d[2] + '%;background:#60a5fa;border-radius:4px;"></div></div><div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:3px;">Stress</div></div>' +
                 '</div>';
-            h += '<div class="preview-slide" style="width:175px;min-height:170px;padding:12px 14px;margin-right:16px;background:linear-gradient(135deg,' + s.bg + ',' + s.bg + 'cc);flex-shrink:0;border:1px solid rgba(255,255,255,0.15);"><div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 80%,rgba(255,255,255,0.08),transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,0,0,0.1),transparent 50%);"></div><div style="position:relative;z-index:1;"><div style="font-size:10px;font-weight:800;color:white;letter-spacing:0.5px;">' + s.t + '</div><div style="font-size:6px;color:rgba(255,255,255,0.5);margin-bottom:4px;">' + s.p + '</div><div style="font-size:20px;font-weight:900;color:white;line-height:1.1;">' + prom + '%</div><div style="font-size:6px;color:rgba(255,255,255,0.4);margin-bottom:2px;">psicosocial</div>' + bars + '</div></div>';
+            h += '<div class="preview-slide" style="width:280px;min-height:250px;padding:18px 20px;margin-right:22px;background:linear-gradient(135deg,' + s.bg + ',' + s.bg + 'cc);flex-shrink:0;border:1px solid rgba(255,255,255,0.15);"><div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 80%,rgba(255,255,255,0.08),transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,0,0,0.1),transparent 50%);"></div><div style="position:relative;z-index:1;"><div style="font-size:14px;font-weight:800;color:white;letter-spacing:0.5px;">' + s.t + '</div><div style="font-size:8px;color:rgba(255,255,255,0.5);margin-bottom:8px;">' + s.s + '</div><div style="font-size:32px;font-weight:900;color:white;line-height:1.1;">' + prom + '%</div><div style="font-size:8px;color:rgba(255,255,255,0.4);margin-bottom:6px;">psicosocial</div>' + bars + '</div></div>';
         }
         pptTrack.innerHTML = h + h;
     }
