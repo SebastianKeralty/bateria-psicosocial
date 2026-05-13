@@ -68,19 +68,56 @@ function _writeIndice(data) {
   PropertiesService.getScriptProperties().setProperty('BATERIAS_INDICE', JSON.stringify(data));
 }
 
-// ── API: guardar batería (recibe base64 del .xlsx) ──
-function guardarBateria(excelBase64, nombre, anio, metadata) {
-  const folder = _getBateriasFolder();
+// ── Carpeta por año (busca o crea) ──
+function _getYearFolder(rootFolder, anio) {
+  const yearStr = String(anio);
+  const folders = rootFolder.getFolders();
+  while (folders.hasNext()) {
+    const f = folders.next();
+    if (f.getName() === yearStr) return f;
+  }
+  return rootFolder.createFolder(yearStr);
+}
+
+// ── Carpeta .cache (busca o crea) ──
+function _getCacheFolder(rootFolder) {
+  const folders = rootFolder.getFolders();
+  while (folders.hasNext()) {
+    const f = folders.next();
+    if (f.getName() === '.cache') return f;
+  }
+  return rootFolder.createFolder('.cache');
+}
+
+// ── Subcarpeta por año dentro de .cache ──
+function _getYearCacheFolder(rootFolder, anio) {
+  const cache = _getCacheFolder(rootFolder);
+  return _getYearFolder(cache, anio);
+}
+
+// ── API: guardar batería ──
+function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata) {
+  const rootFolder = _getBateriasFolder();
+  const yearFolder = _getYearFolder(rootFolder, anio);
+  const cacheFolder = _getYearCacheFolder(rootFolder, anio);
   const indice = _readIndice();
 
   const id = 'b_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
+  // Guardar Excel original en {año}/
   const blob = Utilities.newBlob(
     Utilities.base64Decode(excelBase64),
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     anio + '_' + nombre + '.xlsx'
   );
-  const excelFile = folder.createFile(blob);
+  const excelFile = yearFolder.createFile(blob);
+
+  // Guardar JSON procesado en .cache/{año}/
+  const dataFile = cacheFolder.createFile(
+    anio + '_' + nombre + '.json',
+    JSON.stringify(datosProcesados),
+    'application/json'
+  );
 
   const entry = {
     id, nombre, anio: String(anio),
@@ -91,7 +128,8 @@ function guardarBateria(excelBase64, nombre, anio, metadata) {
     stressP: metadata.stressP || 0,
     psicoPct: metadata.psicoPct || 0,
     fecha: new Date().toISOString().slice(0, 10),
-    fileId: excelFile.getId()
+    fileId: excelFile.getId(),
+    dataFileId: dataFile.getId()
   };
 
   indice.push(entry);
@@ -107,9 +145,21 @@ function cargarBateria(id) {
   const indice = _readIndice();
   const entry = indice.find(e => e.id === id);
   if (!entry) throw new Error('Batería no encontrada');
+  // Intentar cargar JSON procesado (rápido)
+  if (entry.dataFileId) {
+    try {
+      const dataFile = DriveApp.getFileById(entry.dataFileId);
+      const datos = JSON.parse(dataFile.getBlob().getDataAsString());
+      datos.meta = datos.meta || {};
+      datos.meta.id = id;
+      return { tipo: 'json', datos: datos, meta: entry };
+    } catch(e) {}
+  }
+  // Fallback: leer Excel original y convertir a base64
   const file = DriveApp.getFileById(entry.fileId);
   const blob = file.getBlob();
   return {
+    tipo: 'excel',
     base64: Utilities.base64Encode(blob.getBytes()),
     fileName: entry.nombre + '.xlsx',
     meta: entry
@@ -120,7 +170,9 @@ function eliminarBateria(id) {
   const indice = _readIndice();
   const idx = indice.findIndex(e => e.id === id);
   if (idx === -1) throw new Error('Batería no encontrada');
-  try { DriveApp.getFileById(indice[idx].fileId).setTrashed(true); } catch(e) {}
+  const entry = indice[idx];
+  try { DriveApp.getFileById(entry.fileId).setTrashed(true); } catch(e) {}
+  try { if (entry.dataFileId) DriveApp.getFileById(entry.dataFileId).setTrashed(true); } catch(e) {}
   indice.splice(idx, 1);
   _writeIndice(indice);
 }

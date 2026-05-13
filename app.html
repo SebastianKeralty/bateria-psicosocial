@@ -353,6 +353,9 @@ function uploadBateria(file, nombre, anio) {
             const psicoPct = Math.round((intraP + extraP + stressP) / 3);
             const metadata = { total: s.total, forma: result.meta.forma, intraP, extraP, stressP, psicoPct };
 
+            // Guardar el resultado procesado para carga rápida posterior
+            const datosProcesados = { meta: result.meta, summary: result.summary, rows: result.rows };
+
             google.script.run
                 .withSuccessHandler(function(entry) {
                     hideLoadingModal();
@@ -367,7 +370,7 @@ function uploadBateria(file, nombre, anio) {
                     mostrarStatus('bateriasStatus', msg, 'error');
                     console.error(err);
                 })
-                .guardarBateria(excelBase64, nombre, anio, metadata);
+                .guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata);
         } catch(err) {
             hideLoadingModal();
             mostrarStatus('bateriasStatus', 'Error al procesar: ' + err.message, 'error');
@@ -554,18 +557,21 @@ function cargarBateriaDesdeDrive(id) {
     google.script.run
         .withSuccessHandler(function(resp) {
             try {
-                const binaryStr = atob(resp.base64);
-                const bytes = new Uint8Array(binaryStr.length);
-                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-                const result = procesarExcel(bytes, resp.fileName);
-                if (!result.rows || result.rows.length === 0) {
-                    hideLoadingModal();
-                    alert('El archivo no contiene datos válidos.');
-                    return;
+                if (resp.tipo === 'json') {
+                    state.bateriaActiva = resp.datos;
+                } else if (resp.tipo === 'excel') {
+                    const binaryStr = atob(resp.base64);
+                    const bytes = new Uint8Array(binaryStr.length);
+                    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                    const result = procesarExcel(bytes, resp.fileName);
+                    if (!result.rows || result.rows.length === 0) {
+                        hideLoadingModal();
+                        alert('El archivo no contiene datos válidos.');
+                        return;
+                    }
+                    state.bateriaActiva = result;
                 }
-                state.bateriaActiva = result;
                 hideLoadingModal();
-                // Switch to dashboard tab first so charts render in visible container
                 irADashboard();
                 setTimeout(() => renderDashboard(), 300);
             } catch(err) {
@@ -654,32 +660,43 @@ function agregarDriveAComparativa() {
             google.script.run
                 .withSuccessHandler(function(resp) {
                     try {
-                        const binaryStr = atob(resp.base64);
-                        const bytes = new Uint8Array(binaryStr.length);
-                        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-                        const result = procesarExcel(bytes, resp.fileName);
-                        if (!result.rows || result.rows.length === 0) return;
+                        let datos;
+                        if (resp.tipo === 'json') {
+                            datos = resp.datos;
+                        } else {
+                            const binaryStr = atob(resp.base64);
+                            const bytes = new Uint8Array(binaryStr.length);
+                            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                            datos = procesarExcel(bytes, resp.fileName);
+                        }
+                        if (!datos || !datos.rows || datos.rows.length === 0) return;
                         const newId = ++compBatteryIdCounter;
-                        const baseName = resp.meta.nombre || resp.fileName.replace(/\.xlsx?$/i, '');
-                        result.meta.id = newId;
-                        result.meta.name = baseName;
-                        result.meta.year = new Date().getFullYear() + '';
-                        state.bateriasComparativa.push(result);
-                        renderBatteryList();
-                        actualizarComparativa();
+                        const baseName = resp.meta.nombre || datos.meta.fileName.replace(/\.xlsx?$/i, '');
+                        datos.meta.id = newId;
+                        datos.meta.name = baseName;
+                        datos.meta.year = new Date().getFullYear() + '';
+                        state.bateriasComparativa.push(datos);
                     } catch(err) {
                         mostrarStatus('compStatus', 'Error al procesar: ' + err.message, 'error');
                     }
                     completed++;
-                    if (completed >= total) hideLoadingModal();
+                    if (completed >= total) {
+                        renderBatteryList();
+                        actualizarComparativa();
+                        hideLoadingModal();
+                    }
                 })
                 .withFailureHandler(function(err) {
                     mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
                     completed++;
-                    if (completed >= total) hideLoadingModal();
+                    if (completed >= total) {
+                        renderBatteryList();
+                        actualizarComparativa();
+                        hideLoadingModal();
+                    }
                 })
                 .cargarBateria(id);
-        }, idx * 300);
+        }, idx * 150);
     });
 }
 
@@ -2931,7 +2948,7 @@ function renderBatteryList() {
             <div class="bat-card-header" style="padding:24px 24px 16px;background:linear-gradient(135deg,rgba(99,102,241,0.08)0%,rgba(168,85,247,0.06)100%);text-align:center;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                     <input class="bat-name-input" value="${(m.name || '').replace(/"/g,'&quot;')}" onchange="updateBatteryMeta(${m.id},'name',this.value)" onclick="event.stopPropagation();" placeholder="Nombre de la batería" style="flex:1;min-width:0;font-size:18px;font-weight:700;text-align:center;border:none;background:transparent;color:#1e293b;padding:4px 8px;border-radius:6px;">
-                    <button class="btn-remove" onclick="event.stopPropagation();eliminarBateria(${m.id})" title="Eliminar" style="flex-shrink:0;font-size:16px;margin-left:8px;">✕</button>
+                    <button class="btn-remove" onclick="event.stopPropagation();eliminarBateriaDeComparativa(${m.id})" title="Eliminar" style="flex-shrink:0;font-size:16px;margin-left:8px;">✕</button>
                 </div>
                 <div style="display:flex;justify-content:center;gap:12px;margin-top:12px;align-items:center;">
                     <input class="bat-year-input" value="${m.year || ''}" onchange="updateBatteryMeta(${m.id},'year',this.value)" onclick="event.stopPropagation();" placeholder="2026" style="width:60px;text-align:center;font-size:13px;font-weight:600;padding:4px 8px;border-radius:6px;">
@@ -2967,7 +2984,7 @@ function renderBatteryList() {
     }).join('');
 }
 
-function eliminarBateria(id) {
+function eliminarBateriaDeComparativa(id) {
     state.bateriasComparativa = state.bateriasComparativa.filter(b => b.meta.id !== id);
     renderBatteryList();
     actualizarComparativa();
