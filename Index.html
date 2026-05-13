@@ -501,8 +501,8 @@
             100% { left: 200%; }
         }
         @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-12px) scale(1.03); }
         }
         @keyframes progressShine {
             0% { background-position: 200% 0; }
@@ -1656,7 +1656,9 @@
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 10% 90%, rgba(34,197,94,0.15) 0%, transparent 40%);radial-gradient(circle at 90% 10%, rgba(16,185,129,0.1) 0%, transparent 40%);pointer-events:none;"></div>
 
             <div id="dashNoData" class="card" style="margin-top:20px; text-align:center; padding:60px 20px; border-radius:24px; box-shadow:0 10px 25px rgba(0,0,0,0.05); border:1px solid rgba(34,197,94,0.1);">
-                <div style="font-size: 64px; margin-bottom: 24px; animation: float 3s ease-in-out infinite;">📊</div>
+                <div style="width:200px;margin:0 auto 20px;animation:float 3s ease-in-out infinite;">
+                    <img id="dashNoDataImg" src="https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800" alt="Dashboard" style="width:100%;opacity:0.85;">
+                </div>
                 <h2 style="font-size: 28px; color: #14532d; font-weight: 800;">Dashboard de Análisis</h2>
                 <p style="color: #4b5563; margin: 16px auto; max-width: 400px; line-height: 1.6;">Selecciona una batería desde la sección Baterías para comenzar el análisis.</p>
                 <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top: 24px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 12px 32px; border-radius: 12px; border: none; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(22,163,74,0.3); transition: all 0.3s ease;">
@@ -1764,29 +1766,21 @@
         <section id="tab-reportes" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:hidden;">
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 80% 20%, rgba(34,197,94,0.15) 0%, transparent 40%),radial-gradient(ellipse at 20% 80%, rgba(16,185,129,0.08) 0%, transparent 40%);pointer-events:none;"></div>
             <div style="max-width:1200px;margin:0 auto;position:relative;z-index:1;">
-                <h2 style="font-size:28px;margin:0 0 20px;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">📄 Reportes</h2>
 
-                <div id="reportNoData" style="display:block;">
-                    <div class="card" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid rgba(34,197,94,0.15);box-shadow:0 8px 40px rgba(16,185,129,0.15),0 0 60px rgba(6,182,212,0.05);border-radius:24px;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-                            <div style="padding:24px 16px;min-height:400px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
-                                <img id="reportesImg1" src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
-                            </div>
-                            <div style="padding:40px 32px;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
-                                <p style="font-size:64px;margin-bottom:16px;">📊</p>
-                                <h2 style="color:#94a3b8;font-size:24px;font-weight:700;margin:0 0 8px;">No hay datos cargados</h2>
-                                <p style="color:#94a3b8;font-size:14px;max-width:300px;line-height:1.5;">Selecciona una batería desde la sección Baterías para comenzar a generar reportes.</p>
-                                <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:20px;padding:10px 24px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Ir a Baterías</button>
-                            </div>
-                        </div>
+                <div id="reportNoData" class="card" style="display:block;text-align:center;padding:60px 20px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.05);border:1px solid rgba(34,197,94,0.1);">
+                    <div style="width:280px;margin:0 auto 24px;animation:float 3s ease-in-out infinite;">
+                        <img id="reportesImg1" src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" alt="Reportes" style="width:100%;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
                     </div>
+                    <h2 style="font-size:28px;color:#14532d;font-weight:800;">Reportes</h2>
+                    <p style="color:#4b5563;margin:16px auto;max-width:400px;line-height:1.6;">Aún no has cargado ninguna batería. Selecciona una desde la sección Baterías para generar reportes.</p>
+                    <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;padding:12px 32px;border-radius:12px;border:none;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(22,163,74,0.3);transition:all 0.3s ease;">Ir a Baterías</button>
                 </div>
 
                 <div id="reportContent" style="display:none;">
                     <div class="card" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid rgba(34,197,94,0.15);box-shadow:0 8px 40px rgba(16,185,129,0.15),0 0 60px rgba(6,182,212,0.05);border-radius:24px;">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-                            <div style="padding:24px 16px;min-height:450px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
-                                <img id="reportesImg2" src="https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
+                            <div id="reportContentImgWrap" style="padding:24px 16px;min-height:450px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);transition:animation 0.3s;">
+                                <img id="reportesImg2" src="https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';this.parentNode.style.animation='float 3s ease-in-out infinite';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';this.parentNode.style.animation='none';">
                             </div>
                             <div style="padding:32px 16px;min-height:450px;display:flex;flex-direction:column;gap:18px;">
                                 <div style="text-align:center;margin-bottom:8px;">
