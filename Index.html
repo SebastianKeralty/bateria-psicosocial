@@ -1769,45 +1769,14 @@
                 <div id="reportNoData" style="display:block;">
                     <div class="card" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid rgba(34,197,94,0.15);box-shadow:0 8px 40px rgba(16,185,129,0.15),0 0 60px rgba(6,182,212,0.05);border-radius:24px;">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-                            <div style="padding:24px 16px;min-height:450px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
+                            <div style="padding:24px 16px;min-height:400px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
                                 <img id="reportesImg1" src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
                             </div>
-                            <div style="padding:32px 16px;min-height:450px;display:flex;flex-direction:column;gap:18px;">
-                                <div style="text-align:center;margin-bottom:8px;">
-                                    <h2 style="color:#14532d;font-size:20px;margin:0;font-weight:700;letter-spacing:1px;">GENERAR REPORTE</h2>
-                                    <p style="color:#374151;margin:8px 0 0;font-size:14px;">Personaliza y genera tu reporte de resultados</p>
-                                </div>
-                                <div class="card" style="padding:16px 20px;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,197,94,0.15);border-radius:16px;">
-                                    <p style="font-size:13px;color:#64748b;margin-bottom:14px;" id="reportFileInfo">Carga una batería para generar reportes.</p>
-
-                                    <div style="margin-bottom:14px;">
-                                        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">Incluir en el reporte</h3>
-                                        <div style="display:flex;flex-direction:column;gap:6px;">
-                                            <label class="report-check"><input type="checkbox" id="rptResumen" checked> Resumen ejecutivo</label>
-                                            <label class="report-check"><input type="checkbox" id="rptIntra" checked> Intralaboral</label>
-                                            <label class="report-check"><input type="checkbox" id="rptExtra" checked> Extralaboral</label>
-                                            <label class="report-check"><input type="checkbox" id="rptStress" checked> Estr&eacute;s</label>
-                                            <label class="report-check"><input type="checkbox" id="rptDimTable" checked> Tabla de dimensiones</label>
-                                        </div>
-                                    </div>
-
-                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-                                        <label style="font-weight:600;font-size:14px;">Formato:</label>
-                                        <select id="reportFormat" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white;">
-                                            <option value="pdf">PDF</option>
-                                            <option value="word">Word (.docx)</option>
-                                            <option value="ppt">PowerPoint (.pptx)</option>
-                                        </select>
-                                    </div>
-
-                                    <div style="display:flex;align-items:center;gap:12px;">
-                                        <button class="btn-success" onclick="generarReporte()" id="btnGenerarReporte">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                            Generar Reporte
-                                        </button>
-                                        <span id="reportStatus" class="status-msg"></span>
-                                    </div>
-                                </div>
+                            <div style="padding:40px 32px;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+                                <p style="font-size:64px;margin-bottom:16px;">📊</p>
+                                <h2 style="color:#94a3b8;font-size:24px;font-weight:700;margin:0 0 8px;">No hay datos cargados</h2>
+                                <p style="color:#94a3b8;font-size:14px;max-width:300px;line-height:1.5;">Selecciona una batería desde la sección Baterías para comenzar a generar reportes.</p>
+                                <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:20px;padding:10px 24px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Ir a Baterías</button>
                             </div>
                         </div>
                     </div>
