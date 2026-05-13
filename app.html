@@ -54,7 +54,8 @@ const tabLabels = {
     baterias: 'Baterías',
     dashboard: 'Dashboard',
     comparativa: 'Comparativa',
-    reportes: 'Reportes'
+    reportes: 'Reportes',
+    informacion: 'Información'
 };
 
 document.querySelectorAll('.side-btn').forEach(btn => {
@@ -85,6 +86,9 @@ document.querySelectorAll('.side-btn').forEach(btn => {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
             renderBaterias();
+        } else if (tab === 'informacion') {
+            document.getElementById('topbarBadge').style.display = 'none';
+            document.getElementById('btnExport').style.display = 'none';
         } else if (tab === 'reportes') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -135,6 +139,19 @@ function orderRiskKeys(dist) {
         return RISK_ORDER.filter(k => keys.includes(k));
     }
     return keys;
+}
+
+function toggleAccordion(header) {
+    const body = header.nextElementSibling;
+    const isOpen = body.classList.contains('open');
+    document.querySelectorAll('.info-body.open').forEach(el => {
+        el.classList.remove('open');
+        el.style.maxHeight = '0';
+    });
+    if (!isOpen) {
+        body.classList.add('open');
+        body.style.maxHeight = body.scrollHeight + 50 + 'px';
+    }
 }
 
 function toTitleCase(str) {
