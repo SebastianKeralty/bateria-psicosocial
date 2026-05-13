@@ -95,13 +95,27 @@ document.querySelectorAll('.side-btn').forEach(btn => {
             const noData = document.getElementById('reportNoData');
             const content = document.getElementById('reportContent');
             const info = document.getElementById('reportFileInfo');
+            const img1 = document.getElementById('reportesImg1');
+            const img2 = document.getElementById('reportesImg2');
             if (state.bateriaActiva) {
                 noData.style.display = 'none';
                 content.style.display = 'block';
                 info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
+                [img1, img2].forEach(function(img) {
+                    if (!img) return;
+                    img.src = 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800';
+                    img.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800');
+                    img.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1IYw0VYt_ohAnJU-Be3S--E-1wLBsbYKX=w800');
+                });
             } else {
                 noData.style.display = 'block';
                 content.style.display = 'none';
+                [img1, img2].forEach(function(img) {
+                    if (!img) return;
+                    img.src = 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800';
+                    img.setAttribute('data-original', 'https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800');
+                    img.setAttribute('data-hover', 'https://lh3.googleusercontent.com/d/1OoZ6wz27aVM0j1Hy8tD3VjdVUv-YQxb8=w800');
+                });
             }
         } else {
             document.getElementById('topbarBadge').style.display = 'none';
@@ -139,6 +153,25 @@ function orderRiskKeys(dist) {
         return RISK_ORDER.filter(k => keys.includes(k));
     }
     return keys;
+}
+
+function abrirDocumento(fileId, titulo) {
+    const modal = document.getElementById('driveViewerModal');
+    const frame = document.getElementById('driveViewerFrame');
+    const title = document.getElementById('driveViewerTitle');
+    const link = document.getElementById('driveViewerLink');
+    if (!modal || !frame) return;
+    frame.src = 'https://drive.google.com/file/d/' + fileId + '/preview';
+    title.textContent = titulo || 'Documento';
+    link.href = 'https://drive.google.com/file/d/' + fileId + '/view';
+    modal.style.display = 'flex';
+}
+
+function cerrarDriveViewer() {
+    const modal = document.getElementById('driveViewerModal');
+    const frame = document.getElementById('driveViewerFrame');
+    if (modal) modal.style.display = 'none';
+    if (frame) setTimeout(() => { frame.src = ''; }, 300);
 }
 
 function toggleAccordion(header) {

@@ -521,8 +521,60 @@
         .info-body.open { padding-bottom: 16px !important; }
         .info-body.open p, .info-body.open a, .info-body.open div { opacity: 1; }
         .info-body.open ~ .info-header .info-arrow { transform: rotate(180deg); }
-        .risk-level-card { transition: transform 0.2s, box-shadow 0.2s; cursor: default; }
-        .risk-level-card:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .risk-level-card {
+            position: relative;
+            overflow: hidden;
+            cursor: default;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+        }
+        .risk-level-card::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        .risk-level-card:hover::before { opacity: 1; }
+        .risk-level-card:hover {
+            transform: scale(1.08) translateY(-3px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+        }
+        .risk-level-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+            transition: left 0.6s;
+            pointer-events: none;
+        }
+        .risk-level-card:hover::after { left: 200%; }
+        .risk-gradient-bar { transition: box-shadow 0.3s, transform 0.3s; }
+        .risk-gradient-bar:hover {
+            box-shadow: 0 6px 24px rgba(0,0,0,0.2), 0 0 40px rgba(16,185,129,0.15), inset 0 2px 4px rgba(255,255,255,0.4) !important;
+            transform: scaleY(1.08);
+        }
+        .risk-dot {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+        }
+        .risk-gradient-bar:hover .risk-dot {
+            animation: riskDotPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes riskDotPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+            50% { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(255,255,255,0); }
+        }
+        .risk-label {
+            transition: transform 0.3s, color 0.3s;
+            display: inline-block;
+        }
+        .risk-gradient-bar:hover ~ * .risk-label,
+        .risk-label-wrap:hover .risk-label { transform: scale(1.1); }
+        .risk-pct { transition: font-weight 0.3s; }
+        .risk-gradient-bar:hover ~ .risk-pct-wrap .risk-pct { font-weight: 800; }
         @keyframes cardReveal {
             0% { opacity: 0; transform: rotateY(90deg) scale(0.5); }
             100% { opacity: 1; transform: rotateY(0deg) scale(1); }
@@ -1663,6 +1715,20 @@
             </div>
         </div>
 
+        <!-- ============ MODAL VISOR DE DRIVE ============ -->
+        <div id="driveViewerModal" class="modal-overlay" style="display:none;z-index:4000;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);">
+            <div class="modal-panel" style="width:90%;max-width:1000px;height:90vh;max-height:800px;">
+                <div class="modal-header">
+                    <h2 id="driveViewerTitle" style="font-size:16px;">Documento</h2>
+                    <a id="driveViewerLink" href="#" target="_blank" style="font-size:12px;color:#16a34a;text-decoration:none;margin-left:auto;margin-right:12px;">Abrir en Drive ↗</a>
+                    <button class="modal-close" onclick="cerrarDriveViewer()">✕</button>
+                </div>
+                <div class="modal-body" style="padding:0;overflow:hidden;">
+                    <iframe id="driveViewerFrame" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
+                </div>
+            </div>
+        </div>
+
         <!-- ============ TAB: COMPARATIVA ============ -->
         <section id="tab-comparativa" class="tab-content" style="min-height:100vh;background:linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);padding:20px;">
             <div class="card" style="margin-bottom:16px;">
@@ -1695,50 +1761,109 @@
         </section>
 
         <!-- ============ TAB: REPORTES ============ -->
-        <section id="tab-reportes" class="tab-content" style="min-height:100vh;background:linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);padding:20px;">
-            <div id="reportNoData" class="placeholder" style="padding:60px;display:block;">
-                <p style="font-size:24px;margin-bottom:12px;">📊</p>
-                <h2 style="color:#94a3b8;">No hay datos cargados</h2>
-                <p style="color:#94a3b8;margin-top:8px;">Carga un archivo en la pesta&ntilde;a Inicio para generar reportes.</p>
-            </div>
-            <div id="reportContent" style="display:none;max-width:800px;margin:0 auto;">
-                <div class="card">
-                    <h2>Generar Reporte</h2>
-                    <p style="font-size:13px;color:#64748b;margin-bottom:14px;" id="reportFileInfo"></p>
+        <section id="tab-reportes" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 80% 20%, rgba(34,197,94,0.15) 0%, transparent 40%),radial-gradient(ellipse at 20% 80%, rgba(16,185,129,0.08) 0%, transparent 40%);pointer-events:none;"></div>
+            <div style="max-width:1200px;margin:0 auto;position:relative;z-index:1;">
+                <h2 style="font-size:28px;margin:0 0 20px;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">📄 Reportes</h2>
 
-                    <div style="margin-bottom:14px;">
-                        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">Incluir en el reporte</h3>
-                        <div style="display:flex;flex-direction:column;gap:6px;">
-                            <label class="report-check"><input type="checkbox" id="rptResumen" checked> Resumen ejecutivo</label>
-                            <label class="report-check"><input type="checkbox" id="rptIntra" checked> Intralaboral</label>
-                            <label class="report-check"><input type="checkbox" id="rptExtra" checked> Extralaboral</label>
-                            <label class="report-check"><input type="checkbox" id="rptStress" checked> Estr&eacute;s</label>
-                            <label class="report-check"><input type="checkbox" id="rptDimTable" checked> Tabla de dimensiones</label>
+                <div id="reportNoData" style="display:block;">
+                    <div class="card" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid rgba(34,197,94,0.15);box-shadow:0 8px 40px rgba(16,185,129,0.15),0 0 60px rgba(6,182,212,0.05);border-radius:24px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+                            <div style="padding:24px 16px;min-height:450px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
+                                <img id="reportesImg1" src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
+                            </div>
+                            <div style="padding:32px 16px;min-height:450px;display:flex;flex-direction:column;gap:18px;">
+                                <div style="text-align:center;margin-bottom:8px;">
+                                    <h2 style="color:#14532d;font-size:20px;margin:0;font-weight:700;letter-spacing:1px;">GENERAR REPORTE</h2>
+                                    <p style="color:#374151;margin:8px 0 0;font-size:14px;">Personaliza y genera tu reporte de resultados</p>
+                                </div>
+                                <div class="card" style="padding:16px 20px;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,197,94,0.15);border-radius:16px;">
+                                    <p style="font-size:13px;color:#64748b;margin-bottom:14px;" id="reportFileInfo">Carga una batería para generar reportes.</p>
+
+                                    <div style="margin-bottom:14px;">
+                                        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">Incluir en el reporte</h3>
+                                        <div style="display:flex;flex-direction:column;gap:6px;">
+                                            <label class="report-check"><input type="checkbox" id="rptResumen" checked> Resumen ejecutivo</label>
+                                            <label class="report-check"><input type="checkbox" id="rptIntra" checked> Intralaboral</label>
+                                            <label class="report-check"><input type="checkbox" id="rptExtra" checked> Extralaboral</label>
+                                            <label class="report-check"><input type="checkbox" id="rptStress" checked> Estr&eacute;s</label>
+                                            <label class="report-check"><input type="checkbox" id="rptDimTable" checked> Tabla de dimensiones</label>
+                                        </div>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                                        <label style="font-weight:600;font-size:14px;">Formato:</label>
+                                        <select id="reportFormat" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white;">
+                                            <option value="pdf">PDF</option>
+                                            <option value="word">Word (.docx)</option>
+                                            <option value="ppt">PowerPoint (.pptx)</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <button class="btn-success" onclick="generarReporte()" id="btnGenerarReporte">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Generar Reporte
+                                        </button>
+                                        <span id="reportStatus" class="status-msg"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-                        <label style="font-weight:600;font-size:14px;">Formato:</label>
-                        <select id="reportFormat" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white;">
-                            <option value="pdf">PDF</option>
-                            <option value="word">Word (.docx)</option>
-                            <option value="ppt">PowerPoint (.pptx)</option>
-                        </select>
-                    </div>
-
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button class="btn-success" onclick="generarReporte()" id="btnGenerarReporte">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Generar Reporte
-                        </button>
-                        <span id="reportStatus" class="status-msg"></span>
                     </div>
                 </div>
 
-                <div id="reportHistory" style="display:none;">
-                    <div class="card">
-                        <h3>Reportes generados</h3>
-                        <div id="reportList" style="font-size:13px;color:#64748b;"></div>
+                <div id="reportContent" style="display:none;">
+                    <div class="card" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid rgba(34,197,94,0.15);box-shadow:0 8px 40px rgba(16,185,129,0.15),0 0 60px rgba(6,182,212,0.05);border-radius:24px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+                            <div style="padding:24px 16px;min-height:450px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(34,197,94,0.2) 0%, transparent 70%);">
+                                <img id="reportesImg2" src="https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800" alt="Reportes" style="width:95%;max-width:700px;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
+                            </div>
+                            <div style="padding:32px 16px;min-height:450px;display:flex;flex-direction:column;gap:18px;">
+                                <div style="text-align:center;margin-bottom:8px;">
+                                    <h2 style="color:#14532d;font-size:20px;margin:0;font-weight:700;letter-spacing:1px;">GENERAR REPORTE</h2>
+                                    <p style="color:#374151;margin:8px 0 0;font-size:14px;">Personaliza y genera tu reporte de resultados</p>
+                                </div>
+                                <div class="card" style="padding:16px 20px;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,197,94,0.15);border-radius:16px;">
+                                    <p style="font-size:13px;color:#64748b;margin-bottom:14px;" id="reportFileInfo"></p>
+
+                                    <div style="margin-bottom:14px;">
+                                        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">Incluir en el reporte</h3>
+                                        <div style="display:flex;flex-direction:column;gap:6px;">
+                                            <label class="report-check"><input type="checkbox" id="rptResumen" checked> Resumen ejecutivo</label>
+                                            <label class="report-check"><input type="checkbox" id="rptIntra" checked> Intralaboral</label>
+                                            <label class="report-check"><input type="checkbox" id="rptExtra" checked> Extralaboral</label>
+                                            <label class="report-check"><input type="checkbox" id="rptStress" checked> Estr&eacute;s</label>
+                                            <label class="report-check"><input type="checkbox" id="rptDimTable" checked> Tabla de dimensiones</label>
+                                        </div>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                                        <label style="font-weight:600;font-size:14px;">Formato:</label>
+                                        <select id="reportFormat" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white;">
+                                            <option value="pdf">PDF</option>
+                                            <option value="word">Word (.docx)</option>
+                                            <option value="ppt">PowerPoint (.pptx)</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <button class="btn-success" onclick="generarReporte()" id="btnGenerarReporte">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Generar Reporte
+                                        </button>
+                                        <span id="reportStatus" class="status-msg"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="reportHistory" style="display:none;margin-top:16px;">
+                        <div class="card">
+                            <h3>Reportes generados</h3>
+                            <div id="reportList" style="font-size:13px;color:#64748b;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1772,47 +1897,59 @@
                         <p style="color:#64748b;font-size:13px;margin-bottom:12px;">Los resultados se clasifican en los siguientes niveles:</p>
                         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
                             <div class="risk-level-card" style="background:#bbf7d0;border-radius:12px;padding:14px;text-align:center;border:1px solid #86efac;">
-                                <div style="width:28px;height:28px;border-radius:50%;background:#22c55e;margin:0 auto 6px;"></div>
+                                <div style="font-size:24px;margin-bottom:4px;">🟢</div>
                                 <div style="font-weight:800;font-size:14px;color:#166534;">Sin riesgo</div>
                                 <div style="font-size:12px;color:#15803d;font-weight:600;">0 – 29%</div>
                             </div>
                             <div class="risk-level-card" style="background:#d9f99d;border-radius:12px;padding:14px;text-align:center;border:1px solid #bef264;">
-                                <div style="width:28px;height:28px;border-radius:50%;background:#a3e635;margin:0 auto 6px;"></div>
+                                <div style="font-size:24px;margin-bottom:4px;">💚</div>
                                 <div style="font-weight:800;font-size:14px;color:#3f6212;">Riesgo bajo</div>
                                 <div style="font-size:12px;color:#4d7c0f;font-weight:600;">30 – 49%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fef08a;border-radius:12px;padding:14px;text-align:center;border:1px solid #fde047;">
-                                <div style="width:28px;height:28px;border-radius:50%;background:#eab308;margin:0 auto 6px;"></div>
+                                <div style="font-size:24px;margin-bottom:4px;">🟡</div>
                                 <div style="font-weight:800;font-size:14px;color:#854d0e;">Riesgo medio</div>
                                 <div style="font-size:12px;color:#a16207;font-weight:600;">50 – 69%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fed7aa;border-radius:12px;padding:14px;text-align:center;border:1px solid #fdba74;">
-                                <div style="width:28px;height:28px;border-radius:50%;background:#f97316;margin:0 auto 6px;"></div>
+                                <div style="font-size:24px;margin-bottom:4px;">🟠</div>
                                 <div style="font-weight:800;font-size:14px;color:#9a3412;">Riesgo alto</div>
                                 <div style="font-size:12px;color:#c2410c;font-weight:600;">70 – 84%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fca5a5;border-radius:12px;padding:14px;text-align:center;border:1px solid #f87171;">
-                                <div style="width:28px;height:28px;border-radius:50%;background:#ef4444;margin:0 auto 6px;"></div>
+                                <div style="font-size:24px;margin-bottom:4px;">🔴</div>
                                 <div style="font-weight:800;font-size:14px;color:#7f1d1d;">Riesgo muy alto</div>
                                 <div style="font-size:12px;color:#991b1b;font-weight:600;">85 – 100%</div>
                             </div>
                         </div>
-                        <p style="color:#64748b;font-size:13px;margin-bottom:6px;">Visualización continua del riesgo:</p>
-                        <div style="width:100%;height:28px;border-radius:6px;background:linear-gradient(90deg,#bbf7d0 0%,#bbf7d0 29%,#d9f99d 29%,#d9f99d 49%,#fef08a 49%,#fef08a 69%,#fed7aa 69%,#fed7aa 84%,#fca5a5 84%,#fca5a5 100%);margin-bottom:4px;"></div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-                            <span style="font-size:10px;color:#64748b;">0%</span>
-                            <span style="font-size:10px;color:#64748b;">29%</span>
-                            <span style="font-size:10px;color:#64748b;">49%</span>
-                            <span style="font-size:10px;color:#64748b;">69%</span>
-                            <span style="font-size:10px;color:#64748b;">84%</span>
-                            <span style="font-size:10px;color:#64748b;">100%</span>
+                        <p style="color:#64748b;font-size:13px;margin-bottom:10px;font-weight:600;">Visualización continua del riesgo:</p>
+                        <div class="risk-gradient-bar" style="position:relative;width:100%;height:44px;border-radius:22px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.12),inset 0 2px 4px rgba(255,255,255,0.3);background:linear-gradient(90deg,#bbf7d0 0%,#bbf7d0 29%,#d9f99d 29%,#d9f99d 49%,#fef08a 49%,#fef08a 69%,#fed7aa 69%,#fed7aa 84%,#fca5a5 84%,#fca5a5 100%);margin-bottom:8px;">
+                            <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0.4) 0%,rgba(255,255,255,0.05) 50%,transparent 100%);border-radius:22px;"></div>
+                            <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.2) 50%,transparent 100%);border-radius:22px;"></div>
+                            <div style="position:absolute;top:0;bottom:0;left:29%;width:2px;background:rgba(0,0,0,0.12);"></div>
+                            <div style="position:absolute;top:0;bottom:0;left:49%;width:2px;background:rgba(0,0,0,0.12);"></div>
+                            <div style="position:absolute;top:0;bottom:0;left:69%;width:2px;background:rgba(0,0,0,0.12);"></div>
+                            <div style="position:absolute;top:0;bottom:0;left:84%;width:2px;background:rgba(0,0,0,0.12);"></div>
+                            <div class="risk-dot" style="position:absolute;top:-4px;left:0%;width:12px;height:12px;background:#166534;border-radius:50%;border:3px solid white;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+                            <div class="risk-dot" style="position:absolute;top:-4px;left:29%;width:12px;height:12px;background:#4d7c0f;border-radius:50%;border:3px solid white;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+                            <div class="risk-dot" style="position:absolute;top:-4px;left:49%;width:12px;height:12px;background:#a16207;border-radius:50%;border:3px solid white;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+                            <div class="risk-dot" style="position:absolute;top:-4px;left:69%;width:12px;height:12px;background:#c2410c;border-radius:50%;border:3px solid white;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+                            <div class="risk-dot" style="position:absolute;top:-4px;left:84%;width:12px;height:12px;background:#dc2626;border-radius:50%;border:3px solid white;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-                            <span style="font-size:11px;font-weight:600;color:#166534;">Sin riesgo</span>
-                            <span style="font-size:11px;font-weight:600;color:#3f6212;">Bajo</span>
-                            <span style="font-size:11px;font-weight:600;color:#854d0e;">Medio</span>
-                            <span style="font-size:11px;font-weight:600;color:#9a3412;">Alto</span>
-                            <span style="font-size:11px;font-weight:600;color:#7f1d1d;">Muy alto</span>
+                        <div class="risk-pct-wrap" style="position:relative;height:14px;margin-bottom:2px;">
+                            <span class="risk-pct" style="position:absolute;left:0%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">0%</span>
+                            <span class="risk-pct" style="position:absolute;left:29%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">29%</span>
+                            <span class="risk-pct" style="position:absolute;left:49%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">49%</span>
+                            <span class="risk-pct" style="position:absolute;left:69%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">69%</span>
+                            <span class="risk-pct" style="position:absolute;left:84%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">84%</span>
+                            <span class="risk-pct" style="position:absolute;left:100%;font-size:10px;color:#64748b;font-weight:600;transform:translateX(-50%);">100%</span>
+                        </div>
+                        <div class="risk-label-wrap" style="position:relative;height:16px;margin-bottom:16px;">
+                            <span class="risk-label" style="position:absolute;left:14.5%;font-size:11px;font-weight:700;color:#166534;transform:translateX(-50%);">Sin riesgo</span>
+                            <span class="risk-label" style="position:absolute;left:39%;font-size:11px;font-weight:700;color:#3f6212;transform:translateX(-50%);">Bajo</span>
+                            <span class="risk-label" style="position:absolute;left:59%;font-size:11px;font-weight:700;color:#854d0e;transform:translateX(-50%);">Medio</span>
+                            <span class="risk-label" style="position:absolute;left:76.5%;font-size:11px;font-weight:700;color:#9a3412;transform:translateX(-50%);">Alto</span>
+                            <span class="risk-label" style="position:absolute;left:92%;font-size:11px;font-weight:700;color:#7f1d1d;transform:translateX(-50%);">Muy alto</span>
                         </div>
                     </div>
                 </div>
@@ -1826,7 +1963,7 @@
                     </div>
                     <div class="info-body" style="padding:0 20px 0 56px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
                         <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Instrumento que recopila información sociodemográfica y ocupacional del trabajador, incluyendo edad, sexo, cargo, antigüedad, tipo de contrato, entre otros datos relevantes para el análisis psicosocial.</p>
-                        <a href="https://drive.google.com/file/d/1cSCpqE9cwqfEBMPrnbeTiEWmdXJ0WHTA/view" target="_blank" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento 🔗</a>
+                        <a href="#" onclick="abrirDocumento('1cSCpqE9cwqfEBMPrnbeTiEWmdXJ0WHTA','Ficha de Datos Generales');return false;" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento 📄</a>
                     </div>
                 </div>
 
@@ -1842,22 +1979,22 @@
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Estrés</h4>
                                 <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa síntomas de estrés en 4 categorías: fisiológicos, comportamiento social, intelectuales y psicoemocionales (31 preguntas).</p>
-                                <a href="https://drive.google.com/file/d/1-wtxZfVR1aj6UkXGUkU5rwAtB5C0JG0l/view" target="_blank" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 🔗</a>
+                                <a href="#" onclick="abrirDocumento('1-wtxZfVR1aj6UkXGUkU5rwAtB5C0JG0l','Cuestionario Estrés');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 📄</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Extralaboral</h4>
                                 <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa condiciones del entorno social, familiar y económico del trabajador (7 dimensiones).</p>
-                                <a href="https://drive.google.com/file/d/1io8_Aublxmovz-YJvETW3hWsjeXBJjOi/view" target="_blank" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 🔗</a>
+                                <a href="#" onclick="abrirDocumento('1io8_Aublxmovz-YJvETW3hWsjeXBJjOi','Cuestionario Extralaboral');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 📄</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Intralaboral A</h4>
                                 <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa factores de riesgo intralaboral en su forma A (19 dimensiones).</p>
-                                <a href="https://drive.google.com/file/d/1DZ1XlkJkGDIlpyJY8NV247tPWt39mkL-/view" target="_blank" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 🔗</a>
+                                <a href="#" onclick="abrirDocumento('1DZ1XlkJkGDIlpyJY8NV247tPWt39mkL-','Cuestionario Intralaboral A');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 📄</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Intralaboral B</h4>
                                 <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa factores de riesgo intralaboral en su forma B (16 dimensiones).</p>
-                                <a href="https://drive.google.com/file/d/13ccpfVaInYwBKjo-KjNLKhpVGIbwdLd6/view" target="_blank" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 🔗</a>
+                                <a href="#" onclick="abrirDocumento('13ccpfVaInYwBKjo-KjNLKhpVGIbwdLd6','Cuestionario Intralaboral B');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir 📄</a>
                             </div>
                         </div>
                     </div>
@@ -1872,7 +2009,7 @@
                     </div>
                     <div class="info-body" style="padding:0 20px 0 56px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
                         <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Documento técnico completo de la Batería de Instrumentos para la Evaluación de Factores de Riesgo Psicosocial, desarrollado por la Pontificia Universidad Javeriana y el Ministerio de la Protección Social.</p>
-                        <a href="https://drive.google.com/file/d/1T6SmMCx3QqfkgibiipZFJrGcP831QqNz/view" target="_blank" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento 🔗</a>
+                        <a href="#" onclick="abrirDocumento('1T6SmMCx3QqfkgibiipZFJrGcP831QqNz','Batería — Documento Técnico Completo');return false;" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento 📄</a>
                     </div>
                 </div>
 
