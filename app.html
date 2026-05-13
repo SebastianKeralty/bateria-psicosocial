@@ -101,7 +101,7 @@ document.querySelectorAll('.side-btn').forEach(btn => {
                 noData.style.display = 'none';
                 content.style.display = 'block';
                 info.textContent = 'Datos: ' + state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' registros)';
-                actualizarPreview();
+                setTimeout(actualizarPreview, 100);
                 [img1, img2].forEach(function(img) {
                     if (!img) return;
                     img.src = 'https://lh3.googleusercontent.com/d/1MqNARuQ44Oj-bs-gZs-8xWNF2puqgvuP=w800';
@@ -232,12 +232,15 @@ if (inicioFile) {
         procesarDashboard(file);
     });
 }
-document.getElementById('bateriasFile').addEventListener('change', function(e) {
+var _bateriasFile = document.getElementById('bateriasFile');
+if (_bateriasFile) {
+_bateriasFile.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
     mostrarModalGuardar(file);
     e.target.value = '';
 });
+}
 const compFileEl = document.getElementById('comparativaFile');
 if (compFileEl) {
 compFileEl.addEventListener('change', function(e) {
@@ -3885,13 +3888,50 @@ function _downloadBlob(blob, name) {
 let _reportHistory = [];
 
 function _addToHistory(filename) {
-    _reportHistory.push({ filename, date: new Date().toLocaleString('es-CO') });
-    const cont = document.getElementById('reportHistory');
-    const list = document.getElementById('reportList');
-    cont.style.display = 'block';
-    list.innerHTML = _reportHistory.map(r =>
-        `<div class="report-item"><span class="r-name">${r.filename}</span><span class="r-meta">${r.date}</span></div>`
-    ).join('');
+}
+
+function _buildPreview() {
+    var pdfTrack = document.getElementById('previewTrackPdf');
+    var pptTrack = document.getElementById('previewTrackPpt');
+    if (pdfTrack && !pdfTrack.children.length) {
+        var h = '';
+        for (var i = 0; i < 6; i++) {
+            var idx = i % 3;
+            var c = [['#16a34a','#22c55e'],['#f59e0b','#fbbf24'],['#3b82f6','#60a5fa']][idx];
+            var p = [42, 28, 58][idx];
+            h += '<div class="preview-page"><div style="font-size:8px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (idx+1) + '</div><div style="height:5px;background:#e2e8f0;border-radius:3px;margin-bottom:3px;"></div><div style="height:5px;background:#e2e8f0;border-radius:3px;width:70%;margin-bottom:6px;"></div><div style="height:8px;background:' + c[0] + ';border-radius:3px;margin-bottom:3px;"></div><div style="height:6px;background:' + c[1] + ';border-radius:3px;width:60%;margin-bottom:6px;"></div><div style="font-size:9px;font-weight:700;color:' + c[0] + ';">' + p + '%</div></div>';
+        }
+        pdfTrack.innerHTML = h;
+    }
+    if (pptTrack && !pptTrack.children.length) {
+        var slides = [
+            { t: 'KERALTY VITAL', p: 'Reporte Psicosocial', d: [42, 28, 58], bg: '#14532d' },
+            { t: 'INTRALABORAL', p: 'Dominios', d: [42, 35, 50], bg: '#1e40af' },
+            { t: 'EXTRALABORAL', p: 'Entorno', d: [28, 18, 38], bg: '#7c3aed' },
+            { t: 'CONCLUSIONES', p: 'Recomendaciones', d: [55, 40, 62], bg: '#b45309' }
+        ];
+        var h = '';
+        for (var i = 0; i < 6; i++) {
+            var s = slides[i % 4];
+            var prom = Math.round((s.d[0]+s.d[1]+s.d[2])/3);
+            var bars = '<div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Intra<span>' + s.d[0] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[0] + '%;background:#22c55e;border-radius:3px;"></div></div></div><div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Extra<span>' + s.d[1] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[1] + '%;background:#fbbf24;border-radius:3px;"></div></div></div><div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Stress<span>' + s.d[2] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[2] + '%;background:#60a5fa;border-radius:3px;"></div></div></div>';
+            h += '<div class="preview-slide" style="background:linear-gradient(135deg,' + s.bg + ',' + s.bg + 'cc);"><div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 80%,rgba(255,255,255,0.1),transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,0,0,0.1),transparent 50%);"></div><div style="position:relative;z-index:1;"><div style="font-size:9px;font-weight:800;color:white;letter-spacing:0.5px;">' + s.t + '</div><div style="font-size:6px;color:rgba(255,255,255,0.6);margin-bottom:6px;">' + s.p + '</div><div style="font-size:16px;font-weight:900;color:white;">' + prom + '%</div><div style="font-size:6px;color:rgba(255,255,255,0.5);margin-bottom:4px;">psicosocial</div>' + bars + '</div></div>';
+        }
+        pptTrack.innerHTML = h;
+    }
+}
+
+function actualizarPreview() {
+    _buildPreview();
+    var sel = document.getElementById('reportFormat');
+    if (!sel) return;
+    var pdfEl = document.getElementById('previewScrollPdf');
+    var pptEl = document.getElementById('previewScrollPpt');
+    if (!pdfEl || !pptEl) return;
+    pdfEl.style.display = 'none';
+    pptEl.style.display = 'none';
+    if (sel.value === 'pdf' || sel.value === 'word') pdfEl.style.display = 'block';
+    else pptEl.style.display = 'block';
 }
 
 function _getSelectedSections() {
@@ -3913,12 +3953,7 @@ function _loadLib(url) {
     });
 }
 
-function actualizarPreview() {
-    const fmt = document.getElementById('reportFormat')?.value || 'pdf';
-    document.querySelectorAll('.mockup').forEach(el => el.style.display = 'none');
-    const target = document.getElementById('mockup' + fmt.charAt(0).toUpperCase() + fmt.slice(1));
-    if (target) target.style.display = 'block';
-}
+
 
 function generarReporte() {
     if (!state.bateriaActiva) {
