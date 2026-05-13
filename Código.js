@@ -10,80 +10,88 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+// ── Autorizar Drive (llamar desde la UI para forzar permisos) ──
+function autorizarDrive() {
+  DriveApp.getRootFolder().getName();
+  return true;
+}
+
 // ── Drive: carpeta central ──
 function _getBateriasFolder() {
-  const folders = DriveApp.getFoldersByName('Baterias Psicosocial');
-  if (folders.hasNext()) return folders.next();
+  const props = PropertiesService.getScriptProperties();
+  const folderId = props.getProperty('BATERIAS_FOLDER_ID');
+  if (folderId) {
+    try { return DriveApp.getFolderById(folderId); } catch(e) {}
+  }
+  // Try creating the folder - will trigger Drive permission prompt
   const folder = DriveApp.createFolder('Baterias Psicosocial');
-  folder.addViewer(DriveApp.getFileById(DriveApp.getRootFolder().getId()).getOwner());
+  DriveApp.getRootFolder();
+  props.setProperty('BATERIAS_FOLDER_ID', folder.getId());
   return folder;
 }
 
-function _readIndice(folder) {
-  const files = folder.getFilesByName('indice.json');
-  if (files.hasNext()) {
-    try { return JSON.parse(files.next().getBlob().getDataAsString()); } catch(e) {}
-  }
-  return [];
+function _readIndice() {
+  const props = PropertiesService.getScriptProperties();
+  try { return JSON.parse(props.getProperty('BATERIAS_INDICE') || '[]'); } catch(e) { return []; }
 }
 
-function _writeIndice(folder, data) {
-  const files = folder.getFilesByName('indice.json');
-  while (files.hasNext()) files.next().setTrashed(true);
-  folder.createFile('indice.json', JSON.stringify(data), 'application/json');
+function _writeIndice(data) {
+  PropertiesService.getScriptProperties().setProperty('BATERIAS_INDICE', JSON.stringify(data));
 }
 
-// ── API: guardar batería ──
-function guardarBateria(datos, nombre, anio) {
+// ── API: guardar batería (recibe base64 del .xlsx) ──
+function guardarBateria(excelBase64, nombre, anio, metadata) {
   const folder = _getBateriasFolder();
-  const indice = _readIndice(folder);
-
-  const s = datos.summary;
-  const total = s.total || 1;
-  const intraP = Math.round((((s.intraGeneral?.["Riesgo alto"]||0)+(s.intraGeneral?.["Riesgo muy alto"]||0))/total)*100);
-  const extraP = Math.round((((s.extraGeneral?.["Riesgo alto"]||0)+(s.extraGeneral?.["Riesgo muy alto"]||0))/total)*100);
-  const stressP = Math.round((((s.stress?.["Riesgo alto"]||0)+(s.stress?.["Riesgo muy alto"]||0))/total)*100);
-  const psicoPct = Math.round((intraP + extraP + stressP) / 3);
+  const indice = _readIndice();
 
   const id = 'b_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(excelBase64),
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    nombre + '.xlsx'
+  );
+  const excelFile = folder.createFile(blob);
+
   const entry = {
     id, nombre, anio: String(anio),
-    total: s.total, forma: datos.meta.forma,
-    intraP, extraP, stressP, psicoPct,
-    fecha: new Date().toISOString().slice(0, 10)
+    total: metadata.total || 0,
+    forma: metadata.forma || '',
+    intraP: metadata.intraP || 0,
+    extraP: metadata.extraP || 0,
+    stressP: metadata.stressP || 0,
+    psicoPct: metadata.psicoPct || 0,
+    fecha: new Date().toISOString().slice(0, 10),
+    fileId: excelFile.getId()
   };
 
-  const dataFile = folder.createFile('data_' + id + '.json', JSON.stringify(datos), 'application/json');
-  entry.fileId = dataFile.getId();
-
   indice.push(entry);
-  _writeIndice(folder, indice);
+  _writeIndice(indice);
   return entry;
 }
 
-// ── API: listar baterías ──
 function listarBaterias() {
-  return _readIndice(_getBateriasFolder());
+  return _readIndice();
 }
 
-// ── API: cargar batería (devuelve el JSON completo) ──
 function cargarBateria(id) {
-  const folder = _getBateriasFolder();
-  const indice = _readIndice(folder);
+  const indice = _readIndice();
   const entry = indice.find(e => e.id === id);
   if (!entry) throw new Error('Batería no encontrada');
   const file = DriveApp.getFileById(entry.fileId);
-  return JSON.parse(file.getBlob().getDataAsString());
+  const blob = file.getBlob();
+  return {
+    base64: Utilities.base64Encode(blob.getBytes()),
+    fileName: entry.nombre + '.xlsx',
+    meta: entry
+  };
 }
 
-// ── API: eliminar batería ──
 function eliminarBateria(id) {
-  const folder = _getBateriasFolder();
-  const indice = _readIndice(folder);
+  const indice = _readIndice();
   const idx = indice.findIndex(e => e.id === id);
   if (idx === -1) throw new Error('Batería no encontrada');
   try { DriveApp.getFileById(indice[idx].fileId).setTrashed(true); } catch(e) {}
   indice.splice(idx, 1);
-  _writeIndice(folder, indice);
+  _writeIndice(indice);
 }

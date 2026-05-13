@@ -69,6 +69,15 @@ document.querySelectorAll('.side-btn').forEach(btn => {
             document.getElementById('topbarBadge').style.display = 'inline';
             document.getElementById('topbarBadge').textContent = state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' reg.)';
             document.getElementById('btnExport').style.display = 'inline-flex';
+            // Re-render dashboard content when tab becomes visible (fixes chart rendering)
+            setTimeout(() => {
+                const dashEl = document.getElementById('dashContent');
+                if (dashEl && dashEl.style.display !== 'none') {
+                    const filtered = getFilteredRows();
+                    const s = state.bateriaActiva ? computeSummary(filtered) : null;
+                    if (s) renderChartsDashboard(filtered, s);
+                }
+            }, 200);
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -270,15 +279,31 @@ function uploadBateria(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const result = procesarExcel(new Uint8Array(e.target.result), file.name);
+            const arrayBuffer = e.target.result;
+            const result = procesarExcel(new Uint8Array(arrayBuffer), file.name);
             if (!result.rows || result.rows.length === 0) {
                 hideLoadingModal();
                 mostrarStatus('bateriasStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
                 return;
             }
-            const datosParaGuardar = { meta: result.meta, summary: result.summary };
             const baseName = file.name.replace(/\.xlsx?$/i, '');
             const currentYear = new Date().getFullYear();
+
+            // Convert ArrayBuffer to base64
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+            const excelBase64 = btoa(binary);
+
+            // Build metadata summary
+            const s = result.summary;
+            const total = s.total || 1;
+            const intraP = Math.round((((s.intraGeneral?.["Riesgo alto"]||0)+(s.intraGeneral?.["Riesgo muy alto"]||0))/total)*100);
+            const extraP = Math.round((((s.extraGeneral?.["Riesgo alto"]||0)+(s.extraGeneral?.["Riesgo muy alto"]||0))/total)*100);
+            const stressP = Math.round((((s.stress?.["Riesgo alto"]||0)+(s.stress?.["Riesgo muy alto"]||0))/total)*100);
+            const psicoPct = Math.round((intraP + extraP + stressP) / 3);
+
+            const metadata = { total: s.total, forma: result.meta.forma, intraP, extraP, stressP, psicoPct };
 
             google.script.run
                 .withSuccessHandler(function(entry) {
@@ -288,10 +313,13 @@ function uploadBateria(file) {
                 })
                 .withFailureHandler(function(err) {
                     hideLoadingModal();
-                    mostrarStatus('bateriasStatus', 'Error al guardar: ' + err.message, 'error');
+                    const msg = err.message.includes('permissions') || err.message.includes('permisos') || err.message.includes('insufficient') ?
+                        'Permisos insuficientes. Ve a la pestaña Baterías y haz clic en "Autorizar Drive".' :
+                        'Error al guardar: ' + err.message;
+                    mostrarStatus('bateriasStatus', msg, 'error');
                     console.error(err);
                 })
-                .guardarBateria(datosParaGuardar, baseName, currentYear);
+                .guardarBateria(excelBase64, baseName, currentYear, metadata);
         } catch(err) {
             hideLoadingModal();
             mostrarStatus('bateriasStatus', 'Error al procesar: ' + err.message, 'error');
@@ -317,10 +345,31 @@ function renderBaterias() {
             renderBateriasGrid();
         })
         .withFailureHandler(function(err) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><p style="color:#ef4444;">Error al cargar: ' + err.message + '</p></div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;">' +
+                '<p style="font-size:48px;margin-bottom:12px;">🔐</p>' +
+                '<h3 style="color:#ef4444;margin-bottom:8px;">Permisos de Drive requeridos</h3>' +
+                '<p style="color:#64748b;max-width:400px;margin:0 auto 16px;line-height:1.5;">' +
+                'Para guardar y compartir baterías, necesitas autorizar el acceso a Drive. ' +
+                'Haz clic en el botón y acepta los permisos.</p>' +
+                '<button onclick="autorizarYRecargar()" style="padding:12px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">' +
+                'Autorizar Drive y recargar</button>' +
+                '<p style="color:#94a3b8;font-size:12px;margin-top:12px;">' + err.message + '</p></div>';
             console.error(err);
         })
         .listarBaterias();
+}
+
+function autorizarYRecargar() {
+    const grid = document.getElementById('bateriasGrid');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:4px solid #e2e8f0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div><p style="color:#94a3b8;">Autorizando Drive...</p></div>';
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><p style="color:#ef4444;">' + err.message + '</p></div>';
+        })
+        .autorizarDrive();
 }
 
 function renderBateriasGrid() {
@@ -375,13 +424,29 @@ function renderBateriasGrid() {
 
 // ── BATERÍAS: cargar desde Drive ──
 function cargarBateriaDesdeDrive(id) {
-    showLoadingModal('Cargando batería...');
+    showLoadingModal('Cargando batería desde Drive...');
     google.script.run
-        .withSuccessHandler(function(datos) {
-            state.bateriaActiva = datos;
-            hideLoadingModal();
-            renderDashboard();
-            setTimeout(() => irADashboard(), 500);
+        .withSuccessHandler(function(resp) {
+            try {
+                const binaryStr = atob(resp.base64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                const result = procesarExcel(bytes, resp.fileName);
+                if (!result.rows || result.rows.length === 0) {
+                    hideLoadingModal();
+                    alert('El archivo no contiene datos válidos.');
+                    return;
+                }
+                state.bateriaActiva = result;
+                hideLoadingModal();
+                // Switch to dashboard tab first so charts render in visible container
+                irADashboard();
+                setTimeout(() => renderDashboard(), 300);
+            } catch(err) {
+                hideLoadingModal();
+                alert('Error al procesar: ' + err.message);
+                console.error(err);
+            }
         })
         .withFailureHandler(function(err) {
             hideLoadingModal();
@@ -456,15 +521,24 @@ function agregarDriveAComparativa() {
     ids.forEach((id, idx) => {
         setTimeout(() => {
             google.script.run
-                .withSuccessHandler(function(datos) {
-                    const newId = ++compBatteryIdCounter;
-                    const baseName = datos.meta.fileName.replace(/\.xlsx?$/i, '');
-                    datos.meta.id = newId;
-                    datos.meta.name = baseName;
-                    datos.meta.year = new Date().getFullYear() + '';
-                    state.bateriasComparativa.push(datos);
-                    renderBatteryList();
-                    actualizarComparativa();
+                .withSuccessHandler(function(resp) {
+                    try {
+                        const binaryStr = atob(resp.base64);
+                        const bytes = new Uint8Array(binaryStr.length);
+                        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                        const result = procesarExcel(bytes, resp.fileName);
+                        if (!result.rows || result.rows.length === 0) return;
+                        const newId = ++compBatteryIdCounter;
+                        const baseName = resp.meta.nombre || resp.fileName.replace(/\.xlsx?$/i, '');
+                        result.meta.id = newId;
+                        result.meta.name = baseName;
+                        result.meta.year = new Date().getFullYear() + '';
+                        state.bateriasComparativa.push(result);
+                        renderBatteryList();
+                        actualizarComparativa();
+                    } catch(err) {
+                        mostrarStatus('compStatus', 'Error al procesar: ' + err.message, 'error');
+                    }
                 })
                 .withFailureHandler(function(err) {
                     mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
