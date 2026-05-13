@@ -10,24 +10,53 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// ── Autorizar Drive (llamar desde la UI para forzar permisos) ──
+// ── ID de la carpeta de Drive (cambia este valor si cambias la carpeta) ──
+var CARPETA_POR_DEFECTO = '1Uz3i7_fwmPIc5-abgyeqXEJz0L_-UaEj';
+
+// ── Autorizar Drive ──
 function autorizarDrive() {
   DriveApp.getRootFolder().getName();
   return true;
 }
 
+// ── Configurar carpeta (guardar ID en PropertiesService) ──
+function configurarCarpeta(folderId) {
+  const folder = DriveApp.getFolderById(folderId);
+  PropertiesService.getScriptProperties().setProperty('BATERIAS_FOLDER_ID', folderId);
+  return { id: folderId, name: folder.getName() };
+}
+
+// ── Obtener info de la carpeta configurada ──
+function obtenerInfoCarpeta() {
+  const props = PropertiesService.getScriptProperties();
+  let folderId = props.getProperty('BATERIAS_FOLDER_ID');
+  if (!folderId) folderId = CARPETA_POR_DEFECTO;
+  if (!folderId) return null;
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    if (!props.getProperty('BATERIAS_FOLDER_ID')) {
+      props.setProperty('BATERIAS_FOLDER_ID', folderId);
+    }
+    return { id: folderId, name: folder.getName(), url: folder.getUrl() };
+  } catch(e) {
+    props.deleteProperty('BATERIAS_FOLDER_ID');
+    return null;
+  }
+}
+
 // ── Drive: carpeta central ──
 function _getBateriasFolder() {
   const props = PropertiesService.getScriptProperties();
-  const folderId = props.getProperty('BATERIAS_FOLDER_ID');
+  let folderId = props.getProperty('BATERIAS_FOLDER_ID');
+  // Si no hay ID guardado, usar el ID por defecto
+  if (!folderId) folderId = CARPETA_POR_DEFECTO;
   if (folderId) {
-    try { return DriveApp.getFolderById(folderId); } catch(e) {}
+    try { return DriveApp.getFolderById(folderId); } catch(e) {
+      props.deleteProperty('BATERIAS_FOLDER_ID');
+      throw new Error('La carpeta configurada no está disponible. Ve a Baterías y configura una nueva.');
+    }
   }
-  // Try creating the folder - will trigger Drive permission prompt
-  const folder = DriveApp.createFolder('Baterias Psicosocial');
-  DriveApp.getRootFolder();
-  props.setProperty('BATERIAS_FOLDER_ID', folder.getId());
-  return folder;
+  throw new Error('No hay carpeta configurada. Ve a Baterías y configura una carpeta de Drive.');
 }
 
 function _readIndice() {
@@ -49,7 +78,7 @@ function guardarBateria(excelBase64, nombre, anio, metadata) {
   const blob = Utilities.newBlob(
     Utilities.base64Decode(excelBase64),
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    nombre + '.xlsx'
+    anio + '_' + nombre + '.xlsx'
   );
   const excelFile = folder.createFile(blob);
 
