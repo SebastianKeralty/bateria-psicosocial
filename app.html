@@ -3894,30 +3894,39 @@ function _buildPreview() {
     var pdfTrack = document.getElementById('previewTrackPdf');
     var pptTrack = document.getElementById('previewTrackPpt');
     if (pdfTrack && !pdfTrack.children.length) {
-        var h = '';
-        for (var i = 0; i < 6; i++) {
-            var idx = i % 3;
-            var c = [['#16a34a','#22c55e'],['#f59e0b','#fbbf24'],['#3b82f6','#60a5fa']][idx];
-            var p = [42, 28, 58][idx];
-            h += '<div class="preview-page"><div style="font-size:8px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (idx+1) + '</div><div style="height:5px;background:#e2e8f0;border-radius:3px;margin-bottom:3px;"></div><div style="height:5px;background:#e2e8f0;border-radius:3px;width:70%;margin-bottom:6px;"></div><div style="height:8px;background:' + c[0] + ';border-radius:3px;margin-bottom:3px;"></div><div style="height:6px;background:' + c[1] + ';border-radius:3px;width:60%;margin-bottom:6px;"></div><div style="font-size:9px;font-weight:700;color:' + c[0] + ';">' + p + '%</div></div>';
+        var rows = [];
+        for (var r = 0; r < 4; r++) {
+            var idx = r % 4;
+            var colors = ['#16a34a','#f59e0b','#3b82f6','#8b5cf6'];
+            var pcts = [42, 28, 58, 35];
+            var c = colors[idx];
+            var p = pcts[idx];
+            rows.push('<div style="display:flex;gap:6px;padding:4px 0;flex-shrink:0;"><div class="preview-page" style="width:calc(50% - 3px);min-height:88px;padding:8px 10px;"><div style="font-size:7px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (r+1) + '</div><div style="height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:3px;width:70%;"></div><div style="height:10px;background:' + c + ';border-radius:3px;margin-bottom:4px;width:100%;"></div><div style="height:4px;background:' + c + ';border-radius:2px;width:55%;opacity:0.4;margin-bottom:2px;"></div><div style="font-size:7px;font-weight:700;color:' + c + ';">' + p + '%</div></div><div class="preview-page" style="width:calc(50% - 3px);min-height:88px;padding:8px 10px;"><div style="font-size:7px;font-weight:700;color:#374151;margin-bottom:4px;">Pag ' + (r+5) + '</div><div style="height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:3px;width:70%;"></div><div style="height:10px;background:' + c + ';border-radius:3px;margin-bottom:4px;width:85%;"></div><div style="height:4px;background:' + c + ';border-radius:2px;width:45%;opacity:0.4;margin-bottom:2px;"></div><div style="font-size:7px;font-weight:700;color:' + c + ';">' + (p+10) + '%</div></div></div>');
         }
-        pdfTrack.innerHTML = h;
+        pdfTrack.innerHTML = rows.join('') + rows.join('');
     }
     if (pptTrack && !pptTrack.children.length) {
         var slides = [
-            { t: 'KERALTY VITAL', p: 'Reporte Psicosocial', d: [42, 28, 58], bg: '#14532d' },
-            { t: 'INTRALABORAL', p: 'Dominios', d: [42, 35, 50], bg: '#1e40af' },
-            { t: 'EXTRALABORAL', p: 'Entorno', d: [28, 18, 38], bg: '#7c3aed' },
-            { t: 'CONCLUSIONES', p: 'Recomendaciones', d: [55, 40, 62], bg: '#b45309' }
+            { t: 'PORTADA', p: 'Keralty Vital', d: [42, 28, 58], bg: '#14532d' },
+            { t: 'INTRA', p: '4 Dominios', d: [42, 35, 50], bg: '#1e40af' },
+            { t: 'EXTRA', p: '7 Dimensiones', d: [28, 18, 38], bg: '#7c3aed' },
+            { t: 'ESTRES', p: '4 Categorias', d: [58, 30, 45], bg: '#be123c' },
+            { t: 'CONCLU.', p: 'Recomendaciones', d: [55, 40, 62], bg: '#b45309' },
+            { t: 'RESULT.', p: 'Generales', d: [38, 25, 48], bg: '#0f766e' }
         ];
         var h = '';
         for (var i = 0; i < 6; i++) {
-            var s = slides[i % 4];
+            var s = slides[i];
             var prom = Math.round((s.d[0]+s.d[1]+s.d[2])/3);
-            var bars = '<div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Intra<span>' + s.d[0] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[0] + '%;background:#22c55e;border-radius:3px;"></div></div></div><div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Extra<span>' + s.d[1] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[1] + '%;background:#fbbf24;border-radius:3px;"></div></div></div><div style="margin-bottom:3px;"><div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,0.7);">Stress<span>' + s.d[2] + '%</span></div><div style="height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + s.d[2] + '%;background:#60a5fa;border-radius:3px;"></div></div></div>';
-            h += '<div class="preview-slide" style="background:linear-gradient(135deg,' + s.bg + ',' + s.bg + 'cc);"><div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 80%,rgba(255,255,255,0.1),transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,0,0,0.1),transparent 50%);"></div><div style="position:relative;z-index:1;"><div style="font-size:9px;font-weight:800;color:white;letter-spacing:0.5px;">' + s.t + '</div><div style="font-size:6px;color:rgba(255,255,255,0.6);margin-bottom:6px;">' + s.p + '</div><div style="font-size:16px;font-weight:900;color:white;">' + prom + '%</div><div style="font-size:6px;color:rgba(255,255,255,0.5);margin-bottom:4px;">psicosocial</div>' + bars + '</div></div>';
+            var bars =
+                '<div style="display:flex;gap:4px;margin-top:6px;">' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[0] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[0] + '%;background:#22c55e;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">I</div></div>' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[1] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[1] + '%;background:#fbbf24;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">E</div></div>' +
+                    '<div style="flex:1;text-align:center;"><div style="font-size:10px;font-weight:900;color:white;">' + s.d[2] + '</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + s.d[2] + '%;background:#60a5fa;border-radius:2px;"></div></div><div style="font-size:5px;color:rgba(255,255,255,0.5);">S</div></div>' +
+                '</div>';
+            h += '<div class="preview-slide" style="width:175px;min-height:170px;padding:12px 14px;margin-right:16px;background:linear-gradient(135deg,' + s.bg + ',' + s.bg + 'cc);flex-shrink:0;border:1px solid rgba(255,255,255,0.15);"><div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 80%,rgba(255,255,255,0.08),transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(0,0,0,0.1),transparent 50%);"></div><div style="position:relative;z-index:1;"><div style="font-size:10px;font-weight:800;color:white;letter-spacing:0.5px;">' + s.t + '</div><div style="font-size:6px;color:rgba(255,255,255,0.5);margin-bottom:4px;">' + s.p + '</div><div style="font-size:20px;font-weight:900;color:white;line-height:1.1;">' + prom + '%</div><div style="font-size:6px;color:rgba(255,255,255,0.4);margin-bottom:2px;">psicosocial</div>' + bars + '</div></div>';
         }
-        pptTrack.innerHTML = h;
+        pptTrack.innerHTML = h + h;
     }
 }
 
@@ -3925,13 +3934,16 @@ function actualizarPreview() {
     _buildPreview();
     var sel = document.getElementById('reportFormat');
     if (!sel) return;
-    var pdfEl = document.getElementById('previewScrollPdf');
-    var pptEl = document.getElementById('previewScrollPpt');
-    if (!pdfEl || !pptEl) return;
-    pdfEl.style.display = 'none';
-    pptEl.style.display = 'none';
-    if (sel.value === 'pdf' || sel.value === 'word') pdfEl.style.display = 'block';
-    else pptEl.style.display = 'block';
+    var pdfTrack = document.getElementById('previewTrackPdf');
+    var pptTrack = document.getElementById('previewTrackPpt');
+    if (!pdfTrack || !pptTrack) return;
+    if (sel.value === 'pdf' || sel.value === 'word') {
+        pdfTrack.style.display = 'flex';
+        pptTrack.style.display = 'none';
+    } else {
+        pdfTrack.style.display = 'none';
+        pptTrack.style.display = 'flex';
+    }
 }
 
 function _getSelectedSections() {
