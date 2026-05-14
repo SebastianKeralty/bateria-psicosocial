@@ -126,8 +126,9 @@
             font-size: 10px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.25s ease;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
             position: relative;
+            overflow: hidden;
         }
         .side-btn::before {
             content: '';
@@ -135,8 +136,29 @@
             inset: 4px 8px;
             border-radius: 8px;
             background: transparent;
-            transition: all 0.25s ease;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
             z-index: -1;
+        }
+        /* Ripple effect */
+        .side-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: none;
+        }
+        .side-btn:active::after {
+            width: 200px;
+            height: 200px;
+            opacity: 1;
+            transition: all 0.5s ease-out;
         }
         .side-btn:hover {
             color: #fff;
@@ -150,26 +172,43 @@
             color: #fff;
             border-left-color: #86efac;
             background: transparent;
+            animation: sideBtnActive 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes sideBtnActive {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.08); }
+            100% { transform: scale(1); }
         }
         .side-btn.active::before {
-            background: rgba(120,80,255,0.12);
-            box-shadow: 0 0 30px rgba(120,80,255,0.15);
+            background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(16,185,129,0.12));
+            box-shadow: 0 0 30px rgba(34,197,94,0.15), 0 0 60px rgba(34,197,94,0.05);
+            inset: 3px 6px;
+        }
+        .side-btn.active svg {
+            animation: sideIconPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes sideIconPop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.25); }
+            100% { transform: scale(1); }
         }
         .side-btn svg {
             width: 24px;
             height: 24px;
             flex-shrink: 0;
             opacity: 0.7;
-            transition: all 0.25s ease;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
             filter: drop-shadow(0 0 0 transparent);
         }
         .side-btn:hover svg {
             opacity: 0.95;
-            filter: drop-shadow(0 0 6px rgba(167,139,250,0.5));
+            filter: drop-shadow(0 0 8px rgba(34,197,94,0.5));
+            transform: scale(1.1);
         }
         .side-btn.active svg {
             opacity: 1;
-            filter: drop-shadow(0 0 10px rgba(167,139,250,0.7));
+            filter: drop-shadow(0 0 12px rgba(34,197,94,0.6));
+            animation: sideIconPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .side-btn .label {
             font-size: 9px;
@@ -194,11 +233,17 @@
         .topbar {
             display: flex;
             align-items: center;
-            padding: 16px 24px;
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 28px;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(30px) saturate(1.4);
+            -webkit-backdrop-filter: blur(30px) saturate(1.4);
+            border-bottom: 1px solid rgba(226,232,240,0.3);
             gap: 8px;
             flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.06);
         }
         .topbar h2 {
             font-size: 18px;
@@ -756,13 +801,49 @@
         .bateria-card:hover .btn-eliminar {
             background: #fef2f2;
         }
-        .info-accordion { transition: box-shadow 0.2s; }
-        .info-accordion:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
-        .info-header:hover { background: #f8fafc; }
-        .info-body p, .info-body a { opacity: 0; transition: opacity 0.3s; }
-        .info-body.open { padding-bottom: 16px !important; }
-        .info-body.open p, .info-body.open a, .info-body.open div { opacity: 1; }
+        .info-accordion { 
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+        }
+        .info-accordion:hover {
+            box-shadow: 0 8px 28px rgba(0,0,0,0.1) !important;
+            transform: scale(1.015) translateY(-2px);
+            border-color: rgba(34,197,94,0.25) !important;
+        }
+        .info-accordion::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #22c55e, #16a34a, #22c55e, transparent);
+            background-size: 200% 100%;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            border-radius: 12px 12px 0 0;
+        }
+        .info-accordion:hover::before {
+            opacity: 1;
+            animation: shimmerBorder 3s ease-in-out infinite;
+        }
+        .info-header {
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .info-header:hover { 
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            padding-left: 24px !important;
+        }
+        .info-body p, .info-body a { opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; transform: translateY(8px); }
+        .info-body.open { padding-bottom: 20px !important; }
+        .info-body.open p, .info-body.open a, .info-body.open div { 
+            opacity: 1; 
+            transform: translateY(0);
+        }
         .info-body.open ~ .info-header .info-arrow { transform: rotate(180deg); }
+        .info-body .info-content-inner {
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
         .risk-level-card {
             position: relative;
             overflow: hidden;
@@ -2097,10 +2178,10 @@
 
             <div id="compContent" style="display:none;">
                 <div id="trendCard" style="display:none;"></div>
-                <div class="charts-grid">
-                    <div class="chart-card full" onclick="abrirDrillComparativa('intra')"><h3>Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
-                    <div class="chart-card full" onclick="abrirDrillComparativa('extra')"><h3>Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
-                    <div class="chart-card full" onclick="abrirDrillComparativa('stress')"><h3>Estr&eacute;s</h3><canvas id="groupedStress"></canvas></div>
+                <div class="charts-row-three" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('intra')"><h3 style="font-size:14px;">📊 Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('extra')"><h3 style="font-size:14px;">📊 Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('stress')"><h3 style="font-size:14px;">📊 Estrés</h3><canvas id="groupedStress"></canvas></div>
                 </div>
                 <div class="card">
                     <h2>Tabla comparativa</h2>

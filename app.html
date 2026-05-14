@@ -34,7 +34,8 @@ const state = {
     _sortDir: 1,
     _compSortCol: null,
     _compSortDir: 1,
-    _compViewMode: 'cards'
+    _compViewMode: 'cards',
+    _compDimSortDir: 0
 };
 
 function destroyChart(key) {
@@ -68,22 +69,26 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         document.getElementById('tab-' + tab).classList.add('active');
         document.getElementById('topbarTitle').textContent = tabLabels[tab] || tab;
         if (tab === 'dashboard' && state.bateriaActiva) {
-            // Verificar que la batería aún exista en Drive
-            var dashTabBtn = this;
-            google.script.run
-                .withSuccessHandler(function(exists) {
-                    if (!exists) {
-                        state.bateriaActiva = null;
-                        document.getElementById('topbarBadge').style.display = 'none';
-                        document.getElementById('btnExport').style.display = 'none';
-                        document.getElementById('dashContent').style.display = 'none';
-                        document.getElementById('dashNoData').style.display = 'block';
-                        return;
-                    }
-                    _renderDashboardTab();
-                })
-                .withFailureHandler(function() { _renderDashboardTab(); })
-                .verificarBateria(state.bateriaActiva.meta.id);
+            var batteryId = state.bateriaActiva.meta && state.bateriaActiva.meta.id;
+            if (!batteryId) {
+                // Subida local sin id de Drive — renderizar directamente
+                _renderDashboardTab();
+            } else {
+                google.script.run
+                    .withSuccessHandler(function(exists) {
+                        if (!exists) {
+                            state.bateriaActiva = null;
+                            document.getElementById('topbarBadge').style.display = 'none';
+                            document.getElementById('btnExport').style.display = 'none';
+                            document.getElementById('dashContent').style.display = 'none';
+                            document.getElementById('dashNoData').style.display = 'block';
+                            return;
+                        }
+                        _renderDashboardTab();
+                    })
+                    .withFailureHandler(function() { _renderDashboardTab(); })
+                    .verificarBateria(batteryId);
+            }
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -202,7 +207,7 @@ function toggleAccordion(header) {
     });
     if (!isOpen) {
         body.classList.add('open');
-        body.style.maxHeight = body.scrollHeight + 50 + 'px';
+        body.style.maxHeight = body.scrollHeight + 80 + 'px';
     }
 }
 
@@ -379,7 +384,7 @@ let _pendingFile = null;
 
 function mostrarModalGuardar(file) {
     _pendingFile = file;
-    const baseName = file.name.replace(/\.xlsx?$/i, '') || 'Bateria';
+    const baseName = file.name.replace(/\.(xlsx?|xlsb)$/i, '') || 'Bateria';
     const currentYear = new Date().getFullYear();
 
     const modal = document.createElement('div');
@@ -420,13 +425,16 @@ function confirmarGuardarBateria() {
     const nombre = document.getElementById('modalNombreBateria')?.value?.trim();
     const anio = document.getElementById('modalAnioBateria')?.value;
     if (!nombre) { alert('Escribe un nombre'); return; }
+    var ext = file.name.match(/\.(xlsx?|xlsb)$/i);
+    var extStr = ext ? ext[0] : '.xlsx';
     cerrarModalGuardar();
-    uploadBateria(file, nombre, anio);
+    uploadBateria(file, nombre, anio, extStr);
 }
 
-function uploadBateria(file, nombre, anio) {
+function uploadBateria(file, nombre, anio, ext) {
     showLoadingModal('Guardando batería en Drive...');
     mostrarStatus('bateriasStatus', 'Procesando archivo...', 'info');
+    ext = ext || '.xlsx';
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -470,12 +478,16 @@ function uploadBateria(file, nombre, anio) {
                     mostrarStatus('bateriasStatus', msg, 'error');
                     console.error(err);
                 })
-                .guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata);
+                .guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata, ext);
         } catch(err) {
             hideLoadingModal();
             mostrarStatus('bateriasStatus', 'Error al procesar: ' + err.message, 'error');
             console.error(err);
         }
+    };
+    reader.onerror = function(err) {
+        hideLoadingModal();
+        mostrarStatus('bateriasStatus', 'Error al leer el archivo', 'error');
     };
     reader.readAsArrayBuffer(file);
 }
@@ -688,6 +700,7 @@ function cargarBateriaDesdeDrive(id) {
                         alert('El archivo no contiene datos válidos.');
                         return;
                     }
+                    result.meta.id = resp.meta.id;
                     state.bateriaActiva = result;
                     _cargarPlanes();
                 }
@@ -803,10 +816,10 @@ function agregarDriveAComparativa() {
                         }
                         if (!datos || !datos.rows || datos.rows.length === 0) return;
                         const newId = ++compBatteryIdCounter;
-                        const baseName = resp.meta.nombre || datos.meta.fileName.replace(/\.xlsx?$/i, '');
+                        const baseName = resp.meta.nombre || datos.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '');
                         datos.meta.id = newId;
                         datos.meta.name = baseName;
-                        datos.meta.year = new Date().getFullYear() + '';
+                        datos.meta.year = resp.meta.anio || new Date().getFullYear() + '';
                         state.bateriasComparativa.push(datos);
                     } catch(err) {
                         mostrarStatus('compStatus', 'Error al procesar: ' + err.message, 'error');
@@ -1771,7 +1784,7 @@ function exportarDashboard() {
         // Download
         const link = document.createElement('a');
         link.download = state.bateriaActiva
-            ? 'Dashboard_' + state.bateriaActiva.meta.fileName.replace(/\.xlsx?$/i, '') + '.png'
+            ? 'Dashboard_' + state.bateriaActiva.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '') + '.png'
             : 'Dashboard.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
@@ -3211,7 +3224,7 @@ let compBatteryIdCounter = 0;
 
 function bLabel(b) {
     const m = b.meta;
-    const name = m.name || m.fileName.replace(/\.xlsx?$/i, '');
+    const name = m.name || m.fileName.replace(/\.(xlsx?|xlsb)$/i, '');
     const year = m.year ? ' ' + m.year : '';
     return name + year;
 }
@@ -3237,7 +3250,7 @@ function procesarComparativa(file) {
                 return;
             }
             const id = ++compBatteryIdCounter;
-            const baseName = file.name.replace(/\.xlsx?$/i, '');
+            const baseName = file.name.replace(/\.(xlsx?|xlsb)$/i, '');
             result.meta.id = id;
             result.meta.name = baseName;
             result.meta.year = new Date().getFullYear() + '';
@@ -3282,7 +3295,7 @@ function renderBatteryList() {
     }
     listContainer.style.display = 'block';
 
-    const sorted = [...state.bateriasComparativa].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...state.bateriasComparativa].sort((a, b) => (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0));
 
     container.innerHTML = sorted.map(b => {
         const m = b.meta;
@@ -3392,7 +3405,7 @@ function actualizarComparativa() {
 
 function renderTrendCard(baterias) {
     const container = document.getElementById('trendCard');
-    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...baterias].sort((a, b) => (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0));
     if (sorted.length < 2) { container.style.display = 'none'; return; }
     container.style.display = 'block';
     const years = [...new Set(sorted.map(b => b.meta.year).filter(Boolean))].sort();
@@ -3462,7 +3475,7 @@ function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {
     const riskLabels = order.filter(r => allRiskKeys.has(r));
     if (riskLabels.length === 0) return;
 
-    const sorted = [...baterias].sort((a, b) => (a.meta.year || '0') > (b.meta.year || '0') ? 1 : -1);
+    const sorted = [...baterias].sort((a, b) => (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0));
 
     const datasets = sorted.map((b, i) => ({
         label: bLabelShort(b),
@@ -3813,6 +3826,8 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
     const body = document.getElementById('modalBody');
     destroyChart('comparativaLineChart');
     destroyChart('comparativaBarChart');
+    destroyChart('compRadarCombined');
+    destroyChart('compLineCombined');
     body.innerHTML = '';
 
     if (!filteredBaterias.length) { body.innerHTML = '<p style="color:#94a3b8;padding:40px;text-align:center;">Sin datos</p>'; return; }
@@ -3895,7 +3910,7 @@ function renderComparativaDrillContent(filteredBaterias, summaryKey, riskOrder) 
     }
 
     // Sort batteries ASC by year (oldest → newest left → right)
-    const sortedBaterias = [...baterias].sort((a, b) => (a.battery.meta.year || '0') > (b.battery.meta.year || '0') ? 1 : -1);
+    const sortedBaterias = [...baterias].sort((a, b) => (parseInt(a.battery.meta.year) || 0) - (parseInt(b.battery.meta.year) || 0));
 
     // ── CHART MODE ──
     if (state._compViewMode === 'chart') {
@@ -4030,109 +4045,216 @@ function renderComparativaLineChart(sortedBaterias, availableDims, critPctMap, s
     const body = document.getElementById('modalBody');
     body.innerHTML = '';
 
-    // ── Bar chart: dimensions grouped by battery ──
-    const dimLabels = availableDims.map(d => {
-        const label = (d.fullName || d.name).replace('[Extra] ', '').replace('[Stress] ', '');
-        return label.length > 30 ? label.substring(0, 27) + '...' : label;
+    var sortedDims = availableDims.slice();
+    var dimSortKey = state._compDimSortDir || 0;
+    if (dimSortKey !== 0) {
+        var firstId = sortedBaterias[0].battery.meta.id;
+        sortedDims.sort(function(a, b) {
+            var va = critPctMap[firstId]?.[a.name] || 0;
+            var vb = critPctMap[firstId]?.[b.name] || 0;
+            return dimSortKey === 1 ? va - vb : vb - va;
+        });
+    }
+
+    var sortBar = document.createElement('div');
+    sortBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
+    sortBar.innerHTML = '<span style="font-size:12px;font-weight:600;color:#475569;">Dimensiones: </span>' +
+        '<button id="sortDimsBtn" style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:11px;font-weight:600;color:#475569;cursor:pointer;">' +
+        ({'0':'📊 Orden original','1':'⬆️ Menor a mayor','-1':'⬇️ Mayor a menor'}[String(dimSortKey)]||'📊 Orden original') + '</button>';
+    sortBar.querySelector('button').onclick = function() {
+        var cur = state._compDimSortDir || 0;
+        state._compDimSortDir = cur === 0 ? 1 : cur === 1 ? -1 : 0;
+        aplicarFiltrosComparativaDrill();
+    };
+    body.appendChild(sortBar);
+
+    // Bar chart
+    var dimLabels = sortedDims.map(function(d) {
+        var l = (d.fullName||d.name).replace('[Extra] ','').replace('[Stress] ','');
+        return l.length > 25 ? l.substring(0,22)+'...' : l;
     });
-    const barDatasets = sortedBaterias.map((fb, i) => ({
-        label: (fb.battery.meta.year || '') + ' ' + (fb.battery.meta.name || '').substring(0,10),
-        data: availableDims.map(dim => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
-        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
-        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        borderWidth: 1,
-        borderRadius: 3
-    }));
-
-    const barCanvas = document.createElement('canvas');
-    barCanvas.id = 'comparativaBarChart';
-    barCanvas.style.width = '100%';
-    barCanvas.style.height = '300px';
-    barCanvas.style.marginBottom = '16px';
-    body.appendChild(barCanvas);
-
+    var barCanv = document.createElement('canvas');
+    barCanv.id = 'comparativaBarChart';
+    barCanv.style.cssText = 'width:100%;height:260px;margin-bottom:10px;max-height:260px;';
+    body.appendChild(barCanv);
     destroyChart('comparativaBarChart');
-    state.charts['comparativaBarChart'] = new Chart(barCanvas.getContext('2d'), {
+    state.charts['comparativaBarChart'] = new Chart(barCanv.getContext('2d'), {
         type: 'bar',
-        data: { labels: dimLabels, datasets: barDatasets },
+        data: {
+            labels: dimLabels,
+            datasets: sortedBaterias.map(function(fb, i) { return {
+                label: (fb.battery.meta.year||'') + ' ' + (fb.battery.meta.name||'').substring(0,10),
+                data: sortedDims.map(function(dim) { return critPctMap[fb.battery.meta.id]?.[dim.name]||0; }),
+                backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
+                borderColor: CHART_COLORS[i % CHART_COLORS.length], borderWidth: 1, borderRadius: 3
+            };})
+        },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { font: { size: 9 } }, grid: { display: false } },
-                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' }, title: { display: true, text: '% Crítico', font: { size: 11 } } }
+            onHover: function(e) {
+                var point = e.chart.getElementsAtEventForMode(e, 'index', {intersect: false}, false);
+                e.native.target.style.cursor = point.length ? 'pointer' : 'default';
             },
+            scales: { x: { ticks: { font: {size:9} }, grid: {display:false} }, y: { beginAtZero:true, max:100, ticks: {font:{size:9}, callback: function(v) { return v+'%';} } } },
             plugins: {
-                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
-                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%' } }
-            }
-        }
-    });
-
-    // ── Line chart: dimension trend ──
-    const lineCanvas = document.createElement('canvas');
-    lineCanvas.id = 'comparativaLineChart';
-    lineCanvas.style.width = '100%';
-    lineCanvas.style.height = '400px';
-    body.appendChild(lineCanvas);
-
-    const ctx = lineCanvas.getContext('2d');
-    if (!ctx) return;
-
-    const labels = sortedBaterias.map(fb => fb.battery.meta.year || fb.battery.meta.name || '?');
-
-    const datasets = availableDims.map((dim, i) => {
-        const label = dim.fullName || dim.name;
-        return {
-            label: label.length > 30 ? label.substring(0, 27) + '...' : label,
-        data: sortedBaterias.map(fb => critPctMap[fb.battery.meta.id]?.[dim.name] || 0),
-        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
-        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        borderWidth: 2,
-        tension: 0.3,
-        fill: false
-    };
-});
-
-    destroyChart('comparativaLineChart');
-    state.charts['comparativaLineChart'] = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            scales: {
-                x: {
-                    ticks: { font: { size: 11, weight: 'bold' } },
-                    grid: { display: false }
-                },
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: { font: { size: 11 }, callback: v => v + '%' },
-                    grid: { color: '#f1f5f9' },
-                    title: { display: true, text: '% Crítico', font: { size: 12 } }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { font: { size: 10 }, boxWidth: 14, padding: 12 }
-                },
+                legend: { position:'bottom', labels: {font:{size:9}, boxWidth:10, padding:6} },
                 tooltip: {
-                    itemSort: (a, b) => a.parsed.y - b.parsed.y,
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 8,
                     callbacks: {
-                        label: ctx => {
-                            const val = ctx.parsed.y;
-                            const baremo = clasificarCritico(val);
+                        title: function(items) { return items[0].label; },
+                        label: function(ctx) {
+                            var val = ctx.parsed.y;
+                            var baremo = clasificarCritico(val);
                             return ' ' + ctx.dataset.label + ': ' + val + '% [' + baremo.label + ']';
                         }
                     }
                 }
+            },
+            hover: {
+                mode: 'index',
+                intersect: false,
+                animationDuration: 200
             }
+        }
+    });
+
+    // Radar + Line side by side
+    var bottomRow = document.createElement('div');
+    bottomRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px;max-height:300px;';
+    body.appendChild(bottomRow);
+
+    // ── Radar ──
+    var rCol = document.createElement('div');
+    rCol.style.cssText = 'max-height:300px;overflow:hidden;';
+    rCol.innerHTML = '<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">📡 Radar</div>';
+    var radarCanv = document.createElement('canvas');
+    radarCanv.id = 'compRadarCombined';
+    radarCanv.style.cssText = 'width:100%;height:260px;';
+    rCol.appendChild(radarCanv);
+    bottomRow.appendChild(rCol);
+
+    var rDims = sortedDims.slice(0, 8);
+    var rLabels = rDims.map(function(d) {
+        var l = (d.fullName||d.name).replace('[Extra] ','').replace('[Stress] ','');
+        return l.length > 18 ? l.substring(0,16)+'…' : l;
+    });
+    destroyChart('compRadarCombined');
+    state.charts['compRadarCombined'] = new Chart(radarCanv.getContext('2d'), {
+        type: 'radar',
+        data: {
+            labels: rLabels,
+            datasets: sortedBaterias.map(function(fb, i) { return {
+                label: (fb.battery.meta.year||'') + ' ' + (fb.battery.meta.name||'').substring(0,8),
+                data: rDims.map(function(dim) { return critPctMap[fb.battery.meta.id]?.[dim.name]||0; }),
+                backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
+                borderColor: CHART_COLORS[i % CHART_COLORS.length],
+                borderWidth: 2,
+                pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                pointRadius: 3
+            };})
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            onHover: function(e) {
+                var point = e.chart.getElementsAtEventForMode(e, 'nearest', {intersect: true}, false);
+                e.native.target.style.cursor = point.length ? 'pointer' : 'default';
+            },
+            scales: { r: { beginAtZero: true, max: 100, ticks: { font: {size:9}, backdropColor:'transparent' }, grid: {color:'#e2e8f0'}, angleLines: {color:'#e2e8f0'}, pointLabels: {font:{size:9}} } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 8,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            var val = ctx.parsed.r;
+                            var baremo = clasificarCritico(val);
+                            return ' ' + ctx.dataset.label + ': ' + val + '% [' + baremo.label + ']';
+                        }
+                    }
+                }
+            },
+            hover: { animationDuration: 200 }
+        }
+    });
+
+    // ── Line chart ──
+    var lCol = document.createElement('div');
+    lCol.style.cssText = 'max-height:300px;overflow:hidden;';
+    lCol.innerHTML = '<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">📈 Tendencia</div>';
+    var lineCanv = document.createElement('canvas');
+    lineCanv.id = 'compLineCombined';
+    lineCanv.style.cssText = 'width:100%;height:260px;';
+    lCol.appendChild(lineCanv);
+    bottomRow.appendChild(lCol);
+
+    var lineLabels = sortedBaterias.map(function(fb) { return fb.battery.meta.year || fb.battery.meta.name || '?'; });
+    var lineDatasets = rDims.map(function(dim, i) {
+        var label = (dim.fullName||dim.name).replace('[Extra] ','').replace('[Stress] ','');
+        return {
+            label: label.length > 20 ? label.substring(0,18)+'…' : label,
+            data: sortedBaterias.map(function(fb) { return critPctMap[fb.battery.meta.id]?.[dim.name]||0; }),
+            borderColor: CHART_COLORS[i % CHART_COLORS.length],
+            backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '22',
+            pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+            tension: 0.3,
+            fill: false
+        };
+    });
+    destroyChart('compLineCombined');
+    state.charts['compLineCombined'] = new Chart(lineCanv.getContext('2d'), {
+        type: 'line',
+        data: { labels: lineLabels, datasets: lineDatasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            onHover: function(e) {
+                var point = e.chart.getElementsAtEventForMode(e, 'index', {intersect: false}, false);
+                e.native.target.style.cursor = point.length ? 'pointer' : 'default';
+            },
+            scales: {
+                x: { ticks: { font: {size:10} }, grid: {display:false} },
+                y: { beginAtZero: true, max: 100, ticks: { font: {size:9}, callback: function(v) { return v+'%';} }, grid: {color:'#f1f5f9'} }
+            },
+            plugins: {
+                legend: { position:'bottom', labels: {font:{size:8}, boxWidth:8, padding:4} },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 8,
+                    cornerRadius: 8,
+                    itemSort: function(a, b) { return b.parsed.y - a.parsed.y; },
+                    callbacks: {
+                        label: function(ctx) {
+                            var val = ctx.parsed.y;
+                            var baremo = clasificarCritico(val);
+                            return ' ' + ctx.dataset.label + ': ' + val + '% [' + baremo.label + ']';
+                        }
+                    }
+                }
+            },
+            hover: { mode: 'index', intersect: false, animationDuration: 200 }
         }
     });
 }
@@ -4301,7 +4423,7 @@ function generarReporte() {
         try {
             const data = state.bateriaActiva;
             const s = data.summary;
-            const baseName = data.meta.fileName.replace(/\.xlsx?$/i, '');
+            const baseName = data.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '');
             const sections = _getSelectedSections();
             const charts = {
                 intra: _captureChart('intraBars'),

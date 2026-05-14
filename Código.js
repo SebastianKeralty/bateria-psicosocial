@@ -107,7 +107,7 @@ function _getYearCacheFolder(rootFolder, anio) {
 }
 
 // ── API: guardar batería ──
-function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata) {
+function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata, ext) {
   const rootFolder = _getBateriasFolder();
   const yearFolder = _getYearFolder(rootFolder, anio);
   const cacheFolder = _getYearCacheFolder(rootFolder, anio);
@@ -115,11 +115,16 @@ function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata) {
 
   const id = 'b_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
+  ext = ext || '.xlsx';
+  var mime = ext === '.xlsb' ? 'application/vnd.ms-excel.sheet.binary.macroEnabled.12'
+            : ext === '.xls' ? 'application/vnd.ms-excel'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
   // Guardar Excel original en {año}/
   const blob = Utilities.newBlob(
     Utilities.base64Decode(excelBase64),
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    anio + '_' + nombre + '.xlsx'
+    mime,
+    anio + '_' + nombre + ext
   );
   const excelFile = yearFolder.createFile(blob);
 
@@ -139,6 +144,7 @@ function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata) {
     stressP: metadata.stressP || 0,
     psicoPct: metadata.psicoPct || 0,
     fecha: new Date().toISOString().slice(0, 10),
+    fileExt: ext,
     fileId: excelFile.getId(),
     dataFileId: dataFile.getId(),
     planesFileId: ''
@@ -201,7 +207,7 @@ function cargarBateria(id) {
   return {
     tipo: 'excel',
     base64: Utilities.base64Encode(blob.getBytes()),
-    fileName: entry.nombre + '.xlsx',
+    fileName: entry.nombre + (entry.fileExt || '.xlsx'),
     meta: entry
   };
 }
