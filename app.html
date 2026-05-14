@@ -68,18 +68,22 @@ document.querySelectorAll('.side-btn').forEach(btn => {
         document.getElementById('tab-' + tab).classList.add('active');
         document.getElementById('topbarTitle').textContent = tabLabels[tab] || tab;
         if (tab === 'dashboard' && state.bateriaActiva) {
-            document.getElementById('topbarBadge').style.display = 'inline';
-            document.getElementById('topbarBadge').textContent = state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' reg.)';
-            document.getElementById('btnExport').style.display = 'inline-flex';
-            // Re-render dashboard content when tab becomes visible (fixes chart rendering)
-            setTimeout(() => {
-                const dashEl = document.getElementById('dashContent');
-                if (dashEl && dashEl.style.display !== 'none') {
-                    const filtered = getFilteredRows();
-                    const s = state.bateriaActiva ? computeSummary(filtered) : null;
-                    if (s) renderChartsDashboard(filtered, s);
-                }
-            }, 200);
+            // Verificar que la batería aún exista en Drive
+            var dashTabBtn = this;
+            google.script.run
+                .withSuccessHandler(function(exists) {
+                    if (!exists) {
+                        state.bateriaActiva = null;
+                        document.getElementById('topbarBadge').style.display = 'none';
+                        document.getElementById('btnExport').style.display = 'none';
+                        document.getElementById('dashContent').style.display = 'none';
+                        document.getElementById('dashNoData').style.display = 'block';
+                        return;
+                    }
+                    _renderDashboardTab();
+                })
+                .withFailureHandler(function() { _renderDashboardTab(); })
+                .verificarBateria(state.bateriaActiva.meta.id);
         } else if (tab === 'inicio') {
             document.getElementById('topbarBadge').style.display = 'none';
             document.getElementById('btnExport').style.display = 'none';
@@ -128,6 +132,20 @@ document.querySelectorAll('.side-btn').forEach(btn => {
 function irADashboard() {
     const btn = document.querySelector('.side-btn[data-tab="dashboard"]');
     if (btn) btn.click();
+}
+
+function _renderDashboardTab() {
+    document.getElementById('topbarBadge').style.display = 'inline';
+    document.getElementById('topbarBadge').textContent = state.bateriaActiva.meta.fileName + ' (' + state.bateriaActiva.meta.totalRows + ' reg.)';
+    document.getElementById('btnExport').style.display = 'inline-flex';
+    setTimeout(function() {
+        const dashEl = document.getElementById('dashContent');
+        if (dashEl && dashEl.style.display !== 'none') {
+            const filtered = getFilteredRows();
+            const s = state.bateriaActiva ? computeSummary(filtered) : null;
+            if (s) renderChartsDashboard(filtered, s);
+        }
+    }, 200);
 }
 
 // ============================================================
@@ -270,6 +288,31 @@ function showLoadingModal(msg) {
 function hideLoadingModal() {
     const overlay = document.getElementById('loadingModal');
     if (overlay) overlay.style.display = 'none';
+}
+
+function showInlineLoading(msg) {
+    var overlay = document.getElementById('planInlineLoading');
+    var text = document.getElementById('planInlineLoadingText');
+    var content = document.getElementById('planContentArea');
+    if (content) content.style.display = 'none';
+    if (text && msg) text.textContent = msg;
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '0';
+        setTimeout(function() { overlay.style.opacity = '1'; }, 10);
+    }
+}
+
+function hideInlineLoading() {
+    var overlay = document.getElementById('planInlineLoading');
+    var content = document.getElementById('planContentArea');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(function() { 
+            overlay.style.display = 'none';
+            if (content) content.style.display = 'block';
+        }, 300);
+    }
 }
 
 function procesarDashboard(file) {
@@ -437,6 +480,19 @@ function uploadBateria(file, nombre, anio) {
     reader.readAsArrayBuffer(file);
 }
 
+function mostrarPlanToast(msg, tipo) {
+    var toast = document.getElementById('planToast');
+    var text = document.getElementById('planToastText');
+    if (!toast) return;
+    text.textContent = msg;
+    toast.className = 'plan-toast ' + tipo;
+    toast.querySelector('.toast-icon').textContent = tipo === 'success' ? '✓' : '✕';
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function() { toast.classList.remove('show'); }, 3000);
+}
+
 // ── BATERÍAS: renderizar lista ──
 let _bateriasData = [];
 function renderBaterias() {
@@ -585,7 +641,11 @@ function renderBateriasGrid() {
 
     grid.innerHTML = filtered.map(b => {
         const color = b.psicoPct > 50 ? '#ef4444' : b.psicoPct > 30 ? '#f59e0b' : '#16a34a';
-        return '<div class="bateria-card" style="background:white;border-radius:16px;border:1px solid #e2e8f0;padding:20px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onclick="cargarBateriaDesdeDrive(\'' + b.id + '\')" onmouseover="this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.05)\';this.style.transform=\'none\'">' +
+        var fileMissing = b.fileMissing;
+        var cardBorder = fileMissing ? 'border:2px solid #fca5a5;' : 'border:1px solid #e2e8f0;';
+        var cardBg = fileMissing ? 'background:#fef2f2;' : 'background:white;';
+        return '<div class="bateria-card" style="' + cardBg + 'border-radius:16px;' + cardBorder + 'padding:20px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.05);"' + (fileMissing ? '' : ' onclick="cargarBateriaDesdeDrive(\'' + b.id + '\')"') + ' onmouseover="this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.1)\';' + (fileMissing ? '' : 'this.style.transform=\'translateY(-2px)\'') + '" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.05)\';' + (fileMissing ? '' : 'this.style.transform=\'none\'') + '">' +
+            (fileMissing ? '<div style="margin-bottom:10px;padding:6px 10px;background:#fca5a5;color:#7f1d1d;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;"><span>⚠️</span> Archivo eliminado de Drive</div>' : '') +
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
                 '<span style="font-size:28px;">📊</span>' +
                 '<div style="flex:1;min-width:0;">' +
@@ -601,7 +661,9 @@ function renderBateriasGrid() {
                 '<span>Intra ' + b.intraP + '% · Extra ' + b.extraP + '% · Stress ' + b.stressP + '%</span>' +
             '</div>' +
             '<div style="margin-top:12px;display:flex;gap:8px;">' +
-                '<button class="btn-cargar" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();cargarBateriaDesdeDrive(\'' + b.id + '\')">Cargar en Dashboard</button>' +
+                (fileMissing
+                    ? '<button class="btn-eliminar" style="flex:1;padding:8px;border:none;border-radius:8px;background:#dc2626;color:#fff;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();limpiarBateriaOrfana(\'' + b.id + '\')">🗑️ Limpiar</button>'
+                    : '<button class="btn-cargar" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();cargarBateriaDesdeDrive(\'' + b.id + '\')">Cargar en Dashboard</button>') +
                 '<button class="btn-eliminar" style="padding:8px 12px;border:1px solid #fca5a5;border-radius:8px;background:transparent;color:#ef4444;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();eliminarBateria(\'' + b.id + '\')">✕</button>' +
             '</div>' +
         '</div>';
@@ -655,6 +717,18 @@ function eliminarBateria(id) {
         })
         .withFailureHandler(function(err) {
             alert('Error al eliminar: ' + err.message);
+        })
+        .eliminarBateria(id);
+}
+
+function limpiarBateriaOrfana(id) {
+    if (!confirm('¿Limpiar esta entrada huérfana del índice?')) return;
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            alert('Error: ' + err.message);
         })
         .eliminarBateria(id);
 }
@@ -2274,7 +2348,14 @@ function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
     document.getElementById('planDimRiesgo').textContent = riesgo + '% (' + nivel + ')';
     document.getElementById('planDimEncuesta').textContent = encuesta === 'intra' ? 'Intralaboral' : encuesta === 'extra' ? 'Extralaboral' : 'Estrés';
     document.getElementById('planDimEstado').textContent = planExistente ? '✅ Tiene plan' : '○ Sin plan';
-    document.getElementById('planPronostico').innerHTML = '';
+    
+    var rc = RISK_COLORS[nivel] || RISK_COLORS["ERROR"];
+    var riesgoCard = document.getElementById('planDimRiesgo').parentElement;
+    if (riesgoCard) {
+        riesgoCard.style.background = rc.bg;
+        riesgoCard.style.borderColor = rc.bg;
+        document.getElementById('planDimRiesgo').style.color = rc.text;
+    }
     
     _planActual = { dimension: dimName, riesgoActual: riesgo, nivel: nivel, encuesta: encuesta };
     
@@ -2287,18 +2368,8 @@ function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
 
     if (planExistente) {
         document.getElementById('planTexto').value = planExistente.plan || '';
-        if (planExistente.pronostico) {
-            var p = planExistente.pronostico;
-            document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
-        }
     } else {
         document.getElementById('planTexto').value = '';
-        // Cargar pronóstico por defecto si existe en la matriz
-        var planEstandar = typeof obtenerPlanEstandar === 'function' ? obtenerPlanEstandar(dimName, nivel) : null;
-        if (planEstandar && planEstandar.pronostico) {
-            var p = planEstandar.pronostico;
-            document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico Sugerido:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
-        }
     }
 
     document.getElementById('planAccionModal').style.display = 'flex';
@@ -2345,41 +2416,44 @@ function eliminarPlanActual() {
     if (!_planActual) return;
     if (!confirm('¿Estás seguro de que deseas eliminar este plan de acción?')) return;
     
+    showInlineLoading('Eliminando plan de acción...');
     var btn = document.getElementById('btnEliminarPlan');
     btn.disabled = true;
-    btn.textContent = '⏳...';
+    btn.innerHTML = '<span style="opacity:0.5;">🗑️ Eliminar Plan</span>';
     
     google.script.run
         .withSuccessHandler(function() {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '🗑️ Eliminar Plan';
-            document.getElementById('planStatus').textContent = '🗑️ Plan eliminado correctamente.';
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar Plan';
+            document.getElementById('planStatus').textContent = '';
             document.getElementById('planDimEstado').textContent = '○ Sin plan';
+            mostrarPlanToast('Plan eliminado correctamente', 'success');
             
-            // Limpiar UI
-            document.querySelectorAll('#planAccionesChecklist input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#planAccionesChecklist input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
             document.getElementById('planTexto').value = '';
             
-            // Actualizar estado local
             if (state.planes) {
                 state.planes = state.planes.filter(function(p) { return p.dimension !== _planActual.dimension; });
             }
             _actualizarIndicadoresTablas();
         })
         .withFailureHandler(function(err) {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '🗑️ Eliminar Plan';
-            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar Plan';
+            mostrarPlanToast('Error: ' + err.message, 'error');
         })
         .eliminarPlan(state.bateriaActiva.meta.id, _planActual.dimension);
 }
 
 function generarPlanConIA() {
     if (!_planActual) return;
+    
+    showInlineLoading('Generando plan con inteligencia artificial...');
     var btn = document.getElementById('btnGenerarPlan');
     btn.disabled = true;
-    btn.textContent = '⏳...';
-    document.getElementById('planStatus').textContent = 'Llamando a Gemini...';
+    btn.innerHTML = '<span style="opacity:0.5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar Plan</span>';
 
     var dim = _planActual.dimension;
     var riesgo = _planActual.riesgoActual;
@@ -2388,23 +2462,21 @@ function generarPlanConIA() {
 
     google.script.run
         .withSuccessHandler(function(resp) {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '🤖 IA';
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar Plan';
             if (resp.error) {
-                document.getElementById('planStatus').textContent = 'Error: ' + resp.error;
+                mostrarPlanToast('Error: ' + resp.error, 'error');
                 return;
             }
             document.getElementById('planTexto').value = resp.plan || '';
-            if (resp.pronostico) {
-                var p = resp.pronostico;
-                document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico Sugerido:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
-            }
-            document.getElementById('planStatus').textContent = '✅ Sugerencia cargada en notas.';
+            mostrarPlanToast('✅ Plan generado correctamente', 'success');
         })
         .withFailureHandler(function(err) {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '🤖 IA';
-            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar Plan';
+            mostrarPlanToast('Error: ' + err.message, 'error');
         })
         .generarPlanIA(dim, riesgo, nivel, encuesta, state.bateriaActiva.summary.total);
 }
@@ -2416,17 +2488,12 @@ function guardarPlanActual() {
     var notas = document.getElementById('planTexto').value.trim();
     
     if (acciones.length === 0 && !notas) {
-        document.getElementById('planStatus').textContent = 'Selecciona al menos una acción o escribe una nota.';
+        mostrarPlanToast('Selecciona al menos una acción o escribe una nota.', 'error');
         return;
     }
     
-    var pronosticoEl = document.getElementById('planPronostico');
-    var pronostico = null;
-    var match = pronosticoEl.textContent.match(/(\d+)% → (\d+)%/);
-    if (match) {
-        pronostico = { actual: parseInt(match[1]), estimado: parseInt(match[2]), tiempo: "6 meses", mejora: 15 };
-    }
-
+    showInlineLoading('Guardando plan de acción...');
+    
     var planData = {
         dimension: _planActual.dimension,
         encuesta: _planActual.encuesta,
@@ -2436,20 +2503,20 @@ function guardarPlanActual() {
         plan: notas,
         indicadores: [],
         beneficios: [],
-        pronostico: pronostico,
         fecha: new Date().toISOString().slice(0, 10)
     };
 
     var btn = document.getElementById('btnGuardarPlan');
     btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
+    btn.innerHTML = '<span style="opacity:0.5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción</span>';
 
     google.script.run
         .withSuccessHandler(function() {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '💾 Guardar Plan de Acción';
-            document.getElementById('planStatus').textContent = '✅ Plan guardado correctamente.';
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción';
             document.getElementById('planDimEstado').textContent = '✅ Tiene plan';
+            mostrarPlanToast('✅ Plan guardado correctamente', 'success');
             state.planes = state.planes || [];
             var idx = state.planes.findIndex(function(p) { return p.dimension === _planActual.dimension; });
             if (idx >= 0) state.planes[idx] = planData;
@@ -2457,9 +2524,10 @@ function guardarPlanActual() {
             _actualizarIndicadoresTablas();
         })
         .withFailureHandler(function(err) {
+            hideInlineLoading();
             btn.disabled = false;
-            btn.textContent = '💾 Guardar Plan de Acción';
-            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción';
+            mostrarPlanToast('Error: ' + err.message, 'error');
         })
         .guardarPlan(state.bateriaActiva.meta.id, _planActual.dimension, planData);
 }

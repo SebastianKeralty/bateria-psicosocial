@@ -150,7 +150,35 @@ function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata) {
 }
 
 function listarBaterias() {
-  return _readIndice();
+  var indice = _readIndice();
+  var indicesLimpios = [];
+  indice.forEach(function(entry) {
+    entry.fileMissing = false;
+    try {
+      var file = DriveApp.getFileById(entry.fileId);
+      if (file.isTrashed()) throw new Error('Archivo en papelera');
+      indicesLimpios.push(entry);
+    } catch(e) {
+      try { if (entry.dataFileId) DriveApp.getFileById(entry.dataFileId).setTrashed(true); } catch(e2) {}
+      try { if (entry.planesFileId) DriveApp.getFileById(entry.planesFileId).setTrashed(true); } catch(e2) {}
+    }
+  });
+  if (indicesLimpios.length !== indice.length) {
+    _writeIndice(indicesLimpios);
+  }
+  return indicesLimpios;
+}
+
+function verificarBateria(id) {
+  var indice = _readIndice();
+  var entry = indice.find(function(e) { return e.id === id; });
+  if (!entry) return false;
+  try {
+    var file = DriveApp.getFileById(entry.fileId);
+    return !file.isTrashed();
+  } catch(e) {
+    return false;
+  }
 }
 
 function cargarBateria(id) {
