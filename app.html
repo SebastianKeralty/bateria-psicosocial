@@ -23,6 +23,7 @@ const state = {
     bateriaActiva: null,
     bateriasComparativa: [],
     charts: {},
+    planes: [],
     _drillBatteryData: null,
     _drillComparativaBaterias: null,
     _drillRows: null,
@@ -296,6 +297,7 @@ function procesarDashboard(file) {
             }
 
             state.bateriaActiva = result;
+            _cargarPlanes();
             hideLoadingModal();
             mostrarStatus('inicioStatus', '✔ ' + result.meta.fileName + ' — ' + result.meta.totalRows + ' registros (Forma ' + result.meta.forma + ')', 'success');
 
@@ -625,6 +627,7 @@ function cargarBateriaDesdeDrive(id) {
                         return;
                     }
                     state.bateriaActiva = result;
+                    _cargarPlanes();
                 }
                 hideLoadingModal();
                 irADashboard();
@@ -2156,6 +2159,8 @@ function showDrillDown(type) {
     const titles = { intra: 'Intralaboral — Dominios y Dimensiones', extra: 'Extralaboral — Dimensiones', stress: 'Estrés' };
     document.getElementById('modalTitle').textContent = titles[type] || 'Detalle';
 
+    _cargarPlanes();
+
     const toggleContainer = document.getElementById('modalViewToggle');
     toggleContainer.style.display = 'inline-flex';
     toggleContainer.innerHTML = '<button class="btn-view-toggle" onclick="toggleDrillView()" title="Ver gráfica">📊 Gráfica</button>';
@@ -2225,6 +2230,238 @@ function closeDrillModal() {
     destroyChart('comparativaLineChart');
     destroyChart('comparativaBarChart');
     document.getElementById('drillModal').style.display = 'none';
+}
+
+// ── PLANES DE ACCIÓN ──
+var _planActual = null;
+
+function _cargarPlanes() {
+    if (!state.bateriaActiva || !state.bateriaActiva.meta || !state.bateriaActiva.meta.id) return;
+    google.script.run
+        .withSuccessHandler(function(planes) {
+            state.planes = planes || [];
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function() { state.planes = []; })
+        .cargarPlanes(state.bateriaActiva.meta.id);
+}
+
+function _actualizarIndicadoresTablas() {
+    var tables = document.querySelectorAll('#modalBody .table-wrap table tbody tr');
+    tables.forEach(function(row) {
+        var firstTd = row.querySelector('td:first-child');
+        if (!firstTd) return;
+        var strong = firstTd.querySelector('strong');
+        if (!strong) return;
+        var dimName = strong.textContent.trim();
+        var hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dimName; });
+        var existing = firstTd.querySelector('.plan-indicator');
+        if (!existing) {
+            var ind = document.createElement('span');
+            ind.className = 'plan-indicator';
+            ind.style.cssText = 'margin-right:6px;cursor:pointer;font-size:14px;';
+            ind.textContent = hasPlan ? '✅' : '○';
+            firstTd.insertBefore(ind, firstTd.firstChild);
+        } else {
+            existing.textContent = hasPlan ? '✅' : '○';
+        }
+    });
+}
+
+function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
+    var planExistente = state.planes && state.planes.find(function(p) { return p.dimension === dimName; });
+    document.getElementById('planDimTitle').textContent = 'Plan de Acción: ' + dimName;
+    document.getElementById('planDimRiesgo').textContent = riesgo + '% (' + nivel + ')';
+    document.getElementById('planDimEncuesta').textContent = encuesta === 'intra' ? 'Intralaboral' : encuesta === 'extra' ? 'Extralaboral' : 'Estrés';
+    document.getElementById('planDimEstado').textContent = planExistente ? '✅ Tiene plan' : '○ Sin plan';
+    document.getElementById('planPronostico').innerHTML = '';
+    
+    _planActual = { dimension: dimName, riesgoActual: riesgo, nivel: nivel, encuesta: encuesta };
+    
+    var accionesGuardadas = planExistente && planExistente.acciones ? planExistente.acciones : [];
+    
+    // Generar checklist de acciones (de planes_data.html)
+    document.getElementById('planAccionesChecklist').innerHTML = typeof generarChecklistAcciones === 'function' 
+        ? generarChecklistAcciones(dimName, nivel, accionesGuardadas)
+        : '<p>Cargando matriz...</p>';
+
+    if (planExistente) {
+        document.getElementById('planTexto').value = planExistente.plan || '';
+        if (planExistente.pronostico) {
+            var p = planExistente.pronostico;
+            document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
+        }
+    } else {
+        document.getElementById('planTexto').value = '';
+        // Cargar pronóstico por defecto si existe en la matriz
+        var planEstandar = typeof obtenerPlanEstandar === 'function' ? obtenerPlanEstandar(dimName, nivel) : null;
+        if (planEstandar && planEstandar.pronostico) {
+            var p = planEstandar.pronostico;
+            document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico Sugerido:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
+        }
+    }
+
+    document.getElementById('planAccionModal').style.display = 'flex';
+    document.getElementById('planStatus').textContent = '';
+}
+
+function cerrarPlanAccion() {
+    document.getElementById('planAccionModal').style.display = 'none';
+    _planActual = null;
+}
+
+function _renderItems(containerId, items) {
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    items.forEach(function(item, i) {
+        var div = document.createElement('div');
+        div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+        div.innerHTML = '<input type="text" value="' + item.replace(/"/g, '&quot;') + '" style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'
+            + '<button onclick="this.parentElement.remove()" style="padding:4px 10px;border:none;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;">✕</button>';
+        container.appendChild(div);
+    });
+}
+
+function agregarItem(containerId) {
+    var container = document.getElementById(containerId);
+    var div = document.createElement('div');
+    div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+    div.innerHTML = '<input type="text" placeholder="Nuevo ítem..." style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'
+        + '<button onclick="this.parentElement.remove()" style="padding:4px 10px;border:none;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;">✕</button>';
+    container.appendChild(div);
+}
+
+function _getItemsValues(containerId) {
+    var container = document.getElementById(containerId);
+    var values = [];
+    container.querySelectorAll('input').forEach(function(inp) {
+        var v = inp.value.trim();
+        if (v) values.push(v);
+    });
+    return values;
+}
+
+function eliminarPlanActual() {
+    if (!_planActual) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este plan de acción?')) return;
+    
+    var btn = document.getElementById('btnEliminarPlan');
+    btn.disabled = true;
+    btn.textContent = '⏳...';
+    
+    google.script.run
+        .withSuccessHandler(function() {
+            btn.disabled = false;
+            btn.textContent = '🗑️ Eliminar Plan';
+            document.getElementById('planStatus').textContent = '🗑️ Plan eliminado correctamente.';
+            document.getElementById('planDimEstado').textContent = '○ Sin plan';
+            
+            // Limpiar UI
+            document.querySelectorAll('#planAccionesChecklist input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('planTexto').value = '';
+            
+            // Actualizar estado local
+            if (state.planes) {
+                state.planes = state.planes.filter(function(p) { return p.dimension !== _planActual.dimension; });
+            }
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.textContent = '🗑️ Eliminar Plan';
+            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+        })
+        .eliminarPlan(state.bateriaActiva.meta.id, _planActual.dimension);
+}
+
+function generarPlanConIA() {
+    if (!_planActual) return;
+    var btn = document.getElementById('btnGenerarPlan');
+    btn.disabled = true;
+    btn.textContent = '⏳...';
+    document.getElementById('planStatus').textContent = 'Llamando a Gemini...';
+
+    var dim = _planActual.dimension;
+    var riesgo = _planActual.riesgoActual;
+    var nivel = _planActual.nivel;
+    var encuesta = _planActual.encuesta;
+
+    google.script.run
+        .withSuccessHandler(function(resp) {
+            btn.disabled = false;
+            btn.textContent = '🤖 IA';
+            if (resp.error) {
+                document.getElementById('planStatus').textContent = 'Error: ' + resp.error;
+                return;
+            }
+            document.getElementById('planTexto').value = resp.plan || '';
+            if (resp.pronostico) {
+                var p = resp.pronostico;
+                document.getElementById('planPronostico').innerHTML = '<strong>📈 Pronóstico Sugerido:</strong> ' + p.actual + '% → <strong>' + p.estimado + '%</strong> en ' + p.tiempo + ' (mejora del ' + p.mejora + '%)';
+            }
+            document.getElementById('planStatus').textContent = '✅ Sugerencia cargada en notas.';
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.textContent = '🤖 IA';
+            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+        })
+        .generarPlanIA(dim, riesgo, nivel, encuesta, state.bateriaActiva.summary.total);
+}
+
+function guardarPlanActual() {
+    if (!_planActual) return;
+    
+    var acciones = typeof getAccionesSeleccionadas === 'function' ? getAccionesSeleccionadas() : [];
+    var notas = document.getElementById('planTexto').value.trim();
+    
+    if (acciones.length === 0 && !notas) {
+        document.getElementById('planStatus').textContent = 'Selecciona al menos una acción o escribe una nota.';
+        return;
+    }
+    
+    var pronosticoEl = document.getElementById('planPronostico');
+    var pronostico = null;
+    var match = pronosticoEl.textContent.match(/(\d+)% → (\d+)%/);
+    if (match) {
+        pronostico = { actual: parseInt(match[1]), estimado: parseInt(match[2]), tiempo: "6 meses", mejora: 15 };
+    }
+
+    var planData = {
+        dimension: _planActual.dimension,
+        encuesta: _planActual.encuesta,
+        riesgoActual: _planActual.riesgoActual,
+        nivel: _planActual.nivel,
+        acciones: acciones,
+        plan: notas,
+        indicadores: [],
+        beneficios: [],
+        pronostico: pronostico,
+        fecha: new Date().toISOString().slice(0, 10)
+    };
+
+    var btn = document.getElementById('btnGuardarPlan');
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    google.script.run
+        .withSuccessHandler(function() {
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Plan de Acción';
+            document.getElementById('planStatus').textContent = '✅ Plan guardado correctamente.';
+            document.getElementById('planDimEstado').textContent = '✅ Tiene plan';
+            state.planes = state.planes || [];
+            var idx = state.planes.findIndex(function(p) { return p.dimension === _planActual.dimension; });
+            if (idx >= 0) state.planes[idx] = planData;
+            else state.planes.push(planData);
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Plan de Acción';
+            document.getElementById('planStatus').textContent = 'Error: ' + err.message;
+        })
+        .guardarPlan(state.bateriaActiva.meta.id, _planActual.dimension, planData);
 }
 
 function renderModalBody() {
@@ -2398,7 +2635,9 @@ function renderIntraTable() {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
         const rowBg = clasificarCritico(pctAlto).bg;
-        html += `<tr style="background:${rowBg};"><td><strong>${dim.name}</strong></td>`;
+        const hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dim.name; });
+        const safeName = dim.name.replace(/'/g, "\\'");
+        html += `<tr style="background:${rowBg};cursor:pointer;" onclick="abrirPlanAccion('${safeName}',${pctAlto},'${clasificarCritico(pctAlto).label}','intra')"><td><span style="margin-right:6px;font-size:13px;">${hasPlan ? '✅' : '○'}</span><strong>${dim.name}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;
@@ -2589,7 +2828,10 @@ function renderExtraTable() {
         if (!dim.risk) continue;
         const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
         const rowBg = clasificarCritico(pctAlto).bg;
-        html += `<tr style="background:${rowBg};"><td><strong>${dim.name.replace('[Extra] ','')}</strong></td>`;
+        const dimName = dim.name.replace('[Extra] ','');
+        const hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dimName; });
+        const safeName = dimName.replace(/'/g, "\\'");
+        html += `<tr style="background:${rowBg};cursor:pointer;" onclick="abrirPlanAccion('${safeName}',${pctAlto},'${clasificarCritico(pctAlto).label}','extra')"><td><span style="margin-right:6px;font-size:13px;">${hasPlan ? '✅' : '○'}</span><strong>${dimName}</strong></td>`;
         for (const r of RISK_ORDER) {
             const v = dim.risk[r] || 0;
             const pct = total ? Math.round((v/total)*100) : 0;

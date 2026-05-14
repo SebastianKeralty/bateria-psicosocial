@@ -1,0 +1,255 @@
+<script>
+/**
+ * Matriz de Intervenciones Definitiva
+ * Basada en la lista manual proporcionada por el usuario.
+ */
+const MATRIZ_RECOMENDACIONES = {
+  "Caracteristicas Liderazgo": {
+    "Sin Riesgo": ["Programa de nuevos lideres", "Academia de lideres", "Evaluación 360° lideres", "Entre lideres", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Bajo": ["Programa de nuevos lideres", "Academia de lideres", "Evaluación 360° lideres", "Entre lideres", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Medio": ["Programa de nuevos lideres", "Academia de lideres", "Academia de líderes Online Factores de riesgo psicosocial", "Evaluación 360° lideres", "Entre lideres", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Mentoring (Transmisión de conocimiento)", "Evaluación 360° lideres", "Clara Coach Bot (Herramienta)"],
+    "Muy Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Mentoring (Transmisión de conocimiento)", "Evaluación 360° lideres", "Clara Coach Bot (Herramienta)"]
+  },
+  "Relaciones Sociales": {
+    "Sin Riesgo": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Programa de nuevos lideres", "Academia de lideres", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Bajo": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Programa de nuevos lideres", "Academia de lideres", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Medio": ["Ambientes Positivos (Relaciones armoniosas)", "Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Programa de nuevos lideres", "Academia de lideres", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Alto": ["Ambientes Positivos (Relaciones armoniosas)", "Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Muy Alto": ["Ambientes Positivos (Relaciones armoniosas)", "Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada batería"]
+  },
+  "Retroal. Desempeño": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Gestión del desempeño y productividad"],
+    "Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Gestión del desempeño y productividad"],
+    "Muy Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Gestión del desempeño y productividad"]
+  },
+  "Relación colaboradores": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Gestión del desempeño y productividad", "Toolkit de Comunicación (aplicacion de formación para lideres; conversaciones dificiles"],
+    "Alto": ["Ambientes Positivos (Relaciones armoniosas)", "Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Mentoring (Transmisión de conocimiento)", "Gestión del desempeño y productividad"],
+    "Muy Alto": ["Ambientes Positivos (Relaciones armoniosas)", "Academia de líderes Online Factores de riesgo psicosocial", "Coaching", "Mentoring (Transmisión de conocimiento)", "Gestión del desempeño y productividad"]
+  },
+  "Control y autonomia sobre el trabajo": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del desempeño y productividad"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Reinducción del cargo", "Gestión del desempeño y productividad"],
+    "Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Reinducción del cargo", "Gestión del desempeño y productividad"],
+    "Muy Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Reinducción del cargo", "Gestión del desempeño y productividad"]
+  },
+  "Oportunidades para el desarrollo": {
+    "Alto": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Muy Alto": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada batería"]
+  },
+  "Participación y manejo del cambIo": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del cambio para proyectos de la Organización (comunica, sensibiliza, forma y realiza seguimiento)", "Programa Humanización"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Gestión del cambio para proyectos de la Organización (comunica, sensibiliza, forma y realiza seguimiento)", "Programa Humanización"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Gestión del cambio para proyectos de la Organización (comunica, sensibiliza, forma y realiza seguimiento)", "Programa Humanización"],
+    "Alto": ["Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Gestión del cambio para proyectos de la Organización (comunica, sensibiliza, forma y realiza seguimiento)", "Programa Humanización"],
+    "Muy Alto": ["Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial", "Gestión del cambio para proyectos de la Organización (comunica, sensibiliza, forma y realiza seguimiento)", "Programa Humanización"]
+  },
+  "Claridad de rol": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Inducción Keralty", "Gestión del desempeño y productividad"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Inducción Keralty", "Gestión del desempeño y productividad"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Inducción Keralty", "Gestión del desempeño y productividad"],
+    "Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Reinducción del cargo", "Gestión del desempeño y productividad"],
+    "Muy Alto": ["Academia de líderes Online Factores de riesgo psicosocial", "Reinducción del cargo", "Gestión del desempeño y productividad"]
+  },
+  "Capacitación": {
+    "Sin Riesgo": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Bajo": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Medio": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada batería", "Programar espacios para realizar capacitaciones"],
+    "Alto": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada batería", "Programar espacios para realizar capacitaciones"],
+    "Muy Alto": ["Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada batería", "Programar espacios para realizar capacitaciones"]
+  },
+  "Demandas cuantitativas": {
+    "Medio": ["Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA", "Analisis de Cargo según su perfil existente (novedades son reportadas al negocio)"],
+    "Alto": ["Formación de manejo eficaz del tiempo", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA", "Analisis de Cargo según su perfil existente (novedades son reportadas al negocio)"],
+    "Muy Alto": ["Formación de manejo eficaz del tiempo", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA", "Analisis de Cargo según su perfil existente (novedades son reportadas al negocio)"]
+  },
+  "demandas de carga mental": {
+    "Sin Riesgo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria"],
+    "Bajo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria"],
+    "Medio": ["Gestion emocional - Psicokeralty individual", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas"],
+    "Alto": ["Gestion emocional - Psicokeralty individual", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas"],
+    "Muy Alto": ["Gestion emocional - Psicokeralty individual", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas"]
+  },
+  "Demandas emocionales": {
+    "Sin Riesgo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Atención en crisis y primeros auxilios psicológicos (formación a brigadistas)"],
+    "Bajo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Atención en crisis y primeros auxilios psicológicos (formación a brigadistas)"],
+    "Medio": ["Gestion emocional - Psicokeralty grupal", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Atención en crisis y primeros auxilios psicológicos (formación a brigadistas)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Alto": ["Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Atención en crisis y primeros auxilios psicológicos (formación a brigadistas)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Muy Alto": ["Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Atención en crisis y primeros auxilios psicológicos (formación a brigadistas)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"]
+  },
+  "Exigencias de responsabilidad": {
+    "Medio": ["Reinducción del cargo", "Gestión del desempeño y productividad"],
+    "Alto": ["Reinducción del cargo", "Gestión del desempeño y productividad"],
+    "Muy Alto": ["Reinducción del cargo", "Gestión del desempeño y productividad"]
+  },
+  "Demandas ambientales y de esfuerzo fisico": {
+    "Medio": ["Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Ruido", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Temperatura", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Iluminación", "Taller Manipulación adecuada de cargas", "Seguimiento a inspecciónes de EPP (Lider)", "Verificar si se cuenta Con inspección de riesgo quimico", "Verificar si se cuenta Con inspección de SOL", "Taller en autocuidado para prevenir Accidentes de Trabajo"],
+    "Alto": ["Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Ruido", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Temperatura", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Iluminación", "Taller Manipulación adecuada de cargas", "Seguimiento a inspecciónes de EPP (Lider)", "Verificar si se cuenta Con inspección de riesgo quimico", "Verificar si se cuenta Con inspección de SOL", "Taller en autocuidado para prevenir Accidentes de Trabajo"],
+    "Muy Alto": ["Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Ruido", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Temperatura", "Verificar si se cuenta con evaluación Higienica (cualitativa) con HSI (Reportar) Iluminación", "Taller Manipulación adecuada de cargas", "Seguimiento a inspecciónes de EPP (Lider)", "Verificar si se cuenta Con inspección de riesgo quimico", "Verificar si se cuenta Con inspección de SOL", "Taller en autocuidado para prevenir Accidentes de Trabajo"]
+  },
+  "Demandas de jornada laboral": {
+    "Sin Riesgo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria"],
+    "Bajo": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria"],
+    "Medio": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA"],
+    "Alto": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Formación de manejo eficaz del tiempo", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA"],
+    "Muy Alto": ["Gestión de pausas en el trabajo. Incentivando uso de la herramienta Haria", "Formación de manejo eficaz del tiempo", "Gestión de cargas de trabajo; Controlar la sobrecarga cuantitativa y la mental derivada de ciertas tareas", "Evaluacion de jornadas de turnos en mallas FATIGA"]
+  },
+  "Consistencia de rol": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Alto": ["Academia de líderes", "Reinducción del cargo"],
+    "Muy Alto": ["Academia de líderes", "Reinducción del cargo"]
+  },
+  "Influencia sobre el entorno extra": {
+    "Sin Riesgo": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)"],
+    "Bajo": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)"],
+    "Medio": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Alto": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Muy Alto": ["Prevención del consumo de sustancias psicoactivas (Actualización del Programa, Politica, Formación para prevenir el consumo)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"]
+  },
+  "Reconocimiento y compensación": {
+    "Sin Riesgo": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Bajo": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Medio": ["Programa de Nuevos Líderes", "Academia de líderes", "Academia de líderes Online Factores de riesgo psicosocial"],
+    "Alto": ["Inducción Keralty"],
+    "Muy Alto": ["Inducción Keralty"]
+  },
+  "Recompensas de pertenencia y trabajo": {
+    "Alto": ["Programa de reconocimiento", "Inducción Keralty"],
+    "Muy Alto": ["Programa de reconocimiento", "Inducción Keralty"]
+  },
+  "Síntomas Fisiológicos": {
+    "Sin Riesgo": ["Conoce los servicios de tu caja de compensación", "Valoración por Medico empresarial"],
+    "Bajo": ["Conoce los servicios de tu caja de compensación", "Valoración por Medico empresarial"],
+    "Medio": ["Conoce los servicios de tu caja de compensación", "Valoración por Medico empresarial", "Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Alto": ["Conoce los servicios de tu caja de compensación", "Valoración por Medico empresarial", "Tips de habitos alimenticios saludables (Pildoras)", "Tips de habitos Higiene descanso y sueño (Pildoras)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"],
+    "Muy Alto": ["Conoce los servicios de tu caja de compensación", "Valoración por Medico empresarial", "Tips de habitos alimenticios saludables (Pildoras)", "Tips de habitos Higiene descanso y sueño (Pildoras)", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"]
+  },
+  "Síntomas de Comportamiento Social": {
+    "Medio": ["Escuelas para familia", "Gestion emocional - Psicokeralty individual", "Necesidades de aprendizaje para los equipos en diferentes habilidades según resultados de cada bateria"],
+    "Alto": ["Escuelas para familia", "Gestion emocional - Psicokeralty individual"],
+    "Muy Alto": ["Escuelas para familia", "Gestion emocional - Psicokeralty individual", "Prevención del consumo de sustancias psicoactivas (Pruebas aleatorias)"]
+  },
+  "Síntomas Intelectuales y Laborales": {
+    "Sin Riesgo": ["Conoce los servicios de tu caja de compensación"],
+    "Bajo": ["Conoce los servicios de tu caja de compensación"],
+    "Medio": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Alto": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal"],
+    "Muy Alto": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal"]
+  },
+  "Síntomas Psicoemocionales": {
+    "Sin Riesgo": ["Conoce los servicios de tu caja de compensación"],
+    "Bajo": ["Conoce los servicios de tu caja de compensación"],
+    "Medio": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Tips uso seguro y efectivo de la cafeína (Pildoras)", "Necesidades de aprendizaje para los equipos en diferentes habilidades segun resultados de cada bateria"],
+    "Alto": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Tips uso seguro y efectivo de la cafeína (Pildoras)"],
+    "Muy Alto": ["Conoce los servicios de tu caja de compensación", "Gestion emocional - Psicokeralty individual", "Gestion emocional - Psicokeralty grupal", "Tips uso seguro y efectivo de la cafeína (Pildoras)"]
+  },
+  "Tiempo fuera del trabajo": {
+    "Sin Riesgo": ["Conoce los servicios de tu caja de compensación"],
+    "Bajo": ["Conoce los servicios de tu caja de compensación"],
+    "Medio": ["Conoce los servicios de tu caja de compensación", "Manejo adecuado de redes sociales en tiempo libre (Pildoras)"],
+    "Alto": ["Conoce los servicios de tu caja de compensación", "Manejo adecuado de redes sociales en tiempo libre (Pildoras)"],
+    "Muy Alto": ["Conoce los servicios de tu caja de compensación", "Manejo adecuado de redes sociales en tiempo libre (Pildoras)"]
+  },
+  "Relaciones familiares": {
+    "Sin Riesgo": ["Escuelas para familia"],
+    "Bajo": ["Escuelas para familia"],
+    "Medio": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia"],
+    "Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia"],
+    "Muy Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia"]
+  },
+  "Comunicación y relaciones": {
+    "Medio": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Gestion emocional - Psicokeralty individual"],
+    "Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Gestion emocional - Psicokeralty individual"],
+    "Muy Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Gestion emocional - Psicokeralty individual"]
+  },
+  "Situación económica familia": {
+    "Medio": ["Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"],
+    "Alto": ["Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"],
+    "Muy Alto": ["Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"]
+  },
+  "Características de la vivienda": {
+    "Medio": ["Conoce los servicios de tu caja de compensación", "Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"],
+    "Alto": ["Conoce los servicios de tu caja de compensación", "Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"],
+    "Muy Alto": ["Conoce los servicios de tu caja de compensación", "Vive financieramente (Programas y aliados estrategicos Fecolsa , CCF)"]
+  },
+  "influencia del entorno extralaboral": {
+    "Medio": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia", "Gestion emocional - Psicokeralty individual"],
+    "Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia", "Gestion emocional - Psicokeralty individual"],
+    "Muy Alto": ["Manejo adecuado de redes sociales en tiempo libre (Pildoras)", "Escuelas para familia", "Gestion emocional - Psicokeralty individual"]
+  },
+  "Desplazamiento casa-trabajo": {
+    "Medio": ["Gestion emocional - Psicokeralty individual", "Formación de manejo eficaz del tiempo"],
+    "Alto": ["Gestion emocional - Psicokeralty individual", "Formación de manejo eficaz del tiempo"],
+    "Muy Alto": ["Gestion emocional - Psicokeralty individual", "Formación de manejo eficaz del tiempo"]
+  }
+};
+
+/**
+ * Genera el HTML de checkboxes.
+ */
+function generarChecklistAcciones(dimension, nivel, accionesGuardadas = []) {
+  let dimLimpia = dimension.replace(" (I)", "").replace(" (T)", "").replace("(I)", "").replace("(T)", "").trim();
+  let keyMatch = "";
+
+  for (let key in MATRIZ_RECOMENDACIONES) {
+    if (dimLimpia.toLowerCase() === key.toLowerCase() || 
+        dimLimpia.toLowerCase().includes(key.toLowerCase()) || 
+        key.toLowerCase().includes(dimLimpia.toLowerCase())) {
+      keyMatch = key;
+      break;
+    }
+  }
+
+  let nivelNorm = nivel.trim();
+  if (nivelNorm.toLowerCase().includes("muy alto")) nivelNorm = "Muy Alto";
+  else if (nivelNorm.toLowerCase().includes("bajo")) nivelNorm = "Bajo";
+  else if (nivelNorm.toLowerCase().includes("sin riesgo")) nivelNorm = "Sin Riesgo";
+  else if (nivelNorm.toLowerCase().includes("medio")) nivelNorm = "Medio";
+  else if (nivelNorm.toLowerCase().includes("alto")) nivelNorm = "Alto";
+
+  let recomendadas = keyMatch ? (MATRIZ_RECOMENDACIONES[keyMatch][nivelNorm] || []) : [];
+  
+  if (recomendadas.length === 0) {
+    return '<div style="padding:20px;text-align:center;"><p style="font-size:12px;color:#64748b;">No hay planes pre-establecidos para esta combinación en la matriz.</p></div>';
+  }
+
+  let html = "";
+  recomendadas.forEach((accion) => {
+    let isChecked = accionesGuardadas.includes(accion) ? "checked" : "";
+    html += `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background 0.2s;" 
+           onclick="this.querySelector('input').click()"
+           onmouseover="this.style.background='#f8fafc'"
+           onmouseout="this.style.background='transparent'">
+        <input type="checkbox" value="${accion.replace(/"/g, '&quot;')}" ${isChecked} 
+               style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a;" 
+               onclick="event.stopPropagation()">
+        <span style="font-size:13px;color:#1e293b;font-weight:500;line-height:1.4;">${accion}</span>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+function getAccionesSeleccionadas() {
+  let checkboxes = document.querySelectorAll('#planAccionesChecklist input[type="checkbox"]:checked');
+  let seleccionadas = [];
+  checkboxes.forEach(cb => seleccionadas.push(cb.value));
+  return seleccionadas;
+}
+
+function obtenerPlanEstandar(dimension, nivel) {
+  return {
+    pronostico: { actual: 0, estimado: 0, tiempo: "6 meses", mejora: 15 }
+  };
+}
+</script>

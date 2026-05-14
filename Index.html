@@ -498,12 +498,104 @@
         }
         @keyframes shimmer {
             0% { left: -100%; }
-            100% { left: 200%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes morph {
+            0% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+            25% { border-radius: 58% 42% 75% 25% / 76% 46% 54% 24%; }
+            50% { border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%; }
+            75% { border-radius: 33% 67% 58% 42% / 63% 68% 32% 37%; }
+            100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+        }
+
+        @keyframes floatCharacter {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        @keyframes blobDrift1 {
+            0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+            25%  { transform: translate(120px, -100px) scale(1.15) rotate(120deg); }
+            50%  { transform: translate(-80px, 150px) scale(0.85) rotate(240deg); }
+            75%  { transform: translate(100px, -60px) scale(1.1) rotate(360deg); }
+            100% { transform: translate(0, 0) scale(1) rotate(480deg); }
+        }
+        @keyframes blobDrift2 {
+            0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+            33%  { transform: translate(-140px, 80px) scale(0.9) rotate(-120deg); }
+            66%  { transform: translate(90px, -120px) scale(1.2) rotate(-240deg); }
+            100% { transform: translate(0, 0) scale(1) rotate(-360deg); }
+        }
+        @keyframes blobDrift3 {
+            0%   { transform: translate(0, 0) scale(1); }
+            50%  { transform: translate(80px, 100px) scale(0.95); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        .welcome-card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+            border: 1px solid #f0fdf4;
+            position: relative;
+            overflow: hidden;
+            animation: cardAppear 0.8s ease-out forwards;
+        }
+
+        .welcome-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(34,197,94,0.03) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .char-container {
+            width: 200px;
+            height: 200px;
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .char-blob {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            opacity: 0.12;
+            animation: morph 8s linear infinite;
+        }
+
+        .char-img {
+            width: 250px;
+            height: 250px;
+            object-fit: contain;
+            z-index: 2;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: drop-shadow(0 10px 20px rgba(21,128,61,0.25));
+            animation: floatCharacter 4s ease-in-out infinite;
+            cursor: pointer;
+        }
+
+        .char-img:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 15px 30px rgba(21,128,61,0.4));
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-12px) scale(1.03); }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
         }
         @keyframes scrollUp { 0% { transform:translateY(0); } 100% { transform:translateY(-50%); } }
         @keyframes scrollLeft { 0% { transform:translateX(0); } 100% { transform:translateX(-50%); } }
@@ -1658,18 +1750,30 @@
         </section>
 
         <!-- ============ TAB: DASHBOARD ============ -->
-        <section id="tab-dashboard" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;">
+        <section id="tab-dashboard" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:hidden;">
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 10% 90%, rgba(34,197,94,0.15) 0%, transparent 40%);radial-gradient(circle at 90% 10%, rgba(16,185,129,0.1) 0%, transparent 40%);pointer-events:none;"></div>
 
-            <div id="dashNoData" class="card" style="margin-top:20px; text-align:center; padding:60px 20px; border-radius:24px; box-shadow:0 10px 25px rgba(0,0,0,0.05); border:1px solid rgba(34,197,94,0.1);">
-                <div style="width:200px;margin:0 auto 20px;animation:float 3s ease-in-out infinite;">
-                    <img id="dashNoDataImg" src="https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800" alt="Dashboard" style="width:100%;opacity:0.85;">
+            <div style="position:absolute;width:350px;height:350px;top:-5%;left:-5%;background:linear-gradient(135deg,#22c55e,#16a34a);opacity:0.04;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift1 25s ease-in-out infinite,morph 12s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+            <div style="position:absolute;width:250px;height:250px;bottom:10%;right:5%;background:linear-gradient(135deg,#15803d,#166534);opacity:0.05;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:blobDrift2 20s ease-in-out infinite reverse,morph 10s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+            <div style="position:absolute;width:200px;height:200px;top:40%;right:15%;background:linear-gradient(135deg,#4ade80,#22c55e);opacity:0.03;border-radius:58% 42% 75% 25%/76% 46% 54% 24%;animation:blobDrift3 18s ease-in-out infinite,morph 14s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+
+            <div style="max-width:1000px;margin:0 auto;position:relative;z-index:1;">
+            <div id="dashNoData" class="card" style="display:block;text-align:center;padding:80px 20px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.05);border:1px solid rgba(34,197,94,0.1);">
+                <div style="width:320px;margin:0 auto 28px;position:relative;">
+                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;background:linear-gradient(135deg,#22c55e,#15803d);opacity:0.12;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:morph 8s linear infinite;pointer-events:none;"></div>
+                    <img id="dashNoDataImg"
+                         src="https://lh3.googleusercontent.com/d/11CSPn1RCvX2IvvhbupQxmu_x94w-GYo7=w800"
+                         data-original="https://lh3.googleusercontent.com/d/11CSPn1RCvX2IvvhbupQxmu_x94w-GYo7=w800"
+                         data-hover="https://lh3.googleusercontent.com/d/1yTaCLXUTy3TuE4kzsw8hql9jwuZHb1rn=w800"
+                         alt="Dashboard"
+                         style="width:280px;height:280px;object-fit:contain;z-index:2;transition:all 0.4s ease;cursor:pointer;animation:floatCharacter 4s ease-in-out infinite;"
+                         onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.08)';this.style.opacity='1';"
+                         onmouseout="this.src=this.getAttribute('data-original');this.style.filter='none';this.style.transform='scale(1)';this.style.opacity='0.92';">
                 </div>
-                <h2 style="font-size: 28px; color: #14532d; font-weight: 800;">Dashboard de Análisis</h2>
-                <p style="color: #4b5563; margin: 16px auto; max-width: 400px; line-height: 1.6;">Selecciona una batería desde la sección Baterías para comenzar el análisis.</p>
-                <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top: 24px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 12px 32px; border-radius: 12px; border: none; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(22,163,74,0.3); transition: all 0.3s ease;">
-                    Volver a Inicio
-                </button>
+                <h2 style="font-size:32px;color:#14532d;font-weight:800;">Dashboard de Análisis</h2>
+                <p style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aún no has cargado ninguna batería. Selecciona una desde la sección Baterías para comenzar el análisis.</p>
+                <button onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(22,163,74,0.3);transition:all 0.3s ease;">Ir a Baterías</button>
+            </div>
             </div>
 
             <div id="dashContent" style="display:none;">
@@ -1737,6 +1841,44 @@
             </div>
         </div>
 
+        <!-- ============ MODAL PLAN DE ACCIÓN ============ -->
+        <div id="planAccionModal" class="modal-overlay" style="display:none;z-index:5000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+            <div style="background:white;border-radius:16px;width:90%;max-width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="position:sticky;top:0;background:white;border-radius:16px 16px 0 0;z-index:1;padding:20px 24px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:20px;">📋</span>
+                    <h2 id="planDimTitle" style="margin:0;font-size:18px;color:#14532d;flex:1;">Plan de Acción</h2>
+                    <button onclick="cerrarPlanAccion()" style="width:32px;height:32px;border:none;border-radius:8px;background:#f1f5f9;font-size:18px;cursor:pointer;color:#64748b;">✕</button>
+                </div>
+                <div style="padding:16px 24px 20px;">
+                    <div id="planDimInfo" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                        <div style="background:#f0fdf4;border-radius:8px;padding:8px 14px;"><span style="font-size:12px;color:#64748b;">Riesgo</span><br><span id="planDimRiesgo" style="font-weight:800;font-size:16px;color:#14532d;"></span></div>
+                        <div style="background:#f0fdf4;border-radius:8px;padding:8px 14px;"><span style="font-size:12px;color:#64748b;">Encuesta</span><br><span id="planDimEncuesta" style="font-weight:600;font-size:14px;color:#14532d;"></span></div>
+                        <div style="background:#f0fdf4;border-radius:8px;padding:8px 14px;"><span style="font-size:12px;color:#64748b;">Estado</span><br><span id="planDimEstado" style="font-weight:600;font-size:14px;color:#14532d;"></span></div>
+                    </div>
+
+                    <label style="font-weight:700;font-size:14px;color:#14532d;display:block;margin-bottom:6px;">Acciones Recomendadas (Selecciona las que desees)</label>
+                    <div id="planAccionesChecklist" style="margin-bottom:14px; max-height: 250px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc;">
+                        <!-- Checkboxes se generarán dinámicamente -->
+                    </div>
+
+                    <label style="font-weight:700;font-size:14px;color:#14532d;display:block;margin-bottom:6px;">Detalles Adicionales del Plan</label>
+                    <textarea id="planTexto" style="width:100%;min-height:80px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:Arial;resize:vertical;box-sizing:border-box;margin-bottom:14px;" placeholder="Añade notas o detalles adicionales aquí..."></textarea>
+
+                    <label style="font-weight:700;font-size:14px;color:#14532d;display:block;margin-bottom:6px;">Pronóstico</label>
+                    <div id="planPronostico" style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#374151;"></div>
+
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="generarPlanConIA()" id="btnGenerarPlan" style="flex:1;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">🤖 IA</button>
+                            <button onclick="eliminarPlanActual()" id="btnEliminarPlan" style="flex:1;padding:10px;background:white;color:#dc2626;border:1px solid #dc2626;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">🗑️ Eliminar Plan</button>
+                        </div>
+                        <button onclick="guardarPlanActual()" id="btnGuardarPlan" style="width:100%;padding:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;">💾 Guardar Plan de Acción</button>
+                    </div>
+                    <div id="planStatus" style="margin-top:10px;font-size:13px;color:#64748b;text-align:center;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ============ TAB: COMPARATIVA ============ -->
         <section id="tab-comparativa" class="tab-content" style="min-height:100vh;background:linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);padding:20px;">
             <div class="card" style="margin-bottom:16px;">
@@ -1771,11 +1913,24 @@
         <!-- ============ TAB: REPORTES ============ -->
         <section id="tab-reportes" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:hidden;">
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 80% 20%, rgba(34,197,94,0.15) 0%, transparent 40%),radial-gradient(ellipse at 20% 80%, rgba(16,185,129,0.08) 0%, transparent 40%);pointer-events:none;"></div>
+
+            <div style="position:absolute;width:400px;height:400px;top:-8%;right:-5%;background:linear-gradient(135deg,#22c55e,#16a34a);opacity:0.04;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift1 22s ease-in-out infinite,morph 15s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+            <div style="position:absolute;width:280px;height:280px;bottom:5%;left:3%;background:linear-gradient(135deg,#15803d,#166534);opacity:0.05;border-radius:58% 42% 75% 25%/76% 46% 54% 24%;animation:blobDrift2 28s ease-in-out infinite reverse,morph 11s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+            <div style="position:absolute;width:180px;height:180px;top:50%;left:50%;background:linear-gradient(135deg,#4ade80,#22c55e);opacity:0.03;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:blobDrift3 15s ease-in-out infinite,morph 13s linear infinite;pointer-events:none;filter:blur(30px);"></div>
+
             <div style="max-width:1400px;margin:0 auto;position:relative;z-index:1;">
 
                 <div id="reportNoData" class="card" style="display:block;text-align:center;padding:80px 20px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.05);border:1px solid rgba(34,197,94,0.1);">
-                    <div style="width:320px;margin:0 auto 28px;animation:float 3s ease-in-out infinite;">
-                        <img id="reportesImg1" src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" alt="Reportes" style="width:100%;filter:drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2));opacity:0.92;transition:all 0.4s ease;cursor:pointer;" class="inicio-img-glow" onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.05)';this.style.opacity='1';" onmouseout="this.src=this.getAttribute('data-original');this.style.filter='drop-shadow(0 0 20px rgba(34,197,94,0.4)) drop-shadow(0 0 40px rgba(34,197,94,0.2))';this.style.transform='scale(1)';this.style.opacity='0.92';">
+                    <div style="width:320px;margin:0 auto 28px;position:relative;">
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;background:linear-gradient(135deg,#22c55e,#15803d);opacity:0.12;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:morph 8s linear infinite;pointer-events:none;"></div>
+                        <img id="reportesImg1" 
+                             src="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800" 
+                             data-original="https://lh3.googleusercontent.com/d/1-5SEn_tyPxCNJ2BA5pX1FZGkc-UsK9I7=w800"
+                             data-hover="https://lh3.googleusercontent.com/d/1CJ9sPWxqKg2QKcWHQd0nc2fCyDgwxAd9=w800"
+                             alt="Reportes" 
+                             style="width:280px;height:280px;object-fit:contain;z-index:2;transition:all 0.4s ease;cursor:pointer;animation:floatCharacter 4s ease-in-out infinite;" 
+                             onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.08)';this.style.opacity='1';" 
+                             onmouseout="this.src=this.getAttribute('data-original');this.style.filter='none';this.style.transform='scale(1)';this.style.opacity='0.92';">
                     </div>
                     <h2 style="font-size:32px;color:#14532d;font-weight:800;">Reportes</h2>
                     <p style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aún no has cargado ninguna batería. Selecciona una desde la sección Baterías para generar reportes.</p>
@@ -1829,10 +1984,25 @@
             </div>
         </section>
 
-        <!-- ============ TAB: INFORMACIÓN ============ -->
         <section id="tab-informacion" class="tab-content" style="min-height:100vh;background:#f0fdf4;padding:24px;">
             <div style="max-width:1000px;margin:0 auto;">
                 <h2 style="font-size:28px;margin:0 0 20px;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Información</h2>
+
+                <div class="welcome-card">
+                    <div style="flex:1;">
+                        <h3 style="font-size:24px; color:#14532d; margin:0 0 12px; font-weight:800;">¡Bienvenido al manual de la Batería!</h3>
+                        <p style="margin:0; color:#475569; font-size:16px; line-height:1.7;">Aquí encontrarás toda la información necesaria para comprender y aplicar correctamente la Batería de Instrumentos para la Evaluación de Factores de Riesgo Psicosocial. Explora las secciones a continuación para aprender más.</p>
+                    </div>
+                    <div class="char-container">
+                        <div class="char-blob"></div>
+                        <img id="manualCharacter" 
+                             src="https://lh3.googleusercontent.com/d/1xiOFqrqVlIrIxh-Rk6aNxw2ZQ3dRWKeK=w800" 
+                             class="char-img"
+                             onmouseover="this.src='https://lh3.googleusercontent.com/d/1K3VfP-yw9mROTRxc8C3JWcffr3asFv-c=w800'"
+                             onmouseout="this.src='https://lh3.googleusercontent.com/d/1xiOFqrqVlIrIxh-Rk6aNxw2ZQ3dRWKeK=w800'"
+                        >
+                    </div>
+                </div>
 
                 <!-- ACCORDION 1: ¿Qué es la Batería Psicosocial? -->
                 <div class="info-accordion" style="background:white;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
@@ -1980,6 +2150,7 @@
 </div>
 
 <?!= include('procesador'); ?>
+<?!= include('planes_data'); ?>
 <?!= include('app'); ?>
 </body>
 </html>
