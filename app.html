@@ -845,26 +845,130 @@ function agregarDriveAComparativa() {
     });
 }
 
+function handleDashboardScroll() {
+    const filterBar = document.getElementById('filterBar');
+    if (!filterBar) return;
+    
+    // Check if the bar is sticking (top is 72px)
+    const rect = filterBar.getBoundingClientRect();
+    if (rect.top <= 73) { 
+        filterBar.classList.add('is-sticky');
+    } else {
+        filterBar.classList.remove('is-sticky');
+    }
+}
+
 function renderDashboard() {
     if (!state.bateriaActiva) {
         console.error('No active battery data');
         return;
     }
     const data = state.bateriaActiva;
-    console.log('renderDashboard called with data:', data.meta);
     
     const dashContent = document.getElementById('dashContent');
     if (dashContent) {
         dashContent.style.display = 'block';
     }
     
+    // Setup sticky listener for filter bar
+    const filterBar = document.getElementById('filterBar');
+    if (filterBar) {
+        window.removeEventListener('scroll', handleDashboardScroll);
+        window.addEventListener('scroll', handleDashboardScroll);
+    }
+    
     const dashNoData = document.getElementById('dashNoData');
     if (dashNoData) dashNoData.remove();
     
+    // ORDEN DE RENDERIZACIÓN DEFINITIVO ───
+    
+    // 1. PARTICIPANTES (Resumen sin recuadro)
     renderSummaryCards(data);
-    populateFiltersDashboard(data.rows);
+    
+    // 2. FOCOS DE INTERVENCIÓN (Top 10 en su recuadro)
+    renderTopDimensions(data.summary);
+    
+    // 3. RESULTADOS POR ENCUESTA (Gráficas en su recuadro)
     renderChartsDashboard(data.rows, data.summary);
+    
+    // 4. CONSTRUIR FILTROS
+    populateFiltersDashboard(data.rows);
+    
+    // 5. DESGLOSE ESTADÍSTICO (Tabla final)
     renderDetailTable(data.rows, data.summary);
+}
+
+function renderTopDimensions(summary) {
+    // DEFINITIVE VERSION: Top 10 Pillars of Risk (3D Skyline)
+    const top = (summary.topCriticas || []).slice(0, 10);
+    const box = document.getElementById('criticalPillarsBox');
+    const container = document.getElementById('criticalPillars');
+    
+    if (top.length === 0) {
+        if(box) box.style.display = 'none';
+        return;
+    }
+
+    if(box) box.style.display = 'block';
+
+    const titleCase = (s) => {
+        const keep = ['de','del','la','las','lo','los','el','ella','ellos','y','e','o','a','en','con','por','para','sin','sobre','entre'];
+        return s.split(' ').map((w, i) => {
+            const lw = w.toLowerCase();
+            return (i > 0 && keep.indexOf(lw) >= 0) ? lw : lw.charAt(0).toUpperCase() + lw.slice(1);
+        }).join(' ');
+    };
+
+    const getStyle = (pct) => {
+        if (pct <= 29) return { gradient: 'linear-gradient(180deg, #0ea5e9, #38bdf8)', color: '#0ea5e9', shadow: 'rgba(14,165,233,0.3)', bg: '#e0f2fe' };
+        if (pct <= 49) return { gradient: 'linear-gradient(180deg, #14b8a6, #2dd4bf)', color: '#14b8a6', shadow: 'rgba(20,184,166,0.3)', bg: '#ccfbf1' };
+        if (pct <= 69) return { gradient: 'linear-gradient(180deg, #f59e0b, #fbbf24)', color: '#f59e0b', shadow: 'rgba(245,158,11,0.3)', bg: '#fef3c7' };
+        if (pct <= 84) return { gradient: 'linear-gradient(180deg, #f97316, #fb923c)', color: '#f97316', shadow: 'rgba(249,115,22,0.3)', bg: '#ffedd5' };
+        return { gradient: 'linear-gradient(180deg, #dc2626, #ef4444)', color: '#dc2626', shadow: 'rgba(220,38,38,0.3)', bg: '#fef2f2' };
+    };
+
+    let html = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding:0 4px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#dc2626,#f97316);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 15px rgba(220,38,38,0.3);"><span style="font-size:22px;">🎯</span></div>
+                <div>
+                    <h3 style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#0f172a;display:flex;align-items:center;gap:8px;">Focos de Intervención Prioritaria <span class="warning-icon-anim">!</span></h3>
+                    <p style="margin:0;font-size:13px;color:#64748b;font-weight:500;">Las 10 dimensiones con mayor impacto en el bienestar organizacional</p>
+                </div>
+            </div>
+            <span style="font-size:11px;font-weight:800;color:#ef4444;background:rgba(239,68,68,0.1);padding:6px 14px;border-radius:30px;text-transform:uppercase;letter-spacing:1px;border:1px solid rgba(239,68,68,0.2);">Top 10 Análisis</span>
+        </div>
+
+        <div style="display:flex;gap:15px;overflow-x:auto;padding:60px 10px 40px;align-items:flex-end;scrollbar-width:thin;mask-image:linear-gradient(to right, black 95%, transparent);-webkit-mask-image:linear-gradient(to right, black 95%, transparent);">`;
+    
+    top.forEach((dim, i) => {
+        const s = getStyle(dim.pctAlto);
+        const h = 60 + (dim.pctAlto * 1.8); // Responsive height based on risk
+        const name = titleCase(dim.name.replace('[Extra] ', '').replace('[Stress] ', '').replace('[Intra] ', ''));
+        
+        html += `
+            <div style="flex:0 0 110px;display:flex;flex-direction:column;align-items:center;position:relative;">
+                <!-- Rank Badge -->
+                <div style="position:absolute;top:-45px;font-size:10px;font-weight:900;color:${s.color};background:${s.bg};padding:2px 8px;border-radius:10px;text-transform:uppercase;">#${i+1}</div>
+                
+                <!-- Pillar -->
+                <div class="danger-hover" style="width:50px;height:${h}px;background:${s.gradient};border-radius:12px 12px 6px 6px;position:relative;box-shadow:0 12px 25px ${s.shadow};display:flex;align-items:flex-start;justify-content:center;padding-top:12px;transition:all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                    <div style="color:#fff;font-weight:950;font-size:16px;text-shadow:0 2px 4px rgba(0,0,0,0.2);">${Math.round(dim.pctAlto)}%</div>
+                    
+                    <!-- Glass Shine -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg, rgba(255,255,255,0.3), transparent);border-radius:12px 12px 0 0;"></div>
+                    
+                    <!-- Bottom Base Shadow -->
+                    <div style="position:absolute;bottom:-10px;width:100%;height:10px;background:rgba(0,0,0,0.05);filter:blur(5px);border-radius:50%;"></div>
+                </div>
+
+                <!-- Label -->
+                <div style="margin-top:20px;text-align:center;width:100%;font-size:11px;font-weight:800;color:#1e293b;line-height:1.2;height:42px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;padding:0 5px;">${name}</div>
+            </div>`;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
 }
 
 function pctCritico(dist, total) {
@@ -1065,19 +1169,104 @@ function renderSummaryCards(data) {
     });
 }
 
+function handleDashboardScroll() {
+    const filterBar = document.getElementById('filterBar');
+    if (!filterBar) return;
+    
+    // Check if the bar is sticking (top is 72px)
+    const rect = filterBar.getBoundingClientRect();
+    if (rect.top <= 73) { 
+        filterBar.classList.add('is-sticky');
+    } else {
+        filterBar.classList.remove('is-sticky');
+    }
+}
+
 function buildDashboardFilters(rows) {
     const bar = document.getElementById('filterBar');
-    bar.style.marginBottom = '14px';
+    if (!bar) return;
     bar.innerHTML = '';
 
     const autoApply = () => aplicarFiltrosDashboard();
 
-    const topRow = document.createElement('div');
-    topRow.className = 'mf-quick-bar mf-row-top';
+    // Main row for search and quick filters
+    const mainRow = document.createElement('div');
+    mainRow.className = 'mf-quick-bar';
+    mainRow.style.display = 'flex';
+    mainRow.style.width = '100%';
+    mainRow.style.gap = '14px';
+    mainRow.style.alignItems = 'center';
+    mainRow.style.flexWrap = 'wrap';
+
+    // 1. Search Bar (With SVG Icon)
+    const searchWrapper = document.createElement('div');
+    searchWrapper.style.flex = '1 1 350px'; 
+    searchWrapper.style.position = 'relative';
+    searchWrapper.style.display = 'flex';
+    searchWrapper.style.alignItems = 'center';
+
+    const searchIcon = document.createElement('div');
+    searchIcon.style.position = 'absolute';
+    searchIcon.style.left = '16px';
+    searchIcon.style.display = 'flex';
+    searchIcon.style.color = '#16a34a';
+    searchIcon.style.pointerEvents = 'none';
+    searchIcon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+
+    const inp = document.createElement('input');
+    inp.id = 'dfBusqueda';
+    inp.placeholder = 'Buscar por nombre, ID, cargo o área...';
+    inp.className = 'mf-search-input';
+    inp.style.width = '100%';
+    inp.style.padding = '12px 20px 12px 44px'; 
+    inp.style.borderRadius = '14px';
+    inp.style.border = '2px solid rgba(22, 163, 74, 0.15)';
+    inp.style.background = '#fff';
+    inp.style.fontSize = '15px';
+    inp.style.fontWeight = '500';
+    inp.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)';
+    inp.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    
+    inp.onfocus = () => {
+        inp.style.borderColor = '#16a34a';
+        inp.style.boxShadow = '0 6px 20px rgba(22,163,74,0.15)';
+        inp.style.transform = 'translateY(-1px)';
+    };
+    inp.onblur = () => {
+        inp.style.borderColor = 'rgba(22, 163, 74, 0.15)';
+        inp.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)';
+        inp.style.transform = 'translateY(0)';
+    };
+
+    let debounceTimer;
+    inp.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(autoApply, 300);
+    };
+    searchWrapper.appendChild(searchIcon);
+    searchWrapper.appendChild(inp);
+    mainRow.appendChild(searchWrapper);
+
+    // 2. Select Group
+    const selectGroup = document.createElement('div');
+    selectGroup.style.display = 'flex';
+    selectGroup.style.gap = '8px';
+    selectGroup.style.flex = '0 1 auto';
+    selectGroup.style.flexWrap = 'wrap';
 
     const addSelect = (id, placeholder, col) => {
         const sel = document.createElement('select');
         sel.id = id;
+        sel.style.minWidth = '135px';
+        sel.style.padding = '10px 14px';
+        sel.style.borderRadius = '12px';
+        sel.style.border = '1px solid #e2e8f0';
+        sel.style.background = '#f8fafc';
+        sel.style.fontSize = '13px';
+        sel.style.fontWeight = '600';
+        sel.style.color = '#334155';
+        sel.style.cursor = 'pointer';
+
         const optAll = document.createElement('option');
         optAll.value = ''; optAll.textContent = placeholder;
         sel.appendChild(optAll);
@@ -1088,58 +1277,54 @@ function buildDashboardFilters(rows) {
             sel.appendChild(opt);
         });
         sel.onchange = autoApply;
-        topRow.appendChild(sel);
+        selectGroup.appendChild(sel);
     };
 
+    // Quick Filters
     addSelect('dfForma', 'Forma: Todas', '_forma');
     addSelect('dfSexo', 'Sexo: Todos', '2. Sexo');
-    addSelect('dfArea', '\u00c1rea: Todas', 'Unidad de An\u00e1lisis');
-    addSelect('dfCargo', 'Tipo cargo: Todos', '14. Tipo de cargo');
+    addSelect('dfArea', 'Área: Todas', 'Unidad de Análisis');
+    addSelect('dfCargo', 'Cargo: Todos', '14. Tipo de cargo');
+    
+    mainRow.appendChild(selectGroup);
 
-    bar.appendChild(topRow);
-
-    const bottomRow = document.createElement('div');
-    bottomRow.className = 'mf-quick-bar mf-row-bottom';
-
-    const inp = document.createElement('input');
-    inp.id = 'dfBusqueda';
-    inp.placeholder = 'Buscar (ID, nombre, cargo\u2026)';
-    inp.className = 'mf-search-input';
-    let debounceTimer;
-    inp.oninput = function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(autoApply, 300);
-    };
-    bottomRow.appendChild(inp);
+    // 3. Action Buttons
+    const actionGroup = document.createElement('div');
+    actionGroup.style.display = 'flex';
+    actionGroup.style.gap = '8px';
+    actionGroup.style.flexShrink = '0';
+    actionGroup.style.marginLeft = 'auto';
 
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'dfToggle';
     toggleBtn.className = 'mf-toggle';
-    toggleBtn.title = 'M\u00e1s filtros';
-    toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
+    toggleBtn.title = 'Filtros avanzados';
+    toggleBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
     toggleBtn.onclick = function() {
         const panel = document.getElementById('dfAdvancedPanel');
         if (!panel) return;
         const isOpen = panel.style.display !== 'none';
         panel.style.display = isOpen ? 'none' : 'block';
-        toggleBtn.title = isOpen ? 'M\u00e1s filtros' : 'Menos filtros';
         toggleBtn.classList.toggle('open', !isOpen);
     };
-    bottomRow.appendChild(toggleBtn);
+    actionGroup.appendChild(toggleBtn);
 
     const btnL = document.createElement('button');
     btnL.className = 'btn-limpiar';
-    btnL.title = 'Limpiar';
-    btnL.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    btnL.title = 'Limpiar filtros';
+    btnL.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
     btnL.onclick = limpiarFiltrosDashboard;
-    bottomRow.appendChild(btnL);
+    actionGroup.appendChild(btnL);
 
-    bar.appendChild(bottomRow);
+    mainRow.appendChild(actionGroup);
+    bar.appendChild(mainRow);
 
+    // Advanced Panel (remains similar but ensure it appends correctly)
     const advPanel = document.createElement('div');
     advPanel.id = 'dfAdvancedPanel';
     advPanel.className = 'mf-advanced-panel';
     advPanel.style.display = 'none';
+    advPanel.style.marginTop = '16px';
 
     const groups = [
         {
@@ -1289,6 +1474,7 @@ function aplicarFiltrosDashboard() {
         // Re-render cards with new data
         renderFilteredCards(nTotal, intraPct, extraPct, stressPct);
         renderChartsDashboard(filtered, s);
+        renderTopDimensions(s);
         renderDetailTable(filtered, s);
     }
 }

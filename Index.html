@@ -363,6 +363,95 @@
         .tab-content.active .smooth-6 { animation: fadeSlideUp 0.5s ease-out 0.6s forwards; opacity: 0; }
         .tab-content.active .smooth-7 { animation: fadeSlideUp 0.5s ease-out 0.7s forwards; opacity: 0; }
 
+        #dashContent #filterBar {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            border-radius: 16px;
+            padding: 16px 20px;
+            border: 1px solid rgba(226,232,240,0.6);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: background 0.3s, box-shadow 0.3s, border-color 0.3s;
+            position: sticky;
+            top: 72px; 
+            z-index: 90;
+            margin: 0 auto 32px auto;
+            max-width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        #dashContent #filterBar.is-sticky {
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border-color: rgba(34,197,94,0.4);
+            background: rgba(255,255,255,0.95);
+            /* Removed translateY to prevent jumpy feel */
+        }
+
+        .dash-section-box {
+            background: #ffffff; /* More solid background for stability */
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .dash-section-box:hover {
+            border-color: rgba(34, 197, 94, 0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            /* Removed transform: scale or translate to keep layout static */
+        }
+
+        /* Critical Card Animations */
+        @keyframes float-blob {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            z-index: 0;
+            opacity: 0.6;
+            animation: float-blob 10s infinite ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes danger-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .danger-hover:hover {
+            animation: danger-pulse 1.5s infinite ease-in-out !important;
+        }
+
+        @keyframes warning-blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        .warning-icon-anim {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #fef2f2;
+            color: #dc2626;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            animation: warning-blink 2s infinite;
+            border: 1px solid #fee2e2;
+        }
+            /* Removed transform: scale or translate to keep layout static */
+        }
+
         /* ── Checkbox list animations ── */
         @keyframes checkItemIn {
             0% { opacity: 0; transform: translateX(-20px) scale(0.95); }
@@ -1452,21 +1541,85 @@
             overflow: hidden;
             border: 1px solid rgba(34,197,94,0.2);
         }
+        /* HIGH-FIDELITY KERALTY LOADER */
         .loading-spinner {
-            width: 64px;
-            height: 64px;
-            border: 5px solid rgba(34,197,94,0.15);
-            border-top-color: #22c55e;
-            border-right-color: #14b8a6;
-            border-bottom-color: #0ea5e9;
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 30px;
+            transform: rotate(-10deg) scale(0.6); /* Scaled down for the modal */
+            display: block;
+        }
+        .loading-spinner .petal {
+            position: absolute;
+            border-radius: 65% 35% 65% 35%;
+            opacity: 1;
+            animation: fadePulse 1.8s infinite ease-in-out;
+            filter: drop-shadow(0 0 12px rgba(255,255,255,0.15));
+            transform-origin: center;
+        }
+        .loading-spinner .blue {
+            width: 90px;
+            height: 150px;
+            left: 10px;
+            top: 20px;
+            background: linear-gradient(180deg, #4aa3ff, #003cff);
+            transform: rotate(-30deg);
+            animation-delay: 0s;
+            --rotation: -30deg;
+        }
+        .loading-spinner .cyan {
+            width: 140px;
+            height: 190px;
+            left: 70px;
+            top: -5px;
+            background: linear-gradient(180deg, #47e7ff, #00cfff);
+            transform: rotate(20deg);
+            animation-delay: 0.45s;
+            --rotation: 20deg;
+        }
+        .loading-spinner .yellow {
+            width: 170px;
+            height: 120px;
+            left: 60px;
+            top: 120px;
+            background: linear-gradient(180deg, #fff94a, #fff000);
+            transform: rotate(38deg);
+            animation-delay: 0.9s;
+            --rotation: 38deg;
+        }
+        .loading-spinner .green {
+            width: 90px;
+            height: 140px;
+            left: 35px;
+            top: 115px;
+            background: linear-gradient(180deg, #8effea, #00d084);
+            transform: rotate(-25deg);
+            animation-delay: 1.35s;
+            --rotation: -25deg;
+        }
+        @keyframes fadePulse {
+            0%, 100% { opacity: 1; transform: scale(1) rotate(var(--rotation, 0deg)); }
+            35% { opacity: 0.15; transform: scale(0.92) rotate(var(--rotation, 0deg)); }
+            50% { opacity: 0.05; transform: scale(0.88) rotate(var(--rotation, 0deg)); }
+            70% { opacity: 0.9; transform: scale(1) rotate(var(--rotation, 0deg)); }
+        }
+        .center-glow {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background: rgba(255,255,255,0.35);
             border-radius: 50%;
-            animation: loadingSpin 1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-            margin: 0 auto 24px;
-            box-shadow: 0 0 30px rgba(34,197,94,0.15);
+            left: 96px;
+            top: 96px;
+            filter: blur(10px);
+            animation: glow 1.8s infinite ease-in-out;
         }
-        @keyframes loadingSpin {
-            to { transform: rotate(360deg); }
+        @keyframes glow {
+            0%,100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.25); }
         }
+
         .loading-text {
             font-size: 20px;
             font-weight: 700;
@@ -2012,7 +2165,7 @@
         </section>
 
         <!-- ============ TAB: DASHBOARD ============ -->
-        <section id="tab-dashboard" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:hidden;">
+        <section id="tab-dashboard" class="tab-content" style="min-height:100vh;background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%);padding:24px;position:relative;overflow:visible;">
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 10% 90%, rgba(34,197,94,0.15) 0%, transparent 40%);radial-gradient(circle at 90% 10%, rgba(16,185,129,0.1) 0%, transparent 40%);pointer-events:none;"></div>
 
             <div style="position:absolute;width:400px;height:400px;top:-8%;left:-5%;background:linear-gradient(135deg,#22c55e,#16a34a);opacity:0.1;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift1 25s ease-in-out infinite,morph 12s linear infinite;pointer-events:none;filter:blur(40px);"></div>
@@ -2039,31 +2192,51 @@
             </div>
 
             <div id="dashContent" style="display:none;">
-                <div class="cards-row" id="summaryCards"></div>
                 <div id="filterBar"></div>
+                
+                <!-- 1. RESUMEN (Sin recuadro para que sobresalga) -->
+                <div class="cards-row" id="summaryCards" style="margin-bottom: 32px;"></div>
+                
+                <!-- 2. FOCOS DE INTERVENCIÓN (PILARES DE RIESGO - DEFINITIVO) -->
+                <div class="dash-section-box" id="criticalPillarsBox" style="display:none;">
+                    <div id="criticalPillars"></div>
+                </div>
 
-                <!-- Main dashboard view -->
-                <div id="dashMainView">
-                    <div class="charts-row-three">
-                        <div class="chart-card" onclick="showDrillDown('intra')">
-                            <span class="click-hint">▼ Ver detalle</span>
-                            <h3>Intralaboral</h3>
-                            <canvas id="intraBars"></canvas>
-                        </div>
-                        <div class="chart-card" onclick="showDrillDown('extra')">
-                            <span class="click-hint">▼ Ver detalle</span>
-                            <h3>Extralaboral</h3>
-                            <canvas id="extraBars"></canvas>
-                        </div>
-                        <div class="chart-card" onclick="showDrillDown('stress')">
-                            <span class="click-hint">▼ Ver detalle</span>
-                            <h3>Estrés</h3>
-                            <canvas id="stressBars"></canvas>
+                <!-- 3. GRÁFICAS POR BATERÍA (Recuadro independiente) -->
+                <div class="dash-section-box" id="mainChartsBox">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;color:#16a34a;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Resultados por Batería</h3>
+                    </div>
+                    <div id="dashMainView">
+                        <div class="charts-row-three">
+                            <div class="chart-card" onclick="showDrillDown('intra')">
+                                <span class="click-hint">▼ Ver detalle</span>
+                                <h3>Intralaboral</h3>
+                                <canvas id="intraBars"></canvas>
+                            </div>
+                            <div class="chart-card" onclick="showDrillDown('extra')">
+                                <span class="click-hint">▼ Ver detalle</span>
+                                <h3>Extralaboral</h3>
+                                <canvas id="extraBars"></canvas>
+                            </div>
+                            <div class="chart-card" onclick="showDrillDown('stress')">
+                                <span class="click-hint">▼ Ver detalle</span>
+                                <h3>Estrés</h3>
+                                <canvas id="stressBars"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="detailTable"></div>
+                <!-- 4. ESTADÍSTICAS DETALLADAS (Recuadro independiente) -->
+                <div class="dash-section-box">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;color:#4f46e5;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div>
+                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Desglose Estadístico</h3>
+                    </div>
+                    <div id="detailTable"></div>
+                </div>
             </div>
         </section>
 
@@ -2085,7 +2258,13 @@
             <div class="loading-modal-content">
                 <div style="position:absolute;width:150px;height:150px;top:-30px;right:-30px;background:linear-gradient(135deg,#22c55e,#0ea5e9);opacity:0.06;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:morph 8s linear infinite;pointer-events:none;"></div>
                 <div style="position:absolute;width:120px;height:120px;bottom:-20px;left:-20px;background:linear-gradient(135deg,#14b8a6,#0ea5e9);opacity:0.05;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:morph 10s linear infinite reverse;pointer-events:none;"></div>
-                <div class="loading-spinner"></div>
+                <div class="loading-spinner">
+                    <div class="petal blue"></div>
+                    <div class="petal cyan"></div>
+                    <div class="petal yellow"></div>
+                    <div class="petal green"></div>
+                    <div class="center-glow"></div>
+                </div>
                 <div class="loading-text" id="loadingText">Procesando archivo...</div>
                 <div class="loading-progress-bar"><div class="loading-progress-fill"></div></div>
             </div>
