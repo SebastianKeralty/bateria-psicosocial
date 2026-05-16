@@ -191,24 +191,41 @@ const MATRIZ_RECOMENDACIONES = {
     "Muy Alto": ["Gestion emocional - Psicokeralty individual", "Formación de manejo eficaz del tiempo"]
   }
 };
+/**
+ * Normaliza texto eliminando acentos y ruidos.
+ */
+function normalizeText(text) {
+  if (!text) return "";
+  return text.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+    .replace(/^\[.*?\]\s*/, "") // Quitar [Intra], [Extra], [Stress]
+    .replace(/\(i\)$/g, "").replace(/\(t\)$/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\b(de|del|y|con|la|las|el|los|un|una|unos|unas)\b/g, "") // Quitar conectores
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * Genera el HTML de checkboxes.
  */
 function generarChecklistAcciones(dimension, nivel, accionesGuardadas = []) {
-  let dimLimpia = dimension.replace(" (I)", "").replace(" (T)", "").replace("(I)", "").replace("(T)", "").trim();
-  let keyMatch = "";
+  let dimNorm = normalizeText(dimension);
+  let keyMatch = \"\";
 
   for (let key in MATRIZ_RECOMENDACIONES) {
-    if (dimLimpia.toLowerCase() === key.toLowerCase() || 
-        dimLimpia.toLowerCase().includes(key.toLowerCase()) || 
-        key.toLowerCase().includes(dimLimpia.toLowerCase())) {
+    let keyNorm = normalizeText(key);
+
+    if (dimNorm === keyNorm || 
+        dimNorm.includes(keyNorm) || 
+        keyNorm.includes(dimNorm)) {
       keyMatch = key;
       break;
     }
   }
 
-  let nivelNorm = nivel.trim();
+  let nivelNorm = nivel ? nivel.trim() : \"\";
   if (nivelNorm.toLowerCase().includes("muy alto")) nivelNorm = "Muy Alto";
   else if (nivelNorm.toLowerCase().includes("bajo")) nivelNorm = "Bajo";
   else if (nivelNorm.toLowerCase().includes("sin riesgo")) nivelNorm = "Sin Riesgo";

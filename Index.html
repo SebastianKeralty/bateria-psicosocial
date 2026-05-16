@@ -1520,7 +1520,7 @@
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.55);
-            z-index: 3000;
+            z-index: 6000; /* High enough to top planAccionModal (5000) */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1546,8 +1546,8 @@
             position: relative;
             width: 220px;
             height: 220px;
-            margin: 0 auto 30px;
-            transform: rotate(-10deg) scale(0.6); /* Scaled down for the modal */
+            margin: 0 auto 10px; /* Reduced bottom margin as well */
+            transform: rotate(-10deg) scale(0.4); /* Made it even smaller as requested */
             display: block;
         }
         .loading-spinner .petal {
@@ -1585,7 +1585,7 @@
             top: 120px;
             background: linear-gradient(180deg, #fff94a, #fff000);
             transform: rotate(38deg);
-            animation-delay: 0.9s;
+            animation-delay: 1.35s; /* Swapped with green */
             --rotation: 38deg;
         }
         .loading-spinner .green {
@@ -1595,7 +1595,7 @@
             top: 115px;
             background: linear-gradient(180deg, #8effea, #00d084);
             transform: rotate(-25deg);
-            animation-delay: 1.35s;
+            animation-delay: 0.9s; /* Swapped with yellow */
             --rotation: -25deg;
         }
         @keyframes fadePulse {
@@ -2261,12 +2261,11 @@
                 <div class="loading-spinner">
                     <div class="petal blue"></div>
                     <div class="petal cyan"></div>
-                    <div class="petal yellow"></div>
                     <div class="petal green"></div>
+                    <div class="petal yellow"></div>
                     <div class="center-glow"></div>
                 </div>
                 <div class="loading-text" id="loadingText">Procesando archivo...</div>
-                <div class="loading-progress-bar"><div class="loading-progress-fill"></div></div>
             </div>
         </div>
 
