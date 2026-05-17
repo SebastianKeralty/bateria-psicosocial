@@ -1012,7 +1012,7 @@ function renderTopDimensions(summary) {
             </div>
             <span style="font-size:8px;font-weight:800;color:#ef4444;background:rgba(239,68,68,0.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(239,68,68,0.2);white-space:nowrap;">Top 5</span>
         </div>
-        <div style="display:flex;gap:6px;">`;
+        <div style="display:flex;gap:6px;justify-content:center;">`;
 
     top.forEach((dim, i) => {
         const s = getStyle(dim.pctAlto);
@@ -1021,13 +1021,13 @@ function renderTopDimensions(summary) {
         const name = titleCase(dim.name.replace('[Extra] ', '').replace('[Stress] ', '').replace('[Intra] ', ''));
 
         html += `
-            <div class="top-vbar-item" data-i="${i}" style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative;cursor:default;transition:opacity 0.2s;">
+            <div class="top-vbar-item" data-i="${i}" style="display:flex;flex-direction:column;align-items:center;position:relative;cursor:default;transition:opacity 0.2s;">
                 <div style="display:flex;flex-direction:column;align-items:center;width:28px;height:${BAR_HEIGHT}px;background:${s.bg};border-radius:4px;position:relative;overflow:hidden;flex-shrink:0;">
                     <div class="vbar-fill" style="width:100%;height:${fillH}px;background:${s.gradient};border-radius:0 0 4px 4px;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;position:absolute;bottom:0;">
                         <span style="color:#fff;font-weight:900;font-size:8px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${pctVal}%</span>
                     </div>
                 </div>
-                <div style="margin-top:4px;text-align:center;width:100%;font-size:7px;font-weight:700;color:#1e293b;line-height:1.1;word-break:break-word;" title="${name.replace(/"/g,'&quot;')}">${name}</div>
+                <div style="margin-top:4px;text-align:center;max-width:70px;font-size:7px;font-weight:700;color:#1e293b;line-height:1.1;word-break:break-word;" title="${name.replace(/"/g,'&quot;')}">${name}</div>
             </div>`;
     });
 
@@ -1140,7 +1140,7 @@ function renderTopAreas() {
         }).join(' ');
     };
 
-    const BAR_HEIGHT = 80;
+    const BAR_HEIGHT = 200;
 
     const subtitle = isFilteringByUnit
         ? 'Áreas de trabajo con mayor riesgo en ' + selectedArea
@@ -1157,7 +1157,7 @@ function renderTopAreas() {
             </div>
             <span style="font-size:8px;font-weight:800;color:#4338ca;background:rgba(67,56,202,0.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(67,56,202,0.2);white-space:nowrap;">Top 5</span>
         </div>
-        <div style="display:flex;gap:6px;">`;
+        <div style="display:flex;gap:6px;justify-content:center;">`;
 
     top.forEach((area, i) => {
         const pct = Math.round(area.pct);
@@ -1166,13 +1166,13 @@ function renderTopAreas() {
         const name = titleCase(area.name);
 
         html += `
-            <div class="top-vbar-item" data-i="${i}" style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity 0.2s;">
+            <div class="top-vbar-item" data-i="${i}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity 0.2s;">
                 <div style="display:flex;flex-direction:column;align-items:center;width:28px;height:${BAR_HEIGHT}px;background:#f1f5f9;border-radius:4px;position:relative;overflow:hidden;flex-shrink:0;">
                     <div class="vbar-fill" style="width:100%;height:${fillH}px;background:linear-gradient(180deg,${color},${color}88);border-radius:0 0 4px 4px;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;position:absolute;bottom:0;">
                         <span style="color:#fff;font-weight:900;font-size:8px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${pct}%</span>
                     </div>
                 </div>
-                <div style="margin-top:4px;text-align:center;width:100%;font-size:7px;font-weight:700;color:#1e293b;line-height:1.1;word-break:break-word;" title="${name.replace(/"/g,'&quot;')}">${name}</div>
+                <div style="margin-top:4px;text-align:center;max-width:70px;font-size:7px;font-weight:700;color:#1e293b;line-height:1.1;word-break:break-word;" title="${name.replace(/"/g,'&quot;')}">${name}</div>
             </div>`;
     });
 
