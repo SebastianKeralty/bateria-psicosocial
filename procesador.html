@@ -592,13 +592,23 @@ function computeSummary(rows) {
 
     const summary = { total, isFormA, isFormB };
 
+    const normDist = (raw) => {
+        const out = {};
+        const reArea = /^[\d\s]+[\.\s]*/g;
+        for (const [k, v] of Object.entries(raw)) {
+            const nk = k.replace(reArea, '').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (nk) out[nk] = (out[nk] || 0) + v;
+        }
+        return out;
+    };
+
     // Demographics
     summary.demographics = {
         sexo: getRiskDistribution("2. Sexo"),
         unidadAnalisis: getRiskDistribution("Unidad de Análisis"),
         tipoCargo: getRiskDistribution("14. Tipo de cargo"),
         tipoContrato: getRiskDistribution("17. Tipo de contrato"),
-        areaTrabajo: getRiskDistribution("16. Área donde trabaja"),
+        areaTrabajo: normDist(getRiskDistribution("16. Área donde trabaja")),
         estrato: getRiskDistribution("8. Estrato")
     };
 
