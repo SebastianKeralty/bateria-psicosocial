@@ -1026,7 +1026,20 @@
             animation: barShimmer 2.5s ease-in-out infinite;
         }
         .bateria-card .risk-bar-fill.no-shimmer::after { display: none; }
-        .top-vbar-item { transition: all 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .top-vbar-item { 
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important; 
+        }
+        .top-vbar-item:hover {
+            transform: translateY(-8px) scale(1.02);
+            filter: drop-shadow(0 12px 20px rgba(0,0,0,0.1));
+            z-index: 10;
+        }
+        .top-vbar-item:hover .vbar-fill {
+            filter: brightness(1.1);
+        }
+        .top-vbar-item:hover div[title] {
+            color: #0f172a !important;
+        }
         @keyframes vbar-glow {
             0%, 100% { filter: brightness(1); }
             50% { filter: brightness(1.4); }
@@ -2131,9 +2144,9 @@
     <div class="topbar">
         <h2 id="topbarTitle">Inicio</h2>
         <span class="badge-data" id="topbarBadge" style="display:none;"></span>
-        <button class="btn-export" id="btnExport" style="display:none;" onclick="exportarDashboard()">
+        <button class="btn-export" id="btnExport" style="display:none;" onclick="exportarDatosJSON()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar PNG
+            Descargar JSON
         </button>
     </div>
 
