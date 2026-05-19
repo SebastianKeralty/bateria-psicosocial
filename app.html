@@ -304,6 +304,54 @@ function hideLoadingModal() {
     if (overlay) overlay.style.display = 'none';
 }
 
+/* ===== COMPARATIVA SKELETON HELPERS ===== */
+function showCompBatterySkeleton() {
+    const empty = document.getElementById('compEmptyState');
+    const batteryCard = document.getElementById('batteryCard');
+    const listContainer = document.getElementById('batteryListContainer');
+    const sk = document.getElementById('compBatterySkeleton');
+    if (empty) empty.style.display = 'none';
+    if (batteryCard) batteryCard.style.display = 'block';
+    if (listContainer) listContainer.style.display = 'block';
+    if (sk) { sk.style.display = 'grid'; sk.style.opacity = '0'; requestAnimationFrame(function() { sk.style.opacity = '1'; sk.style.transition = 'opacity 0.3s ease'; }); }
+}
+function hideCompBatterySkeleton() {
+    const sk = document.getElementById('compBatterySkeleton');
+    if (sk) sk.style.display = 'none';
+}
+function showCompChartSkeletons() {
+    ['Intra','Extra','Stress'].forEach(function(s) {
+        var el = document.getElementById('compChartSkeleton' + s);
+        if (el) el.style.display = 'flex';
+        var cv = document.getElementById('grouped' + s);
+        if (cv) cv.style.opacity = '0';
+    });
+}
+function hideCompChartSkeletons() {
+    ['Intra','Extra','Stress'].forEach(function(s) {
+        var el = document.getElementById('compChartSkeleton' + s);
+        if (el) el.style.display = 'none';
+        var cv = document.getElementById('grouped' + s);
+        if (cv) cv.style.opacity = '1';
+    });
+}
+function forceReflow(el) {
+    void el.offsetHeight; // force browser reflow
+}
+function fadeInCards(containerId) {
+    var cards = document.querySelectorAll('#' + containerId + ' .bat-card');
+    cards.forEach(function(c, i) {
+        c.style.opacity = '0';
+        c.style.transform = 'translateY(12px)';
+        c.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        c.style.transitionDelay = (i * 0.08) + 's';
+        requestAnimationFrame(function() {
+            c.style.opacity = '1';
+            c.style.transform = 'translateY(0)';
+        });
+    });
+}
+
 function showInlineLoading(msg) {
     var overlay = document.getElementById('planInlineLoading');
     var text = document.getElementById('planInlineLoadingText');
@@ -829,34 +877,116 @@ function abrirSelectorComparativa() {
                 alert('No hay baterías guardadas en Drive.');
                 return;
             }
-            const alreadyIds = state.bateriasComparativa.map(b => b.meta.id);
-            const disponibles = lista.filter(b => !alreadyIds.includes(b.id));
+            var alreadyIds = state.bateriasComparativa.map(function(b) { return b.meta.id; });
+            var disponibles = lista.filter(function(b) { return !alreadyIds.includes(b.id); });
             if (disponibles.length === 0) {
                 alert('Todas las baterías guardadas ya están agregadas.');
                 return;
             }
 
-            const sel = document.createElement('div');
+            var years = [];
+            disponibles.forEach(function(b) { if (b.anio && years.indexOf(b.anio) === -1) years.push(b.anio); });
+            years.sort();
+
+            var selectedIds = [];
+
+            function getRiskColor(pct) {
+                if (pct <= 29) return '#0ea5e9';
+                if (pct <= 49) return '#14b8a6';
+                if (pct <= 69) return '#f59e0b';
+                if (pct <= 84) return '#f97316';
+                return '#dc2626';
+            }
+            function getRiskLabel(pct) {
+                if (pct <= 29) return 'Sin riesgo';
+                if (pct <= 49) return 'Riesgo bajo';
+                if (pct <= 69) return 'Riesgo medio';
+                if (pct <= 84) return 'Riesgo alto';
+                return 'Riesgo muy alto';
+            }
+            function titleCase(s) {
+                return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            }
+            function updateSelectedCount() {
+                var el = document.getElementById('compSelCount');
+                var btn = document.getElementById('compAgregarBtn');
+                var n = selectedIds.length;
+                if (el) el.textContent = n + ' seleccionada' + (n !== 1 ? 's' : '');
+                if (btn) btn.textContent = n > 0 ? ('Agregar (' + n + ')') : 'Agregar seleccionadas';
+            }
+
+            function toggleCard(el, id) {
+                var idx = selectedIds.indexOf(id);
+                if (idx > -1) {
+                    selectedIds.splice(idx, 1);
+                    el.classList.remove('selected');
+                } else {
+                    selectedIds.push(id);
+                    el.classList.add('selected');
+                }
+                updateSelectedCount();
+            }
+
+            function renderList(filterYear) {
+                var filtered = filterYear ? disponibles.filter(function(b) { return String(b.anio) === filterYear; }) : disponibles;
+                var html = '';
+                filtered.forEach(function(b, i) {
+                    var pct = parseInt(b.psicoPct) || 0;
+                    var c = getRiskColor(pct);
+                    var label = getRiskLabel(pct);
+                    var isSel = selectedIds.indexOf(b.id) > -1;
+                    html += '<div class="drive-mini-card dmc-fade-in' + (isSel ? ' selected' : '') + '" style="animation-delay:' + (i * 0.05) + 's;" data-id="' + b.id + '" onclick="toggleCard(this, \'' + b.id + '\')">' +
+                        '<div class="dmc-check-icon">' + (isSel ? '✓' : '') + '</div>' +
+                        '<div class="dmc-header">' +
+                            '<div class="dmc-badge">' + (b.anio || '—') + '</div>' +
+                            '<div class="dmc-name">' + (b.nombre || 'Sin nombre') + '</div>' +
+                        '</div>' +
+                        '<div class="dmc-meta">' +
+                            '<span>👤 ' + (b.total || 0).toLocaleString() + ' enc.</span>' +
+                        '</div>' +
+                        '<div class="dmc-risk-row">' +
+                            '<span class="dmc-risk-label">' + titleCase(label) + '</span>' +
+                            '<div class="dmc-risk-bar-bg"><div class="dmc-risk-bar-fill" style="width:' + pct + '%;background:' + c + ';"></div></div>' +
+                            '<span class="dmc-risk-pct" style="color:' + c + ';">' + pct + '%</span>' +
+                        '</div>' +
+                    '</div>';
+                });
+                if (!filtered.length) html = '<p style="text-align:center;color:#94a3b8;padding:40px 0;">No hay baterías para este año.</p>';
+                document.getElementById('compDriveList').innerHTML = html;
+            }
+
+            var filterOpts = '<option value="">Todos los años</option>';
+            years.forEach(function(y) { filterOpts += '<option value="' + y + '">' + y + '</option>'; });
+
+            var sel = document.createElement('div');
             sel.id = 'compDriveSelector';
-            sel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:5000;display:flex;align-items:center;justify-content:center;';
+            sel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
             sel.onclick = function(e) { if (e.target === sel) sel.remove(); };
 
-            const box = document.createElement('div');
-            box.style.cssText = 'background:white;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;';
-            box.innerHTML = '<h3 style="margin:0 0 16px;color:#14532d;">Seleccionar baterías para comparar</h3>' +
-                '<div id="compDriveList">' + disponibles.map(b => {
-                    const checked = alreadyIds.includes(b.id) ? 'checked disabled' : '';
-                    return '<label style="display:block;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;cursor:pointer;">' +
-                        '<input type="checkbox" class="comp-drive-cb" value="' + b.id + '" ' + checked + '> ' +
-                        '<strong>' + b.nombre + '</strong> (' + b.anio + ') · ' + b.total + ' enc. · ' + b.psicoPct + '% psicosocial' +
-                    '</label>';
-                }).join('') + '</div>' +
-                '<div style="display:flex;gap:8px;margin-top:16px;">' +
-                    '<button onclick="agregarDriveAComparativa()" style="flex:1;padding:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Agregar seleccionadas</button>' +
-                    '<button onclick="this.closest(\'#compDriveSelector\').remove()" style="padding:10px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+            var box = document.createElement('div');
+            box.style.cssText = 'background:linear-gradient(145deg,#ffffff,#f0fdf4);border-radius:20px;padding:28px;max-width:680px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25),0 0 80px rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.12);';
+
+            box.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+                    '<h3 style="margin:0;font-size:18px;font-weight:800;background:linear-gradient(135deg,#0ea5e9,#16a34a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Seleccionar bater\u00edas</h3>' +
+                    '<select class="comp-filter-select" id="compYearFilter" onchange="renderList(this.value)">' + filterOpts + '</select>' +
+                '</div>' +
+                '<div id="compDriveList" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid rgba(34,197,94,0.1);">' +
+                    '<span id="compSelCount" style="font-size:13px;font-weight:600;color:#64748b;">0 seleccionadas</span>' +
+                    '<div style="display:flex;gap:10px;">' +
+                        '<button id="compAgregarBtn" onclick="agregarDriveAComparativa()" style="padding:12px 24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(14,165,233,0.25);transition:all 0.3s ease;" onmouseover="this.style.boxShadow=\'0 6px 20px rgba(14,165,233,0.35)\';this.style.transform=\'translateY(-1px)\';" onmouseout="this.style.boxShadow=\'0 4px 12px rgba(14,165,233,0.25)\';this.style.transform=\'none\';">Agregar seleccionadas</button>' +
+                        '<button onclick="document.getElementById(\'compDriveSelector\').remove()" style="padding:12px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.2s ease;" onmouseover="this.style.background=\'#e2e8f0\';" onmouseout="this.style.background=\'#f1f5f9\';">Cancelar</button>' +
+                    '</div>' +
                 '</div>';
+
             sel.appendChild(box);
             document.body.appendChild(sel);
+
+            window.renderList = renderList;
+            window.toggleCard = toggleCard;
+            window.selectedIds = selectedIds;
+            renderList('');
         })
         .withFailureHandler(function(err) {
             alert('Error: ' + err.message);
@@ -865,8 +995,7 @@ function abrirSelectorComparativa() {
 }
 
 function agregarDriveAComparativa() {
-    const cbs = document.querySelectorAll('.comp-drive-cb:checked');
-    const ids = Array.from(cbs).map(cb => cb.value);
+    const ids = window.selectedIds || [];
     if (ids.length === 0) return;
     document.getElementById('compDriveSelector')?.remove();
     showLoadingModal('Agregando ' + ids.length + ' batería(s) a la comparativa...');
@@ -899,18 +1028,20 @@ function agregarDriveAComparativa() {
                     }
                     completed++;
                     if (completed >= total) {
-                        renderBatteryList();
-                        actualizarComparativa();
                         hideLoadingModal();
+                        renderBatteryList();
+                        fadeInCards('batteryList');
+                        actualizarComparativa();
                     }
                 })
                 .withFailureHandler(function(err) {
                     mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
                     completed++;
                     if (completed >= total) {
-                        renderBatteryList();
-                        actualizarComparativa();
                         hideLoadingModal();
+                        renderBatteryList();
+                        fadeInCards('batteryList');
+                        actualizarComparativa();
                     }
                 })
                 .cargarBateria(id);
@@ -3009,10 +3140,15 @@ function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
     var accionesGuardadas = planExistente && planExistente.acciones ? planExistente.acciones : [];
     
     // Generar checklist de acciones (de planes_data.html)
-    document.getElementById('planAccionesChecklist').innerHTML = typeof generarChecklistAcciones === 'function' 
-        ? generarChecklistAcciones(dimName, nivel, accionesGuardadas)
-        : '<p>Cargando matriz...</p>';
-
+    var checklistHtml = "";
+    if (typeof window.generarChecklistAcciones === 'function') {
+        checklistHtml = window.generarChecklistAcciones(dimName, nivel, accionesGuardadas);
+    } else if (typeof generarChecklistAcciones === 'function') {
+        checklistHtml = generarChecklistAcciones(dimName, nivel, accionesGuardadas);
+    } else {
+        checklistHtml = '<div style="padding:20px;text-align:center;"><p style="font-size:12px;color:#ef4444;">Error: No se pudo cargar la matriz de recomendaciones. Por favor recarga la página.</p></div>';
+    }
+    document.getElementById('planAccionesChecklist').innerHTML = checklistHtml;
     if (planExistente) {
         document.getElementById('planTexto').value = planExistente.plan || '';
     } else {
@@ -3862,8 +3998,8 @@ function bLabelShort(b, max) {
 }
 
 function procesarComparativa(file) {
-    showLoadingModal('Procesando archivo para comparativa...');
     mostrarStatus('compStatus', 'Leyendo archivo...', 'info');
+    showCompBatterySkeleton();
     const compFile = document.getElementById('comparativaFile');
     if (compFile) compFile.value = '';
     const reader = new FileReader();
@@ -3871,7 +4007,7 @@ function procesarComparativa(file) {
         try {
             const result = procesarExcel(new Uint8Array(e.target.result), file.name);
             if (!result.rows || result.rows.length === 0) {
-                hideLoadingModal();
+                hideCompBatterySkeleton();
                 mostrarStatus('compStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
                 return;
             }
@@ -3881,18 +4017,19 @@ function procesarComparativa(file) {
             result.meta.name = baseName;
             result.meta.year = new Date().getFullYear() + '';
             state.bateriasComparativa.push(result);
-            hideLoadingModal();
+            hideCompBatterySkeleton();
             mostrarStatus('compStatus', '✔ ' + baseName + ' (' + result.meta.totalRows + ' reg.) agregada.', 'success');
             renderBatteryList();
+            fadeInCards('batteryList');
             actualizarComparativa();
         } catch(err) {
-            hideLoadingModal();
+            hideCompBatterySkeleton();
             mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
             console.error(err);
         }
     };
     reader.onerror = function() {
-        hideLoadingModal();
+        hideCompBatterySkeleton();
         mostrarStatus('compStatus', 'Error al leer el archivo', 'error');
     };
     reader.readAsArrayBuffer(file);
@@ -3914,12 +4051,32 @@ function getStressPctFromBattery(b) {
 function renderBatteryList() {
     const container = document.getElementById('batteryList');
     const listContainer = document.getElementById('batteryListContainer');
+    const batteryCard = document.getElementById('batteryCard');
 
     if (state.bateriasComparativa.length === 0) {
         listContainer.style.display = 'none';
+        if (batteryCard) batteryCard.style.display = 'none';
+        var emptyEl = document.getElementById('compEmptyState');
+        if (emptyEl) {
+            emptyEl.style.display = '';
+            var staggers = emptyEl.querySelectorAll('.stagger-1, .stagger-2, .stagger-3, .stagger-4');
+            staggers.forEach(function(el) {
+                el.style.animation = 'none';
+                el.style.opacity = '0';
+            });
+            void emptyEl.offsetHeight;
+            staggers.forEach(function(el) {
+                var delay = el.classList.contains('stagger-1') ? 0.1 : el.classList.contains('stagger-2') ? 0.2 : el.classList.contains('stagger-3') ? 0.3 : 0.4;
+                el.style.animation = 'cardAppear 0.6s ease-out ' + delay + 's forwards';
+            });
+        }
         return;
     }
+    if (batteryCard) batteryCard.style.display = 'block';
     listContainer.style.display = 'block';
+    listContainer.classList.add('comp-fade-in');
+    var empty = document.getElementById('compEmptyState');
+    if (empty) empty.style.display = 'none';
 
     const sorted = [...state.bateriasComparativa].sort((a, b) => (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0));
 
@@ -3996,6 +4153,8 @@ function eliminarBateriaDeComparativa(id) {
 
 function limpiarComparativa() {
     state.bateriasComparativa = [];
+    hideCompBatterySkeleton();
+    hideCompChartSkeletons();
     renderBatteryList();
     actualizarComparativa();
     document.getElementById('compStatus').style.display = 'none';
@@ -4024,10 +4183,18 @@ function actualizarComparativa() {
     if (hint) hint.textContent = 'Comparando ' + selected.length + ' bater\u00edas.';
     document.getElementById('btnExport').style.display = 'inline-flex';
 
-    renderTrendCard(selected);
-    renderGroupedCompare('groupedIntra', 'intraGeneral', selected);
-    renderGroupedCompare('groupedExtra', 'extraGeneral', selected);
-    renderGroupedCompare('groupedStress', 'stress', selected, STRESS_ORDER);
+    showCompChartSkeletons();
+
+    // Defer chart rendering to next frame so skeletons paint first
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            renderTrendCard(selected);
+            renderGroupedCompare('groupedIntra', 'intraGeneral', selected);
+            renderGroupedCompare('groupedExtra', 'extraGeneral', selected);
+            renderGroupedCompare('groupedStress', 'stress', selected, STRESS_ORDER);
+            hideCompChartSkeletons();
+        });
+    });
 }
 
 function renderTrendCard(baterias) {

@@ -752,6 +752,120 @@
             50% { background-position: 100% 50%; }
         }
 
+        /* ===== COMPARATIVA GREEN SKELETONS ===== */
+        .comp-sk-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 24px;
+            margin-top: 16px;
+            padding: 4px;
+        }
+        .comp-sk-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8faff 50%, #fef7ff 100%);
+            border-radius: 20px;
+            border: 1px solid rgba(34, 197, 94, 0.12);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 24px rgba(34, 197, 94, 0.06);
+        }
+        .comp-sk-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #22c55e, #16a34a, #15803d, #16a34a, #22c55e);
+            background-size: 200% 100%;
+            animation: shimmerBorder 4s ease-in-out infinite;
+            z-index: 2;
+            border-radius: 20px 20px 0 0;
+        }
+        .comp-sk-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+            animation: loadingPulse 1.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .comp-sk-header {
+            padding: 24px 24px 16px;
+            background: linear-gradient(135deg, rgba(34,197,94,0.04) 0%, rgba(22,163,74,0.03) 100%);
+            border-bottom: 1px solid rgba(34, 197, 94, 0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .comp-sk-body {
+            padding: 20px 24px;
+        }
+        .comp-sk-body .comp-sk-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        .comp-sk-line {
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #f0fdf4, #dcfce7, #f0fdf4);
+            background-size: 200% 100%;
+            animation: skeletonShimmer 1.5s ease-in-out infinite;
+        }
+        .comp-sk-line.short { width: 60%; }
+        .comp-sk-line.med { width: 80%; }
+        .comp-sk-line.long { width: 100%; }
+        .comp-sk-line.tall {
+            height: 32px;
+            width: 48px;
+            border-radius: 6px;
+            margin: 0 auto;
+        }
+        .comp-sk-line.tag {
+            height: 14px;
+            width: 70px;
+            border-radius: 20px;
+            margin: 0 auto;
+        }
+        .comp-sk-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 12px;
+            height: 180px;
+            padding: 10px;
+            position: relative;
+        }
+        .comp-sk-bar {
+            width: 32px;
+            border-radius: 6px 6px 0 0;
+            background: linear-gradient(180deg, #bbf7d0, #dcfce7);
+            animation: skBarPulse 1.6s ease-in-out infinite;
+        }
+        .comp-sk-bar:nth-child(1) { height: 55%; animation-delay: 0s; }
+        .comp-sk-bar:nth-child(2) { height: 85%; animation-delay: 0.15s; }
+        .comp-sk-bar:nth-child(3) { height: 40%; animation-delay: 0.3s; }
+        .comp-sk-bar:nth-child(4) { height: 70%; animation-delay: 0.45s; }
+        .comp-sk-bar:nth-child(5) { height: 50%; animation-delay: 0.6s; }
+        @keyframes skBarPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.9; }
+        }
+
+        /* ===== STATE TRANSITIONS ===== */
+        .comp-fade-in {
+            animation: compFadeIn 0.5s ease forwards;
+        }
+        @keyframes compFadeIn {
+            0% { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .comp-fade-in-chart {
+            animation: compFadeChart 0.4s ease forwards;
+        }
+        @keyframes compFadeChart {
+            0% { opacity: 0; transform: translateY(8px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
         .cards-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -777,6 +891,210 @@
         @keyframes shimmer {
             0% { left: -100%; }
             100% { left: 100%; }
+        }
+
+        /* ===== DRIVE SELECTOR MINI CARDS ===== */
+        .drive-mini-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8faff 50%, #fef7ff 100%);
+            border-radius: 14px;
+            border: 1px solid rgba(34, 197, 94, 0.10);
+            padding: 14px 16px;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            user-select: none;
+        }
+        .drive-mini-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #22c55e, #0ea5e9);
+            border-radius: 14px 14px 0 0;
+            transition: height 0.3s ease;
+        }
+        .drive-mini-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+            pointer-events: none;
+            transition: none;
+            opacity: 0;
+        }
+        .drive-mini-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 16px 48px rgba(34,197,94,0.15), 0 0 0 1px rgba(34,197,94,0.15);
+            border-color: rgba(34,197,94,0.35);
+        }
+        .drive-mini-card:hover::before {
+            height: 4px;
+        }
+        .drive-mini-card:hover::after {
+            opacity: 1;
+            animation: driveHoverGlide 1.2s ease forwards;
+        }
+        .drive-mini-card.selected {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 2px rgba(14,165,233,0.35), 0 8px 30px rgba(14,165,233,0.2), 0 0 60px rgba(14,165,233,0.18);
+            background: linear-gradient(145deg, #f0f9ff, #ecfeff);
+            animation: drivePop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, driveFloat 2.4s ease-in-out 0.45s infinite;
+        }
+        .drive-mini-card.selected::before {
+            height: 5px;
+            background: linear-gradient(90deg, #0ea5e9, #6366f1);
+        }
+        .drive-mini-card.selected::after {
+            opacity: 1;
+            animation: driveGlide 2.8s ease-in-out infinite;
+        }
+        @keyframes drivePop {
+            0% { transform: scale(0.92); opacity: 0.7; }
+            50% { transform: scale(1.08); }
+            100% { transform: translateY(-6px) scale(1.04); opacity: 1; }
+        }
+        @keyframes driveFloat {
+            0%, 100% { transform: translateY(-6px) scale(1.04); }
+            50% { transform: translateY(-12px) scale(1.06); }
+        }
+        @keyframes driveHoverGlide {
+            0% { left: -60%; opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { left: 120%; opacity: 0; }
+        }
+        @keyframes driveGlide {
+            0% { left: -60%; opacity: 0.5; }
+            15% { opacity: 1; }
+            50% { left: 120%; opacity: 1; }
+            65% { opacity: 0.5; }
+            100% { left: 120%; opacity: 0.5; }
+        }
+        .drive-mini-card .dmc-check-icon {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            color: transparent;
+            background: white;
+        }
+        .drive-mini-card.selected .dmc-check-icon {
+            border-color: #0ea5e9;
+            background: #0ea5e9;
+            color: white;
+            box-shadow: 0 0 12px rgba(14,165,233,0.6);
+            animation: driveCheckPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes driveCheckPulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(14,165,233,0.4); transform: scale(1); }
+            50% { box-shadow: 0 0 20px rgba(14,165,233,0.7); transform: scale(1.1); }
+        }
+        .drive-mini-card .dmc-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding-right: 28px;
+        }
+        .drive-mini-card .dmc-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.3;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .drive-mini-card .dmc-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 12px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            color: white;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+            flex-shrink: 0;
+        }
+        .drive-mini-card .dmc-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .drive-mini-card .dmc-meta span { display: flex; align-items: center; gap: 4px; }
+        .drive-mini-card .dmc-risk-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .drive-mini-card .dmc-risk-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .drive-mini-card .dmc-risk-bar-bg {
+            flex: 1;
+            height: 6px;
+            background: #f1f5f9;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .drive-mini-card .dmc-risk-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+        .drive-mini-card .dmc-risk-pct {
+            font-size: 13px;
+            font-weight: 800;
+            min-width: 36px;
+            text-align: right;
+        }
+        .drive-mini-card.dmc-fade-in {
+            animation: dmcFadeIn 0.4s ease forwards;
+        }
+        @keyframes dmcFadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        /* ===== DRIVE SELECTOR FILTER ===== */
+        .comp-filter-select {
+            padding: 7px 32px 7px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            transition: all 0.2s ease;
+            color: #1e293b;
+        }
+        .comp-filter-select:hover {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+        .comp-filter-select:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
         }
 
         @keyframes morph {
@@ -2498,32 +2816,100 @@
             <div style="position:absolute;width:420px;height:420px;top:-12%;left:-5%;background:linear-gradient(135deg,#22c55e,#16a34a);opacity:0.07;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift1 24s ease-in-out infinite,morph 13s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="position:absolute;width:320px;height:320px;bottom:8%;right:3%;background:linear-gradient(135deg,#15803d,#166534);opacity:0.05;border-radius:58% 42% 75% 25%/76% 46% 54% 24%;animation:blobDrift3 26s ease-in-out infinite,morph 11s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="position:absolute;width:180px;height:180px;top:35%;left:60%;background:linear-gradient(135deg,#4ade80,#22c55e);opacity:0.04;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:blobDrift2 19s ease-in-out infinite reverse,morph 14s linear infinite;pointer-events:none;filter:blur(40px);"></div>
-            <div class="card" style="margin-bottom:16px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                    <h2 style="margin:0;">Bater&iacute;as</h2>
-                    <div style="display:flex;gap:8px;">
-                        <button class="btn-clear" style="font-size:12px;" onclick="abrirSelectorComparativa()">+ Desde Drive</button>
-                        <button class="btn-clear" onclick="limpiarComparativa()" style="font-size:12px;">Limpiar todo</button>
+            <div style="position:relative;z-index:1;">
+                <div id="compEmptyState" style="display:block;text-align:center;padding:80px 20px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.05);border:1px solid rgba(34,197,94,0.1);background:white;max-width:1000px;margin:0 auto;">
+                    <div class="stagger-1" style="width:320px;margin:0 auto 28px;position:relative;">
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;background:linear-gradient(135deg,#22c55e,#15803d);opacity:0.12;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:morph 8s linear infinite;pointer-events:none;"></div>
+                        <img id="compNoDataImg"
+                             src="https://lh3.googleusercontent.com/d/1hi1XoIYrFSOUjDE0LkjU0EIDx6NCa78y=w800"
+                             data-original="https://lh3.googleusercontent.com/d/1hi1XoIYrFSOUjDE0LkjU0EIDx6NCa78y=w800"
+                             data-hover="https://lh3.googleusercontent.com/d/1AwDjADwM4f91CzER34BqjdhFMEsf_2xc=w800"
+                             alt="Comparativa"
+                             style="width:280px;height:280px;object-fit:contain;z-index:2;transition:all 0.4s ease;cursor:pointer;animation:floatCharacter 4s ease-in-out infinite;"
+                             onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.08)';this.style.opacity='1';"
+                             onmouseout="this.src=this.getAttribute('data-original');this.style.filter='none';this.style.transform='scale(1)';this.style.opacity='0.92';">
+                    </div>
+                    <h2 class="stagger-2" style="font-size:32px;color:#14532d;font-weight:800;margin-bottom:12px;">Comienza tu an&aacute;lisis comparativo</h2>
+                    <p class="stagger-3" style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Centraliza tus resultados y visualiza la evoluci&oacute;n del riesgo psicosocial a&ntilde;o tras a&ntilde;o de forma autom&aacute;tica.</p>
+                    <button class="stagger-4 btn-primary" onclick="abrirSelectorComparativa()" style="margin-top:24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(14,165,233,0.3);transition:all 0.3s ease;">
+                        Empezar a comparar 
+                    </button>
+                </div>
+
+                <div id="batteryCard" class="card" style="margin-bottom:16px;display:none;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <h2 style="margin:0;">Bater&iacute;as</h2>
+                        <button class="btn-clear" onclick="abrirSelectorComparativa()" style="font-size:12px;">+ Agregar</button>
+                    </div>
+                    <div id="compStatus" class="status-msg"></div>
+                    <div id="batteryListContainer" style="margin-top:12px;">
+                        <div id="compBatterySkeleton" class="comp-sk-grid" style="display:none;">
+                            <div class="comp-sk-card">
+                                <div class="comp-sk-header">
+                                    <div class="comp-sk-line med" style="height:20px;margin-bottom:4px;"></div>
+                                    <div class="comp-sk-line tag"></div>
+                                </div>
+                                <div class="comp-sk-body">
+                                    <div class="comp-sk-line short" style="margin:0 auto 16px;width:35%;"></div>
+                                    <div class="comp-sk-row">
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="comp-sk-card">
+                                <div class="comp-sk-header">
+                                    <div class="comp-sk-line med" style="height:20px;margin-bottom:4px;"></div>
+                                    <div class="comp-sk-line tag"></div>
+                                </div>
+                                <div class="comp-sk-body">
+                                    <div class="comp-sk-line short" style="margin:0 auto 16px;width:35%;"></div>
+                                    <div class="comp-sk-row">
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                        <div style="text-align:center;"><div class="comp-sk-line tall"></div><div class="comp-sk-line short" style="margin:8px auto 0;"></div><div class="comp-sk-line long" style="height:8px;margin-top:8px;border-radius:4px;"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="batteryList" class="bat-grid"></div>
+                        <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Carga al menos 2 bater&iacute;as y selecci&oacute;nalas para ver la comparativa.</p>
                     </div>
                 </div>
-                <div id="compStatus" class="status-msg"></div>
-                <div id="batteryListContainer" style="margin-top:12px;display:none;">
-                    <div id="batteryList" class="bat-grid"></div>
-                    <p style="font-size:13px;color:#64748b;margin-top:8px;" id="compHint">Carga al menos 2 bater&iacute;as y selecci&oacute;nalas para ver la comparativa.</p>
-                </div>
-            </div>
 
             <div id="compContent" style="display:none;">
-                <div id="trendCard" style="display:none;"></div>
+                <div id="trendCard" style="display:none;">
+                    <!-- Trend skeleton shown inline by JS -->
+                </div>
                 <div class="charts-row-three" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
-                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('intra')"><h3 style="font-size:14px;">📊 Intralaboral</h3><canvas id="groupedIntra"></canvas></div>
-                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('extra')"><h3 style="font-size:14px;">📊 Extralaboral</h3><canvas id="groupedExtra"></canvas></div>
-                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('stress')"><h3 style="font-size:14px;">📊 Estrés</h3><canvas id="groupedStress"></canvas></div>
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('intra')">
+                        <h3 style="font-size:14px;">📊 Intralaboral</h3>
+                        <div id="compChartSkeletonIntra" class="comp-sk-chart" style="display:none;">
+                            <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
+                        </div>
+                        <canvas id="groupedIntra"></canvas>
+                    </div>
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('extra')">
+                        <h3 style="font-size:14px;">📊 Extralaboral</h3>
+                        <div id="compChartSkeletonExtra" class="comp-sk-chart" style="display:none;">
+                            <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
+                        </div>
+                        <canvas id="groupedExtra"></canvas>
+                    </div>
+                    <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('stress')">
+                        <h3 style="font-size:14px;">📊 Estrés</h3>
+                        <div id="compChartSkeletonStress" class="comp-sk-chart" style="display:none;">
+                            <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
+                        </div>
+                        <canvas id="groupedStress"></canvas>
+                    </div>
                 </div>
                 <div class="card">
                     <h2>Tabla comparativa</h2>
                     <div id="comparisonTable"></div>
                 </div>
+            </div>
             </div>
         </section>
 
