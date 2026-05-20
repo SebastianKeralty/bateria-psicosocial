@@ -2046,6 +2046,17 @@ function renderChartsDashboard(rows, summary) {
     renderClickableBarChart('stressBars', stressDist);
 }
 
+document.addEventListener('mousemove', function(e) {
+    var card = e.target.closest('.chart-card');
+    if (card) {
+        var rect = card.getBoundingClientRect();
+        var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+        var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+        card.style.setProperty('--mx', x + '%');
+        card.style.setProperty('--my', y + '%');
+    }
+});
+
 function renderDonutChart(canvasId, dist, centerPct, centerColor, centerCount) {
     destroyChart(canvasId);
     const ctx = getChartCtx(canvasId);
@@ -2122,29 +2133,39 @@ function renderClickableBarChart(canvasId, dist) {
     const values = keys.map(k => dist[k] || 0);
     const pcts = keys.map(k => total ? Math.round((dist[k] / total) * 100) : 0);
 
-    const solidColors = {
-        "Sin riesgo":      "#22c55e",
-        "Riesgo bajo":     "#eab308",
-        "Riesgo medio":    "#f97316",
-        "Riesgo alto":     "#ef4444",
-        "Riesgo muy alto": "#b91c1c",
-        "Riesgo muy bajo": "#3b82f6"
+    // Colores de las tarjetas de batería (renderBateriasGrid)
+    var gridColors = {
+        "Sin riesgo":      { main: "#07835f", mid: "#43a03e", light: "#7fbd1c" },
+        "Riesgo bajo":     { main: "#64aa47", mid: "#9ac235", light: "#cfd922" },
+        "Riesgo medio":    { main: "#ffc96b", mid: "#fff091", light: "#fff5c2" },
+        "Riesgo alto":     { main: "#e05a3a", mid: "#f06a4a", light: "#ff7a5a" },
+        "Riesgo muy alto": { main: "#a61c24", mid: "#c12935", light: "#dc3545" },
+        "Riesgo muy bajo": { main: "#3b82f6", mid: "#60a5fa", light: "#93c5fd" }
     };
-    const barColors = keys.map(k => solidColors[k] || riskColor(k).bg);
+    var barColors = keys.map(function(k) {
+        var g = gridColors[k];
+        return g ? g.main : '#888';
+    });
+    var gradPairs = {};
+    var hoverPairs = {};
+    for (var gk in gridColors) {
+        var gc = gridColors[gk];
+        gradPairs[gk] = [gc.main, gc.mid];
+        hoverPairs[gk] = [gc.mid, gc.light];
+    }
 
     state.charts[canvasId] = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: keys.map((k, i) => `${k} (${pcts[i]}%)`),
+            labels: keys.map(function(k, i) { return k + ' (' + pcts[i] + '%)'; }),
             datasets: [{
                 data: values,
                 backgroundColor: barColors,
                 borderColor: 'transparent',
                 borderWidth: 0,
                 borderRadius: { topLeft: 0, topRight: 8, bottomRight: 8, bottomLeft: 0 },
-                hoverBackgroundColor: barColors,
                 hoverBorderColor: '#fff',
-                hoverBorderWidth: 4
+                hoverBorderWidth: 5
             }]
         },
         options: {
@@ -2156,10 +2177,40 @@ function renderClickableBarChart(canvasId, dist) {
                 y: { ticks: { font: { size: 10 } }, grid: { display: false } }
             },
             plugins: { legend: { display: false } },
-            onHover(e, activeEls, chart) {
+            onHover: function(e, activeEls, chart) {
                 (chart || this).canvas.style.cursor = (activeEls || []).length > 0 ? 'pointer' : 'default';
             }
-        }
+        },
+        plugins: [{
+            id: 'barGradients',
+            beforeDatasetDraw: function(chart) {
+                try {
+                    var meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || !meta.data.length) return;
+                    var first = meta.data[0];
+                    if (!first || first.x === undefined || first.width === 0) return;
+                    var grads = [];
+                    var hoveredIdx = chart._active && chart._active.length ? chart._active[0].dataIndex : -1;
+                    for (var i = 0; i < meta.data.length; i++) {
+                        var bar = meta.data[i];
+                        var key = keys[i];
+                        var useHover = i === hoveredIdx && hoverPairs[key];
+                        var stops = useHover ? hoverPairs[key] : gradPairs[key];
+                        if (!stops || !bar || bar.x === undefined) {
+                            grads.push(gridColors[key] ? gridColors[key].main : '#888');
+                            continue;
+                        }
+                        var grad = ctx.createLinearGradient(bar.x, bar.y, bar.x + bar.width, bar.y);
+                        var n = stops.length;
+                        for (var s = 0; s < n; s++) {
+                            grad.addColorStop(s / (n - 1), stops[s]);
+                        }
+                        grads.push(grad);
+                    }
+                    chart.data.datasets[0].backgroundColor = grads;
+                } catch(e) {}
+            }
+        }]
     });
 }
 
