@@ -326,6 +326,10 @@ function showCompChartSkeletons() {
         var cv = document.getElementById('grouped' + s);
         if (cv) cv.style.opacity = '0';
     });
+    var trendSk = document.getElementById('trendChartSkeleton');
+    if (trendSk) trendSk.style.display = 'flex';
+    var trendBody = document.getElementById('trendCardBody');
+    if (trendBody) trendBody.style.display = 'none';
 }
 function hideCompChartSkeletons() {
     ['Intra','Extra','Stress'].forEach(function(s) {
@@ -334,6 +338,10 @@ function hideCompChartSkeletons() {
         var cv = document.getElementById('grouped' + s);
         if (cv) cv.style.opacity = '1';
     });
+    var trendSk = document.getElementById('trendChartSkeleton');
+    if (trendSk) trendSk.style.display = 'none';
+    var trendBody = document.getElementById('trendCardBody');
+    if (trendBody) trendBody.style.display = '';
 }
 function forceReflow(el) {
     void el.offsetHeight; // force browser reflow
@@ -3121,42 +3129,54 @@ function _actualizarIndicadoresTablas() {
 }
 
 function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
-    var planExistente = state.planes && state.planes.find(function(p) { return p.dimension === dimName; });
-    document.getElementById('planDimTitle').textContent = 'Plan de Acción: ' + dimName;
-    document.getElementById('planDimRiesgo').textContent = riesgo + '% (' + nivel + ')';
-    document.getElementById('planDimEncuesta').textContent = encuesta === 'intra' ? 'Intralaboral' : encuesta === 'extra' ? 'Extralaboral' : 'Estrés';
-    document.getElementById('planDimEstado').textContent = planExistente ? '✅ Tiene plan' : '○ Sin plan';
-    
-    var rc = RISK_COLORS[nivel] || RISK_COLORS["ERROR"];
-    var riesgoCard = document.getElementById('planDimRiesgo').parentElement;
-    if (riesgoCard) {
-        riesgoCard.style.background = rc.bg;
-        riesgoCard.style.borderColor = rc.bg;
-        document.getElementById('planDimRiesgo').style.color = rc.text;
-    }
-    
-    _planActual = { dimension: dimName, riesgoActual: riesgo, nivel: nivel, encuesta: encuesta };
-    
-    var accionesGuardadas = planExistente && planExistente.acciones ? planExistente.acciones : [];
-    
-    // Generar checklist de acciones (de planes_data.html)
-    var checklistHtml = "";
-    if (typeof window.generarChecklistAcciones === 'function') {
-        checklistHtml = window.generarChecklistAcciones(dimName, nivel, accionesGuardadas);
-    } else if (typeof generarChecklistAcciones === 'function') {
-        checklistHtml = generarChecklistAcciones(dimName, nivel, accionesGuardadas);
-    } else {
-        checklistHtml = '<div style="padding:20px;text-align:center;"><p style="font-size:12px;color:#ef4444;">Error: No se pudo cargar la matriz de recomendaciones. Por favor recarga la página.</p></div>';
-    }
-    document.getElementById('planAccionesChecklist').innerHTML = checklistHtml;
-    if (planExistente) {
-        document.getElementById('planTexto').value = planExistente.plan || '';
-    } else {
-        document.getElementById('planTexto').value = '';
-    }
+    var modal = document.getElementById('planAccionModal');
+    if (!modal) return;
 
-    document.getElementById('planAccionModal').style.display = 'flex';
-    document.getElementById('planStatus').textContent = '';
+    var planExistente = state.planes && state.planes.find(function(p) { return p.dimension === dimName; });
+    var accionesGuardadas = planExistente && planExistente.acciones ? planExistente.acciones : [];
+    var planTextoVal = planExistente && planExistente.plan ? planExistente.plan : '';
+    var encuestaLabel = encuesta === 'intra' ? 'Intralaboral' : encuesta === 'extra' ? 'Extralaboral' : 'Estrés';
+    var rc = RISK_COLORS[nivel] || RISK_COLORS["ERROR"];
+    var estadoTxt = planExistente ? '✅ Tiene plan' : '○ Sin plan';
+
+    // Fill existing DOM elements
+    var el;
+    el = document.getElementById('planDimRiesgo');
+    if (el) { el.textContent = riesgo + '% (' + nivel + ')'; el.style.color = rc.text; }
+
+    el = document.getElementById('planDimEncuesta');
+    if (el) el.textContent = encuestaLabel;
+
+    el = document.getElementById('planDimEstado');
+    if (el) el.textContent = estadoTxt;
+
+    var content = document.getElementById('planContentArea');
+    if (content) content.style.display = 'block';
+
+    var overlay = document.getElementById('planInlineLoading');
+    if (overlay) overlay.style.display = 'none';
+
+    // Generate checklist
+    var checkDiv = document.getElementById('planAccionesChecklist');
+    if (!checkDiv) { modal.style.display = 'flex'; return; }
+
+    var checkHtml = '';
+    try {
+        if (typeof generarChecklistAcciones === 'function') {
+            checkHtml = generarChecklistAcciones(dimName, nivel, accionesGuardadas);
+        }
+    } catch(e) {}
+    
+    checkDiv.innerHTML = checkHtml || '<div style="padding:20px;text-align:center;color:#64748b;font-size:13px;">Sin acciones disponibles.</div>';
+
+    el = document.getElementById('planTexto');
+    if (el) el.value = planTextoVal;
+
+    el = document.getElementById('planStatus');
+    if (el) el.textContent = '';
+
+    _planActual = { dimension: dimName, riesgoActual: riesgo, nivel: nivel, encuesta: encuesta };
+    modal.style.display = 'flex';
 }
 
 function cerrarPlanAccion() {
@@ -3299,7 +3319,7 @@ function guardarPlanActual() {
             _actualizarIndicadoresTablas();
         })
         .withFailureHandler(function(err) {
-            hideInlineLoading();
+            hideLoadingModal();
             btn.disabled = false;
             btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción';
             mostrarPlanToast('Error: ' + err.message, 'error');
@@ -4199,11 +4219,12 @@ function actualizarComparativa() {
 
 function renderTrendCard(baterias) {
     const container = document.getElementById('trendCard');
+    const body = document.getElementById('trendCardBody');
     const sorted = [...baterias].sort((a, b) => (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0));
     if (sorted.length < 2) { container.style.display = 'none'; return; }
-    container.style.display = 'block';
     const years = [...new Set(sorted.map(b => b.meta.year).filter(Boolean))].sort();
     if (years.length < 2) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
 
     const byYear = (year) => sorted.filter(b => b.meta.year === year);
     const pctAvg = (list, key) => {
@@ -4212,50 +4233,54 @@ function renderTrendCard(baterias) {
         return Math.round(sum / list.length);
     };
 
-    const types = [
+    const dims = [
         { key: 'intraGeneral', label: 'Intralaboral', color: '#6366f1', bg: '#eef2ff' },
         { key: 'extraGeneral', label: 'Extralaboral', color: '#f59e0b', bg: '#fffbeb' },
-        { key: 'stress', label: 'Estr\u00e9s', color: '#ef4444', bg: '#fef2f2' }
+        { key: 'stress',       label: 'Estr\u00e9s',  color: '#ef4444', bg: '#fef2f2' }
     ];
 
-    let html = '<div class="bat-trend-card"><h3 style="font-size:15px;margin-bottom:12px;">\ud83d\udcc8 Tendencia por a\u00f1o</h3><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">';
-    for (const t of types) {
-        const vals = years.map(y => pctAvg(byYear(y), t.key));
-        const last = vals[vals.length - 1];
-        const prev = vals[vals.length - 2];
-        const diff = last - prev;
-        let arrow, arrowColor;
-        if (diff > 0) { arrow = '\u2191'; arrowColor = '#ef4444'; }
-        else if (diff < 0) { arrow = '\u2193'; arrowColor = '#22c55e'; }
-        else { arrow = '\u2192'; arrowColor = '#94a3b8'; }
-        const maxVal = Math.max(...vals, 1);
-        html += '<div style="background:' + t.bg + ';border-radius:8px;padding:12px;border:1px solid ' + t.color + '22;text-align:center;">';
-        html += '<div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:6px;">' + t.label + '</div>';
-        html += '<div style="font-size:22px;font-weight:800;color:' + arrowColor + ';line-height:1.2;">' + arrow + ' ' + (diff > 0 ? '+' : '') + diff + '%</div>';
-        html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.3px;">vs a\u00f1o anterior</div>';
-        for (let i = 0; i < years.length; i++) {
-            const pct = vals[i];
-            const barPct = Math.round((pct / maxVal) * 100);
-            let barColor;
+    var html = '<div class="trend-dims">';
+    dims.forEach(function(t, idx) {
+        var vals = years.map(function(y) { return pctAvg(byYear(y), t.key); });
+        var last = vals[vals.length - 1];
+        var prev = vals[vals.length - 2];
+        var diff = last - prev;
+        var arrow, arrowColor, arrowClass;
+        if (diff > 0) { arrow = '\u2191'; arrowColor = '#ef4444'; arrowClass = 'is-up'; }
+        else if (diff < 0) { arrow = '\u2193'; arrowColor = '#22c55e'; arrowClass = 'is-down'; }
+        else { arrow = '\u2192'; arrowColor = '#94a3b8'; arrowClass = ''; }
+
+        html += '<div class="trend-dim-card" style="animation-delay:' + (idx * 0.12) + 's;">';
+        html += '<div class="tdc-accent" style="background:' + t.color + ';"></div>';
+        html += '<div class="tdc-label">' + t.label + '</div>';
+        html += '<div style="display:flex;align-items:center;justify-content:center;gap:2px;">';
+        html += '<span class="tdc-arrow ' + arrowClass + '" style="color:' + arrowColor + ';">' + arrow + '</span>';
+        html += '<span class="tdc-diff" style="color:' + arrowColor + ';">' + (diff > 0 ? '+' : '') + diff + '%</span>';
+        html += '</div>';
+        html += '<div class="tdc-vs">vs a\u00f1o anterior</div>';
+        html += '<div class="tdc-bars">';
+        var maxVal = Math.max.apply(null, vals.concat([1]));
+        vals.forEach(function(pct, i) {
+            var barPct = Math.round((pct / maxVal) * 100);
+            var barColor;
             if (i === 0) {
                 barColor = clasificarCritico(pct).color;
             } else {
-                const prevPct = vals[i - 1];
+                var prevPct = vals[i - 1];
                 if (pct > prevPct) barColor = '#ef4444';
                 else if (pct < prevPct) barColor = '#22c55e';
                 else barColor = clasificarCritico(pct).color;
             }
-            html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
-            html += '<span style="font-size:11px;font-weight:600;color:#64748b;width:30px;text-align:right;">' + years[i] + '</span>';
-            html += '<div style="flex:1;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden;">';
-            html += '<div style="width:' + barPct + '%;height:100%;background:' + barColor + ';border-radius:5px;"></div></div>';
-            html += '<span style="font-size:11px;font-weight:700;color:' + barColor + ';width:32px;text-align:left;">' + pct + '%</span>';
+            html += '<div class="tdc-bar-row">';
+            html += '<span class="tdc-bar-year">' + years[i] + '</span>';
+            html += '<div class="tdc-bar-track"><div class="tdc-bar-fill" style="--w:' + barPct + '%;width:0;background:' + barColor + ';"></div></div>';
+            html += '<span class="tdc-bar-pct" style="color:' + barColor + ';">' + pct + '%</span>';
             html += '</div>';
-        }
-        html += '</div>';
-    }
-    html += '</div></div>';
-    container.innerHTML = html;
+        });
+        html += '</div></div>';
+    });
+    html += '</div>';
+    body.innerHTML = html;
 }
 
 function renderGroupedCompare(canvasId, summaryKey, baterias, riskOrder) {

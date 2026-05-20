@@ -2350,9 +2350,9 @@
             background: linear-gradient(145deg, #ffffff, #f8faff);
             border-radius: 16px;
             border: 1px solid rgba(99, 102, 241, 0.1);
-            padding: 20px;
+            padding: 24px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 12px rgba(99,102,241,0.04);
+            box-shadow: 0 4px 24px rgba(99,102,241,0.06);
             position: relative;
             overflow: hidden;
         }
@@ -2364,17 +2364,149 @@
             border-radius: 16px 16px 0 0;
         }
         .bat-trend-card h3 {
-            font-size: 15px;
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 16px;
+        }
+        .trend-dims {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+        }
+        .trend-dim-card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px 16px 16px;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.22,1,0.36,1);
+            animation: tdcEntrance 0.6s cubic-bezier(0.22,1,0.36,1) both;
+        }
+        .trend-dim-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+        }
+        .trend-dim-card .tdc-accent {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            border-radius: 14px 14px 0 0;
+            transition: height 0.3s ease;
+        }
+        .trend-dim-card:hover .tdc-accent {
+            height: 5px;
+        }
+        .trend-dim-card .tdc-label {
+            font-size: 13px;
             font-weight: 700;
             color: #1e293b;
-            margin-bottom: 14px;
+            margin-bottom: 6px;
+            letter-spacing: 0.2px;
         }
-        .trend-row {
+        .trend-dim-card .tdc-arrow {
+            font-size: 26px;
+            font-weight: 900;
+            line-height: 1.2;
+            display: inline-block;
+            animation: tdcPop 0.6s ease both;
+        }
+        .trend-dim-card .tdc-arrow.is-up {
+            animation-name: tdcBounceUp;
+        }
+        .trend-dim-card .tdc-arrow.is-down {
+            animation-name: tdcBounceDown;
+        }
+        .trend-dim-card .tdc-diff {
+            font-size: 26px;
+            font-weight: 900;
+            line-height: 1.2;
+            margin-left: 2px;
+        }
+        .trend-dim-card .tdc-vs {
+            font-size: 10px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+            margin-bottom: 12px;
+        }
+        .trend-dim-card .tdc-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .trend-dim-card .tdc-bar-row {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 0;
-            font-size: 13px;
+            gap: 6px;
+        }
+        .trend-dim-card .tdc-bar-year {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            width: 32px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .trend-dim-card .tdc-bar-track {
+            flex: 1;
+            height: 12px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .trend-dim-card .tdc-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            position: relative;
+            animation: tdcBarGrow 0.9s cubic-bezier(0.22,1,0.36,1) forwards;
+        }
+        .trend-dim-card .tdc-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+            animation: tdcShimmer 1.8s ease-in-out infinite;
+        }
+        .trend-dim-card .tdc-bar-pct {
+            font-size: 11px;
+            font-weight: 800;
+            width: 34px;
+            text-align: left;
+            flex-shrink: 0;
+        }
+        @keyframes tdcPop {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.3); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes tdcBounceUp {
+            0% { transform: scale(0) translateY(10px); opacity: 0; }
+            50% { transform: scale(1.25) translateY(-4px); }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes tdcBounceDown {
+            0% { transform: scale(0) translateY(-10px); opacity: 0; }
+            50% { transform: scale(1.25) translateY(4px); }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes tdcBarGrow {
+            0% { width: 0 !important; }
+            100% { width: var(--w); }
+        }
+        @keyframes tdcEntrance {
+            0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes tdcShimmer {
+            0% { transform: translateX(-100%); }
+            60% { transform: translateX(200%); }
+            100% { transform: translateX(200%); }
         }
         .trend-row .trend-label {
             font-weight: 600;
@@ -2879,8 +3011,14 @@
                 </div>
 
             <div id="compContent" style="display:none;">
-                <div id="trendCard" style="display:none;">
-                    <!-- Trend skeleton shown inline by JS -->
+                <div id="trendCard" class="bat-trend-card" style="display:none;">
+                    <h3>📈 Tendencia por a&ntilde;o</h3>
+                    <div id="trendChartSkeleton" class="comp-sk-chart" style="display:none;">
+                        <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
+                        <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
+                        <div class="comp-sk-bar"></div>
+                    </div>
+                    <div id="trendCardBody"></div>
                 </div>
                 <div class="charts-row-three" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('intra')">
