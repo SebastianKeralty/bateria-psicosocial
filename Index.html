@@ -259,8 +259,13 @@
             border-radius: 20px;
             font-weight: 600;
         }
-        .btn-export {
+        .topbar-actions {
             margin-left: auto;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn-export {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -366,6 +371,24 @@
         .tab-content.active .inicio-card { animation: fadeSlideUp 0.5s ease-out 0.15s forwards; opacity: 0; }
         .tab-content.active .inicio-image { animation: fadeSlideUp 0.5s ease-out 0.3s forwards; opacity: 0; }
         .tab-content.active .inicio-text { animation: fadeSlideUp 0.5s ease-out 0.45s forwards; opacity: 0; }
+
+        /* ── Bar chart entrance animations ── */
+        .vbar-fill {
+            transition: height 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .top-vbar-item {
+            transition: opacity 0.45s cubic-bezier(0.22,1,0.36,1), transform 0.45s cubic-bezier(0.22,1,0.36,1);
+        }
+        /* ── Detail table card entrance ── */
+        .stagger-entrance {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1), transform 0.5s cubic-bezier(0.22,1,0.36,1);
+        }
+        .stagger-entrance.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
         #dashContent #filterBar {
             background: rgba(255,255,255,0.7);
@@ -2675,10 +2698,16 @@
     <div class="topbar">
         <h2 id="topbarTitle">Inicio</h2>
         <span class="badge-data" id="topbarBadge" style="display:none;"></span>
-        <button class="btn-export" id="btnExport" style="display:none;" onclick="exportarDatosJSON()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Descargar JSON
-        </button>
+        <div class="topbar-actions">
+            <button class="btn-export" id="btnExport" style="display:none;" onclick="exportarDatosJSON()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar datos para PPT (.txt)
+            </button>
+            <button class="btn-export" id="btnExportJSON" style="display:none;" onclick="exportarJSON()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar datos JSON (.json)
+            </button>
+        </div>
     </div>
 
     <div class="main">
