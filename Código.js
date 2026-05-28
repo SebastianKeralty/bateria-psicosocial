@@ -157,22 +157,42 @@ function guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata, ex
 
 function listarBaterias() {
   var indice = _readIndice();
-  var indicesLimpios = [];
-  indice.forEach(function(entry) {
-    entry.fileMissing = false;
-    try {
-      var file = DriveApp.getFileById(entry.fileId);
-      if (file.isTrashed()) throw new Error('Archivo en papelera');
-      indicesLimpios.push(entry);
-    } catch(e) {
-      try { if (entry.dataFileId) DriveApp.getFileById(entry.dataFileId).setTrashed(true); } catch(e2) {}
-      try { if (entry.planesFileId) DriveApp.getFileById(entry.planesFileId).setTrashed(true); } catch(e2) {}
+  if (indice.length === 0) return [];
+
+  try {
+    const rootFolder = _getBateriasFolder();
+    const existingFileIds = new Set();
+    
+    // Get all files in root and all subfolders
+    const folders = rootFolder.getFolders();
+    // Include root files
+    const rootFiles = rootFolder.getFiles();
+    while (rootFiles.hasNext()) {
+      existingFileIds.add(rootFiles.next().getId());
     }
-  });
-  if (indicesLimpios.length !== indice.length) {
-    _writeIndice(indicesLimpios);
+    
+    while (folders.hasNext()) {
+      const folder = folders.next();
+      const files = folder.getFiles();
+      while (files.hasNext()) {
+        existingFileIds.add(files.next().getId());
+      }
+    }
+    
+    var indicesLimpios = indice.filter(function(entry) {
+      // A battery is valid if its main file exists and is not trashed
+      // Since we listed all files in the folder, we just check if the ID is in the set
+      return existingFileIds.has(entry.fileId);
+    });
+    
+    if (indicesLimpios.length !== indice.length) {
+      _writeIndice(indicesLimpios);
+    }
+    return indicesLimpios;
+  } catch (e) {
+    console.error('Error listing batteries: ' + e.message);
+    return indice; // Fallback to returning the index as is
   }
-  return indicesLimpios;
 }
 
 function verificarBateria(id) {
