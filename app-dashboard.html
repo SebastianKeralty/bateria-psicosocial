@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 function renderDashboard() {
     if (!state.bateriaActiva) {
         console.error('No active battery data');
@@ -353,36 +353,7 @@ function renderSummaryCards(data) {
             overflow:hidden;
             transform-style:preserve-3d;
         ">
-            <div class="shimmer" style="
-                position:absolute;
-                top:0;
-                left:-100%;
-                width:50%;
-                height:100%;
-                background:linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-                transform:skewX(-20deg);
-                animation:shimmer 2s infinite;
-            "></div>
-            <div style="
-                position:absolute;
-                top:-40px;
-                right:-40px;
-                width:120px;
-                height:120px;
-                background:rgba(255,255,255,0.12);
-                border-radius:50%;
-                animation:float 4s ease-in-out infinite;
-            "></div>
-            <div style="
-                position:absolute;
-                bottom:-30px;
-                left:-30px;
-                width:100px;
-                height:100px;
-                background:rgba(255,255,255,0.08);
-                border-radius:50%;
-                animation:float 5s ease-in-out infinite reverse;
-            "></div>
+
             <div class="card-number" style="
                 font-size:42px;
                 font-weight:900;
@@ -436,10 +407,8 @@ function renderSummaryCards(data) {
                 <div class="progress-bar-animated" style="
                     height:100%;
                     width:0%;
-                    background:linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,1), rgba(255,255,255,0.8));
-                    background-size:200% 100%;
+                    background:rgba(255,255,255,0.9);
                     border-radius:6px;
-                    animation:progressShine 1.5s linear infinite;
                 "></div>
             </div>` : ''}
         </div>`;
@@ -746,10 +715,17 @@ function getFilteredRows() {
     const sexo = document.getElementById('dfSexo')?.value;
     const area = document.getElementById('dfArea')?.value;
     const cargo = document.getElementById('dfCargo')?.value;
-    if (forma) rows = rows.filter(r => String(r["_forma"] || '').trim() === forma);
-    if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
-    if (area) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === area);
-    if (cargo) rows = rows.filter(r => String(r["14. Tipo de cargo"] || '').trim() === cargo);
+    const _normArea = (s) => s.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (forma || sexo || area || cargo) {
+        rows = rows.filter(r => {
+            if (forma && String(r["_forma"] || '').trim() !== forma) return false;
+            if (sexo && String(r["2. Sexo"] || '').trim() !== sexo) return false;
+            if (area && String(r["Unidad de Análisis"] || '').trim() !== area) return false;
+            if (cargo && String(r["14. Tipo de cargo"] || '').trim() !== cargo) return false;
+            return true;
+        });
+    }
 
     const advMap = [
         { id: 'dfEstadoCivil', col: '4. Estado civil' },
@@ -768,22 +744,29 @@ function getFilteredRows() {
         { id: 'dfCiudadTrab', col: '11. Lugar de trabajo: Ciudad' },
         { id: 'dfDptoTrab', col: '11. Lugar de trabajo: Departamento' }
     ];
-    const normAreaFilter = (s) => s.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-    for (const f of advMap) {
-        const val = document.getElementById(f.id)?.value;
-        if (!val) continue;
-        if (f.col === "16. Área donde trabaja") {
-            rows = rows.filter(r => normAreaFilter(String(r[f.col] || '')) === val);
-        } else {
-            rows = rows.filter(r => String(r[f.col] || '').trim() === val);
-        }
+    const activeAdv = advMap.map(f => ({
+        f, val: document.getElementById(f.id)?.value
+    })).filter(x => x.val);
+
+    if (activeAdv.length > 0) {
+        rows = rows.filter(r => {
+            for (const { f, val } of activeAdv) {
+                const cell = String(r[f.col] || '').trim();
+                if (f.col === "16. Área donde trabaja") {
+                    if (_normArea(cell) !== val) return false;
+                } else {
+                    if (cell !== val) return false;
+                }
+            }
+            return true;
+        });
     }
 
     return rows;
 }
 
 function aplicarFiltrosDashboard() {
-    closeDrillModal();
+    if (typeof closeDrillModal === 'function') closeDrillModal();
     const filtered = getFilteredRows();
     const s = state.bateriaActiva ? computeSummary(filtered) : null;
     if (s) {
@@ -832,45 +815,9 @@ function renderFilteredCards(nTotal, intraPct, extraPct, stressPct) {
             display:flex;
             flex-direction:column;
             gap:12px;
-            transition:all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
             cursor:pointer;
             position:relative;
-            overflow:hidden;
-            transform-style:preserve-3d;
         ">
-            <!-- Shimmer effect -->
-            <div class="shimmer" style="
-                position:absolute;
-                top:0;
-                left:-100%;
-                width:50%;
-                height:100%;
-                background:linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-                transform:skewX(-20deg);
-                animation:shimmer 2s infinite;
-            "></div>
-            <!-- Floating orbs -->
-            <div style="
-                position:absolute;
-                top:-40px;
-                right:-40px;
-                width:120px;
-                height:120px;
-                background:rgba(255,255,255,0.12);
-                border-radius:50%;
-                animation:float 4s ease-in-out infinite;
-            "></div>
-            <div style="
-                position:absolute;
-                bottom:-30px;
-                left:-30px;
-                width:100px;
-                height:100px;
-                background:rgba(255,255,255,0.08);
-                border-radius:50%;
-                animation:float 5s ease-in-out infinite reverse;
-            "></div>
-            <!-- Main content -->
             <div class="card-number" style="
                 font-size:42px;
                 font-weight:900;
@@ -926,10 +873,8 @@ function renderFilteredCards(nTotal, intraPct, extraPct, stressPct) {
                 <div class="progress-bar-animated" style="
                     height:100%;
                     width:0%;
-                    background:linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,1), rgba(255,255,255,0.8));
-                    background-size:200% 100%;
+                    background:rgba(255,255,255,0.9);
                     border-radius:6px;
-                    animation:progressShine 1.5s linear infinite;
                 "></div>
             </div>` : ''}
         </div>`;
@@ -960,7 +905,6 @@ function renderFilteredCards(nTotal, intraPct, extraPct, stressPct) {
         card.addEventListener('mouseenter', function() {
             this.style.transform = 'translateY(-15px) scale(1.05) rotateY(5deg)';
             this.style.boxShadow = '0 30px 60px rgba(0,0,0,0.35)';
-            this.querySelector('.shimmer').style.animationDuration = '0.5s';
         });
         card.addEventListener('mouseleave', function() {
             this.style.transform = 'translateY(0) scale(1) rotateY(0deg)';
@@ -979,7 +923,6 @@ function renderFilteredCards(nTotal, intraPct, extraPct, stressPct) {
             } else {
                 this.style.boxShadow = '0 8px 32px rgba(220,38,38,0.4)';
             }
-            this.querySelector('.shimmer').style.animationDuration = '2s';
         });
     });
 }
@@ -1009,16 +952,7 @@ function renderChartsDashboard(rows, summary) {
     renderClickableBarChart('stressBars', stressDist);
 }
 
-document.addEventListener('mousemove', function(e) {
-    var card = e.target.closest('.chart-card');
-    if (card) {
-        var rect = card.getBoundingClientRect();
-        var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
-        var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
-        card.style.setProperty('--mx', x + '%');
-        card.style.setProperty('--my', y + '%');
-    }
-});
+
 
 function renderDonutChart(canvasId, dist, centerPct, centerColor, centerCount) {
     destroyChart(canvasId);

@@ -651,22 +651,38 @@ function aplicarFiltrosComparativaDrill() {
 
     const searchCols = ["ID", "Nombre completo del trabajador", "13. Cargo", "No. Encuesta"];
 
+    const _normArea = (s) => s.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const activeAdv = advFields.map(f => ({
+        f, val: document.getElementById(f.id)?.value
+    })).filter(x => x.val);
+
     const filtered = baterias.map(b => {
         let rows = b.rows || [];
-        if (forma) rows = rows.filter(r => String(r["_forma"] || '').trim() === forma);
-        if (sexo) rows = rows.filter(r => String(r["2. Sexo"] || '').trim() === sexo);
-        if (area) rows = rows.filter(r => String(r["Unidad de Análisis"] || '').trim() === area);
-        if (q) rows = rows.filter(r => searchCols.some(col => String(r[col] || '').trim().toLowerCase().includes(q)));
-        const normAreaCD = (s) => s.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-        for (const f of advFields) {
-            const val = document.getElementById(f.id)?.value;
-            if (!val) continue;
-            if (f.col === "16. Área donde trabaja") {
-                rows = rows.filter(r => normAreaCD(String(r[f.col] || '')) === val);
-            } else {
-                rows = rows.filter(r => String(r[f.col] || '').trim() === val);
-            }
+
+        if (q || forma || sexo || area) {
+            rows = rows.filter(r => {
+                if (q && !searchCols.some(col => String(r[col] || '').trim().toLowerCase().includes(q))) return false;
+                if (forma && String(r["_forma"] || '').trim() !== forma) return false;
+                if (sexo && String(r["2. Sexo"] || '').trim() !== sexo) return false;
+                if (area && String(r["Unidad de Análisis"] || '').trim() !== area) return false;
+                return true;
+            });
         }
+
+        if (activeAdv.length > 0) {
+            rows = rows.filter(r => {
+                for (const { f, val } of activeAdv) {
+                    const cell = String(r[f.col] || '').trim();
+                    if (f.col === "16. Área donde trabaja") {
+                        if (_normArea(cell) !== val) return false;
+                    } else {
+                        if (cell !== val) return false;
+                    }
+                }
+                return true;
+            });
+        }
+
         return { battery: b, rows, summary: computeSummary(rows) };
     });
 
