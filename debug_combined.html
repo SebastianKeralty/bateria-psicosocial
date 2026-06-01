@@ -6320,11 +6320,11 @@ async function _generarPPT(data, s, charts, baseName, sections) {
         addTitleBand(slide, 'Participantes y Cobertura');
         addCard(slide, 0.4, 1.2, 6, 1.8);
         slide.addText('Período de Aplicación', { x: 0.7, y: 1.35, w: 5.5, h: 0.3, fontSize: 12, bold: true, color: C.green2, fontFace: 'Arial' });
-        slide.addText('[[Editar en PowerPoint]]', { x: 0.7, y: 1.7, w: 5.5, h: 0.3, fontSize: 10, color: C.gray, fontFace: 'Arial' });
-        slide.addText('Inicio: ___________  Fin: ___________', { x: 0.7, y: 2.2, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
-        addCard(slide, 6.8, 1.2, 6, 1.8);
-        slide.addText('Cobertura', { x: 7.1, y: 1.35, w: 5.5, h: 0.3, fontSize: 12, bold: true, color: C.green2, fontFace: 'Arial' });
-        slide.addText('[[Editar en PowerPoint]]', { x: 7.1, y: 1.7, w: 5.5, h: 0.3, fontSize: 10, color: C.gray, fontFace: 'Arial' });
+        slide.addText(s.total + ' encuestados', { x: 0.7, y: 1.7, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
+        slide.addText('', { x: 0.7, y: 2.25, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
+        addCard(slide, 6.8, 1.2, 6, 1.7);
+        slide.addText('Cobertura', { x: 7.1, y: 1.35, w: 5.5, h: 0.3, fontSize: 12, bold: true, color: C.blue, fontFace: 'Arial' });
+        slide.addText(numAreas + ' \u00e1reas cubiertas', { x: 7.1, y: 1.7, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
         slide.addText('Total encuestados: ' + s.total, { x: 7.1, y: 2.2, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
         slide.addText('Áreas cubiertas: ' + numAreas, { x: 7.1, y: 2.5, w: 5.5, h: 0.3, fontSize: 10, color: C.dark, fontFace: 'Arial' });
         const items = [
@@ -6445,7 +6445,9 @@ async function _generarPPT(data, s, charts, baseName, sections) {
                     const cp = dt ? Math.round(((d.risk["Riesgo alto"]||0)+(d.risk["Riesgo muy alto"]||0))/dt*100) : 0;
                     const cells = [{ text: d.name, options: { fontSize: 6.5, color: C.dark, align: 'left' } }];
                     ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
-                        cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 6, color: C.dark, align: 'center' } });
+                        var rv = d.risk[k] || 0;
+                        var rp = dt ? Math.round(rv / dt * 100) : 0;
+                        cells.push({ text: rv + ' (' + rp + '%)', options: { fontSize: 6, color: C.dark, align: 'center' } });
                     });
                     cells.push({ text: cp + '%', options: { fontSize: 6.5, bold: true, color: cp > 50 ? C.a2 : cp > 30 ? C.a1 : C.green3, align: 'center' } });
                     return cells;
@@ -6479,7 +6481,9 @@ async function _generarPPT(data, s, charts, baseName, sections) {
                 const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
                 const cells = [{ text: name, options: { fontSize: 9, bold: true, color: C.dark, align: 'left', valign: 'middle' } }];
                 ['Sin riesgo','Riesgo bajo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
-                    cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 9, color: C.dark, align: 'center', valign: 'middle' } });
+                    var rv = d.risk[k] || 0;
+                    var rp = total ? Math.round(rv / total * 100) : 0;
+                    cells.push({ text: rv + ' (' + rp + '%)', options: { fontSize: 9, color: C.dark, align: 'center', valign: 'middle' } });
                 });
                 cells.push({ text: critPct + '%', options: { fontSize: 9, bold: true, color: critPct > 50 ? C.a2 : critPct > 30 ? C.a1 : C.green3, align: 'center', valign: 'middle' } });
                 return cells;
@@ -6524,7 +6528,9 @@ async function _generarPPT(data, s, charts, baseName, sections) {
                 const critPct = total ? Math.round(((d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0)) / total * 100) : 0;
                 const cells = [{ text: name, options: { fontSize: 9, bold: true, color: C.dark, align: 'left', valign: 'middle' } }];
                 ['Sin riesgo','Riesgo medio','Riesgo alto','Riesgo muy alto'].forEach(k => {
-                    cells.push({ text: String(d.risk[k] || 0), options: { fontSize: 9, color: C.dark, align: 'center', valign: 'middle' } });
+                    var rv = d.risk[k] || 0;
+                    var rp = total ? Math.round(rv / total * 100) : 0;
+                    cells.push({ text: rv + ' (' + rp + '%)', options: { fontSize: 9, color: C.dark, align: 'center', valign: 'middle' } });
                 });
                 cells.push({ text: critPct + '%', options: { fontSize: 9, bold: true, color: critPct > 50 ? C.a2 : critPct > 30 ? C.a1 : C.green3, align: 'center', valign: 'middle' } });
                 return cells;

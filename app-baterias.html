@@ -1,0 +1,502 @@
+<script>
+// ── BATERÍAS: renderizar lista ──
+let _bateriasData = [];
+function renderBaterias() {
+    const grid = document.getElementById('bateriasGrid');
+    const filter = document.getElementById('bateriasYearFilter');
+    const status = document.getElementById('bateriasStatus');
+    const folderCfg = document.getElementById('bateriasFolderConfig');
+    const uploadGroup = document.getElementById('bateriasUploadGroup');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:4px solid #e2e8f0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div><p style="color:#94a3b8;">Cargando baterías...</p></div>';
+    filter.innerHTML = '';
+    if (status) status.style.display = 'none';
+    folderCfg.innerHTML = '';
+    if (uploadGroup) uploadGroup.style.display = 'none';
+
+    // First check folder config
+    google.script.run
+        .withSuccessHandler(function(folderInfo) {
+            if (!folderInfo) {
+                // No folder configured - show config form
+                grid.innerHTML = '';
+                folderCfg.innerHTML =
+                    '<div class="card" style="padding:32px;text-align:center;max-width:500px;margin:0 auto;">' +
+                        '<p style="font-size:48px;margin-bottom:12px;">📁</p>' +
+                        '<h3 style="color:#14532d;margin-bottom:8px;">Configurar carpeta de Drive</h3>' +
+                        '<p style="color:#64748b;font-size:13px;margin-bottom:16px;line-height:1.5;">' +
+                            'Crea una carpeta en Drive, compártela con tu equipo y pega aquí el ID.</p>' +
+                        '<input id="folderIdInput" type="text" placeholder="Pega el ID de la carpeta aquí" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">' +
+                        '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">' +
+                            'El ID está en la URL: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">drive.google.com/drive/folders/<strong>ABC123...</strong></code>' +
+                        '</div>' +
+                        '<button onclick="guardarFolderId()" style="padding:10px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Guardar carpeta</button>' +
+                    '</div>';
+                return;
+            }
+            // Folder is configured - show upload area and battery list
+            folderCfg.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;background:white;border-radius:10px;border:1px solid #e2e8f0;padding:10px 16px;">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-size:20px;">📁</span>' +
+                        '<span style="font-weight:600;color:#14532d;">' + folderInfo.name + '</span>' +
+                        '<a href="' + folderInfo.url + '" target="_blank" style="font-size:11px;color:#16a34a;text-decoration:none;">↗ Abrir en Drive</a>' +
+                    '</div>' +
+                    '<button onclick="cambiarCarpeta()" style="padding:6px 14px;background:transparent;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;color:#64748b;cursor:pointer;">Cambiar carpeta</button>' +
+                '</div>';
+
+            if (uploadGroup) uploadGroup.style.display = 'flex';
+
+            // Load battery list
+            google.script.run
+                .withSuccessHandler(function(lista) {
+                    _bateriasData = lista || [];
+                    renderBateriasGrid();
+                })
+                .withFailureHandler(function(err) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ef4444;">Error: ' + err.message + '</div>';
+                })
+                .listarBaterias();
+        })
+        .withFailureHandler(function(err) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;">' +
+                '<p style="font-size:48px;margin-bottom:12px;">🔐</p>' +
+                '<h3 style="color:#ef4444;margin-bottom:8px;">Permisos de Drive requeridos</h3>' +
+                '<button onclick="autorizarYRecargar()" style="padding:12px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">' +
+                'Autorizar Drive y recargar</button>' +
+                '<p style="color:#94a3b8;font-size:12px;margin-top:12px;">' + err.message + '</p></div>';
+            console.error(err);
+        })
+        .obtenerInfoCarpeta();
+}
+
+function guardarFolderId() {
+    const input = document.getElementById('folderIdInput');
+    const folderId = input?.value?.trim();
+    if (!folderId) return alert('Pega el ID de la carpeta');
+    const btn = input.nextElementSibling?.tagName === 'BUTTON' ? input.nextElementSibling : null;
+    google.script.run
+        .withSuccessHandler(function(info) {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            alert('Error: ' + err.message + '\n\nVerifica que el ID sea correcto y que la carpeta exista.');
+        })
+        .configurarCarpeta(folderId);
+}
+
+function cambiarCarpeta() {
+    const existing = document.getElementById('modalFolderChange');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modalFolderChange';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);animation:fadeIn 0.2s ease;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:relative;background:#fff;border-radius:24px;padding:40px;width:100%;max-width:480px;box-shadow:0 25px 80px rgba(0,0,0,0.2);overflow:hidden;animation:slideUp 0.3s cubic-bezier(0.22,1,0.36,1);';
+
+    const blobs = [
+        { w: 280, h: 280, t: '-20%', l: '-15%', bg: 'linear-gradient(135deg,#22c55e,#16a34a)', o: '0.07', br: '30% 70% 70% 30%/30% 30% 70% 70%', a: 'blobDrift1 22s ease-in-out infinite,morph 14s linear infinite' },
+        { w: 200, h: 200, t: '60%', l: '75%', bg: 'linear-gradient(135deg,#15803d,#166534)', o: '0.05', br: '50% 50% 33% 67%/55% 27% 73% 45%', a: 'blobDrift2 26s ease-in-out infinite reverse,morph 11s linear infinite' },
+        { w: 150, h: 150, t: '30%', l: '-8%', bg: 'linear-gradient(135deg,#4ade80,#22c55e)', o: '0.04', br: '58% 42% 75% 25%/76% 46% 54% 24%', a: 'blobDrift3 18s ease-in-out infinite,morph 13s linear infinite' }
+    ];
+    blobs.forEach(b => {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:absolute;width:' + b.w + 'px;height:' + b.h + 'px;top:' + b.t + ';left:' + b.l + ';background:' + b.bg + ';opacity:' + b.o + ';border-radius:' + b.br + ';animation:' + b.a + ';pointer-events:none;filter:blur(40px);';
+        modal.appendChild(el);
+    });
+
+    const content = document.createElement('div');
+    content.style.cssText = 'position:relative;z-index:1;';
+
+    content.innerHTML =
+        '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">' +
+            '<div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(22,163,74,0.3);">' +
+                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+            '</div>' +
+            '<div>' +
+                '<h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Cambiar carpeta</h3>' +
+                '<p style="margin:4px 0 0;font-size:13px;color:#64748b;">Pega el nuevo ID de la carpeta de Drive</p>' +
+            '</div>' +
+        '</div>' +
+        '<input id="folderIdInput" type="text" placeholder="ID de la carpeta" style="width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;margin-bottom:16px;box-sizing:border-box;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor=\'#16a34a\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+        '<div style="display:flex;gap:10px;">' +
+            '<button onclick="guardarFolderId();document.getElementById(\'modalFolderChange\').remove()" style="flex:1;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.25s;" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.4)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.boxShadow=\'none\';this.style.transform=\'none\'">Guardar</button>' +
+            '<button onclick="document.getElementById(\'modalFolderChange\').remove()" style="padding:12px 24px;border:2px solid #e2e8f0;border-radius:12px;background:transparent;color:#64748b;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.25s;" onmouseover="this.style.borderColor=\'#94a3b8\';this.style.color=\'#334155\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#64748b\'">Cancelar</button>' +
+        '</div>';
+
+    modal.appendChild(content);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.remove();
+    });
+
+    setTimeout(function() { document.getElementById('folderIdInput')?.focus(); }, 100);
+}
+
+function autorizarYRecargar() {
+    const grid = document.getElementById('bateriasGrid');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:4px solid #e2e8f0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div><p style="color:#94a3b8;">Autorizando Drive...</p></div>';
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            document.getElementById('bateriasGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><p style="color:#ef4444;">' + err.message + '</p></div>';
+        })
+        .autorizarDrive();
+}
+
+function autorizarYRecargar() {
+    const grid = document.getElementById('bateriasGrid');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:4px solid #e2e8f0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div><p style="color:#94a3b8;">Autorizando Drive...</p></div>';
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><p style="color:#ef4444;">' + err.message + '</p></div>';
+        })
+        .autorizarDrive();
+}
+
+function renderBateriasGrid() {
+    const grid = document.getElementById('bateriasGrid');
+    const filter = document.getElementById('bateriasYearFilter');
+
+    const years = [...new Set(_bateriasData.map(b => b.anio))].sort((a, b) => b - a);
+    let selectedYear = filter.dataset.selected || (years.length > 0 ? years[0] : '');
+
+    // Build year filter
+    filter.innerHTML = '';
+    years.forEach(y => {
+        const btn = document.createElement('button');
+        btn.textContent = y;
+        btn.className = 'btn-year' + (y === selectedYear ? ' active' : '');
+        btn.style.cssText = 'padding:6px 18px;border-radius:20px;border:1px solid #16a34a;font-weight:600;font-size:13px;cursor:pointer;background:' + (y === selectedYear ? '#16a34a' : 'transparent') + ';color:' + (y === selectedYear ? '#fff' : '#16a34a') + ';transition:all 0.2s;';
+        btn.onclick = function() { filter.dataset.selected = y; renderBateriasGrid(); };
+        filter.appendChild(btn);
+    });
+
+    const filtered = selectedYear ? _bateriasData.filter(b => b.anio === selectedYear) : _bateriasData;
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;"><p style="font-size:48px;margin-bottom:12px;">📂</p><h3 style="color:#94a3b8;">No hay baterías guardadas</h3><p style="color:#94a3b8;margin-top:8px;">Sube un archivo Excel para guardarlo en Drive.</p></div>';
+        return;
+    }
+
+    grid.innerHTML = filtered.map((b, i) => {
+        const pct = b.psicoPct;
+        const c = pct >= 85 ? { main: '#a61c24', mid: '#c12935', light: '#dc3545' }
+               : pct >= 70 ? { main: '#e05a3a', mid: '#f06a4a', light: '#ff7a5a' }
+               : pct >= 50 ? { main: '#ff8d69', mid: '#ffc96b', light: '#fff091' }
+               : pct >= 30 ? { main: '#64aa47', mid: '#9ac235', light: '#cfd922' }
+               :             { main: '#07835f', mid: '#43a03e', light: '#7fbd1c' };
+        const glowColor = pct >= 85 ? 'rgba(220,53,69,0.4)' : pct >= 70 ? 'rgba(239,106,74,0.4)' : pct >= 50 ? 'rgba(255,201,107,0.4)' : pct >= 30 ? 'rgba(154,194,53,0.4)' : 'rgba(67,160,62,0.4)';
+        var fileMissing = b.fileMissing;
+        var extraClass = fileMissing ? ' file-missing' : '';
+        return '<div class="bateria-card' + extraClass + '" style="--risk-color:' + c.main + ';--btn-glow:' + glowColor + ';animation:cardEntrance 0.5s cubic-bezier(0.22,1,0.36,1) both;animation-delay:' + (i * 0.07) + 's;"' +
+            (fileMissing ? '' : ' onclick="cargarBateriaDesdeDrive(\'' + b.id + '\')"') + '>' +
+            (fileMissing ? '<div style="padding:10px 20px;background:#fca5a5;color:#7f1d1d;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;"><span>⚠️</span> Archivo eliminado de Drive</div>' : '') +
+            '<div class="card-header" style="background:linear-gradient(135deg,' + c.main + ',' + c.mid + ' 50%,' + c.light + ');">' +
+                '<div class="header-left">' +
+                    '<div class="header-name-row">' +
+                        '<div class="header-name">' + b.nombre + '</div>' +
+                    '</div>' +
+                    '<div class="header-sub">' + b.total + ' encuestados</div>' +
+                '</div>' +
+                '<div class="header-pct">' +
+                    '<div class="pct-num">' + pct + '%</div>' +
+                    '<div class="pct-lbl">Psicosocial</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-inner">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+                    '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;font-weight:600;">' +
+                        '<span>👥</span> <span>' + b.total + ' encuestados</span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;font-weight:600;">' +
+                        '<span>📅</span> <span>' + b.fecha + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="risk-bar" style="margin-bottom:8px;">' +
+                    '<div class="risk-bar-fill" style="width:' + pct + '%;background:linear-gradient(90deg,' + c.main + ',' + c.mid + ');"></div>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:14px;">' +
+                    '<span>Intra <strong>' + b.intraP + '%</strong></span>' +
+                    '<span>Extra <strong>' + b.extraP + '%</strong></span>' +
+                    '<span>Estrés <strong>' + b.stressP + '%</strong></span>' +
+                '</div>' +
+                '<div style="display:flex;gap:8px;">' +
+                    (fileMissing
+                        ? '<button class="btn-eliminar" style="flex:1;padding:8px;border:none;border-radius:8px;background:#dc2626;color:#fff;font-weight:600;font-size:13px;cursor:pointer;" onclick="event.stopPropagation();limpiarBateriaOrfana(\'' + b.id + '\')">🗑️ Limpiar</button>'
+                        : '<button class="btn-cargar" style="flex:1;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:0.3px;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);" onclick="event.stopPropagation();cargarBateriaDesdeDrive(\'' + b.id + '\')">Cargar en Dashboard</button>') +
+                    '<button class="btn-eliminar" style="padding:8px 14px;border:1px solid #fca5a5;border-radius:10px;background:transparent;color:#ef4444;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.25s;" onclick="event.stopPropagation();eliminarBateria(\'' + b.id + '\')">✕</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+// ── BATERÍAS: cargar desde Drive ──
+function cargarBateriaDesdeDrive(id) {
+    showLoadingModal('Cargando batería desde Drive...');
+    google.script.run
+        .withSuccessHandler(function(resp) {
+            try {
+                if (resp.tipo === 'json') {
+                    state.bateriaActiva = resp.datos;
+                } else if (resp.tipo === 'excel') {
+                    const binaryStr = atob(resp.base64);
+                    const bytes = new Uint8Array(binaryStr.length);
+                    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                    const result = procesarExcel(bytes, resp.fileName);
+                    if (!result.rows || result.rows.length === 0) {
+                        hideLoadingModal();
+                        alert('El archivo no contiene datos válidos.');
+                        return;
+                    }
+                    result.meta.id = resp.meta.id;
+                    state.bateriaActiva = result;
+                    _cargarPlanes();
+                }
+                hideLoadingModal();
+                irADashboard();
+                setTimeout(() => renderDashboard(), 300);
+            } catch(err) {
+                hideLoadingModal();
+                alert('Error al procesar: ' + err.message);
+                console.error(err);
+            }
+        })
+        .withFailureHandler(function(err) {
+            hideLoadingModal();
+            alert('Error al cargar batería: ' + err.message);
+            console.error(err);
+        })
+        .cargarBateria(id);
+}
+
+// ── BATERÍAS: eliminar ──
+function eliminarBateria(id) {
+    if (!confirm('¿Eliminar esta batería?')) return;
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            alert('Error al eliminar: ' + err.message);
+        })
+        .eliminarBateria(id);
+}
+
+function limpiarBateriaOrfana(id) {
+    if (!confirm('¿Limpiar esta entrada huérfana del índice?')) return;
+    google.script.run
+        .withSuccessHandler(function() {
+            renderBaterias();
+        })
+        .withFailureHandler(function(err) {
+            alert('Error: ' + err.message);
+        })
+        .eliminarBateria(id);
+}
+
+// ── COMPARATIVA: selector desde Drive ──
+function abrirSelectorComparativa() {
+    showLoadingModal('Cargando baterías guardadas...');
+    google.script.run
+        .withSuccessHandler(function(lista) {
+            hideLoadingModal();
+            if (!lista || lista.length === 0) {
+                alert('No hay baterías guardadas en Drive.');
+                return;
+            }
+            var alreadyIds = state.bateriasComparativa.map(function(b) { return b.meta.id; });
+            var disponibles = lista.filter(function(b) { return !alreadyIds.includes(b.id); });
+            if (disponibles.length === 0) {
+                alert('Todas las baterías guardadas ya están agregadas.');
+                return;
+            }
+
+            var years = [];
+            disponibles.forEach(function(b) { if (b.anio && years.indexOf(b.anio) === -1) years.push(b.anio); });
+            years.sort();
+
+            var selectedIds = [];
+
+            function getRiskColor(pct) {
+                if (pct <= 29) return '#0ea5e9';
+                if (pct <= 49) return '#14b8a6';
+                if (pct <= 69) return '#f59e0b';
+                if (pct <= 84) return '#f97316';
+                return '#dc2626';
+            }
+            function getRiskLabel(pct) {
+                if (pct <= 29) return 'Sin riesgo';
+                if (pct <= 49) return 'Riesgo bajo';
+                if (pct <= 69) return 'Riesgo medio';
+                if (pct <= 84) return 'Riesgo alto';
+                return 'Riesgo muy alto';
+            }
+            function titleCase(s) {
+                return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            }
+            function updateSelectedCount() {
+                var el = document.getElementById('compSelCount');
+                var btn = document.getElementById('compAgregarBtn');
+                var n = selectedIds.length;
+                if (el) el.textContent = n + ' seleccionada' + (n !== 1 ? 's' : '');
+                if (btn) btn.textContent = n > 0 ? ('Agregar (' + n + ')') : 'Agregar seleccionadas';
+            }
+
+            function toggleCard(el, id) {
+                var idx = selectedIds.indexOf(id);
+                if (idx > -1) {
+                    selectedIds.splice(idx, 1);
+                    el.classList.remove('selected');
+                } else {
+                    selectedIds.push(id);
+                    el.classList.add('selected');
+                }
+                updateSelectedCount();
+            }
+
+            function renderList(filterYear) {
+                var filtered = filterYear ? disponibles.filter(function(b) { return String(b.anio) === filterYear; }) : disponibles;
+                var html = '';
+                filtered.forEach(function(b, i) {
+                    var pct = parseInt(b.psicoPct) || 0;
+                    var c = getRiskColor(pct);
+                    var label = getRiskLabel(pct);
+                    var isSel = selectedIds.indexOf(b.id) > -1;
+                    html += '<div class="drive-mini-card dmc-fade-in' + (isSel ? ' selected' : '') + '" style="animation-delay:' + (i * 0.05) + 's;" data-id="' + b.id + '" onclick="toggleCard(this, \'' + b.id + '\')">' +
+                        '<div class="dmc-check-icon">' + (isSel ? '✓' : '') + '</div>' +
+                        '<div class="dmc-header">' +
+                            '<div class="dmc-badge">' + (b.anio || '—') + '</div>' +
+                            '<div class="dmc-name">' + (b.nombre || 'Sin nombre') + '</div>' +
+                        '</div>' +
+                        '<div class="dmc-meta">' +
+                            '<span>👤 ' + (b.total || 0).toLocaleString() + ' enc.</span>' +
+                        '</div>' +
+                        '<div class="dmc-risk-row">' +
+                            '<span class="dmc-risk-label">' + titleCase(label) + '</span>' +
+                            '<div class="dmc-risk-bar-bg"><div class="dmc-risk-bar-fill" style="width:' + pct + '%;background:' + c + ';"></div></div>' +
+                            '<span class="dmc-risk-pct" style="color:' + c + ';">' + pct + '%</span>' +
+                        '</div>' +
+                    '</div>';
+                });
+                if (!filtered.length) html = '<p style="text-align:center;color:#94a3b8;padding:40px 0;">No hay baterías para este año.</p>';
+                document.getElementById('compDriveList').innerHTML = html;
+            }
+
+            var filterOpts = '<option value="">Todos los años</option>';
+            years.forEach(function(y) { filterOpts += '<option value="' + y + '">' + y + '</option>'; });
+
+            var sel = document.createElement('div');
+            sel.id = 'compDriveSelector';
+            sel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+            sel.onclick = function(e) { if (e.target === sel) sel.remove(); };
+
+            var box = document.createElement('div');
+            box.style.cssText = 'background:linear-gradient(145deg,#ffffff,#f0fdf4);border-radius:20px;padding:28px;max-width:680px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25),0 0 80px rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.12);';
+
+            box.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+                    '<h3 style="margin:0;font-size:18px;font-weight:800;background:linear-gradient(135deg,#0ea5e9,#16a34a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Seleccionar bater\u00edas</h3>' +
+                    '<select class="comp-filter-select" id="compYearFilter" onchange="renderList(this.value)">' + filterOpts + '</select>' +
+                '</div>' +
+                '<div id="compDriveList" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid rgba(34,197,94,0.1);">' +
+                    '<span id="compSelCount" style="font-size:13px;font-weight:600;color:#64748b;">0 seleccionadas</span>' +
+                    '<div style="display:flex;gap:10px;">' +
+                        '<button id="compAgregarBtn" onclick="agregarDriveAComparativa()" style="padding:12px 24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(14,165,233,0.25);transition:all 0.3s ease;" onmouseover="this.style.boxShadow=\'0 6px 20px rgba(14,165,233,0.35)\';this.style.transform=\'translateY(-1px)\';" onmouseout="this.style.boxShadow=\'0 4px 12px rgba(14,165,233,0.25)\';this.style.transform=\'none\';">Agregar seleccionadas</button>' +
+                        '<button onclick="document.getElementById(\'compDriveSelector\').remove()" style="padding:12px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.2s ease;" onmouseover="this.style.background=\'#e2e8f0\';" onmouseout="this.style.background=\'#f1f5f9\';">Cancelar</button>' +
+                    '</div>' +
+                '</div>';
+
+            sel.appendChild(box);
+            document.body.appendChild(sel);
+
+            window.renderList = renderList;
+            window.toggleCard = toggleCard;
+            window.selectedIds = selectedIds;
+            renderList('');
+        })
+        .withFailureHandler(function(err) {
+            alert('Error: ' + err.message);
+        })
+        .listarBaterias();
+}
+
+function agregarDriveAComparativa() {
+    const ids = window.selectedIds || [];
+    if (ids.length === 0) return;
+    document.getElementById('compDriveSelector')?.remove();
+    showLoadingModal('Agregando ' + ids.length + ' batería(s) a la comparativa...');
+
+    let completed = 0;
+    const total = ids.length;
+    ids.forEach((id, idx) => {
+        setTimeout(() => {
+            google.script.run
+                .withSuccessHandler(function(resp) {
+                    try {
+                        let datos;
+                        if (resp.tipo === 'json') {
+                            datos = resp.datos;
+                        } else {
+                            const binaryStr = atob(resp.base64);
+                            const bytes = new Uint8Array(binaryStr.length);
+                            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                            datos = procesarExcel(bytes, resp.fileName);
+                        }
+                        if (!datos || !datos.rows || datos.rows.length === 0) return;
+                        const newId = ++compBatteryIdCounter;
+                        const baseName = resp.meta.nombre || datos.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '');
+                        datos.meta.id = newId;
+                        datos.meta.name = baseName;
+                        datos.meta.year = resp.meta.anio || new Date().getFullYear() + '';
+                        state.bateriasComparativa.push(datos);
+                    } catch(err) {
+                        mostrarStatus('compStatus', 'Error al procesar: ' + err.message, 'error');
+                    }
+                    completed++;
+                    if (completed >= total) {
+                        hideLoadingModal();
+                        renderBatteryList();
+                        fadeInCards('batteryList');
+                        actualizarComparativa();
+                    }
+                })
+                .withFailureHandler(function(err) {
+                    mostrarStatus('compStatus', 'Error: ' + err.message, 'error');
+                    completed++;
+                    if (completed >= total) {
+                        hideLoadingModal();
+                        renderBatteryList();
+                        fadeInCards('batteryList');
+                        actualizarComparativa();
+                    }
+                })
+                .cargarBateria(id);
+        }, idx * 150);
+    });
+}
+
+function handleDashboardScroll() {
+    const filterBar = document.getElementById('filterBar');
+    if (!filterBar) return;
+    
+    // Check if the bar is sticking (top is 72px)
+    const rect = filterBar.getBoundingClientRect();
+    if (rect.top <= 73) { 
+        filterBar.classList.add('is-sticky');
+    } else {
+        filterBar.classList.remove('is-sticky');
+    }
+}
+</script>
+

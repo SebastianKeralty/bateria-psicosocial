@@ -1,0 +1,320 @@
+<script>
+// ============================================================
+// UI COMPONENTS — Loaders, Toasts, Skeletons, Upload
+// ============================================================
+const inicioFile = document.getElementById('inicioFile');
+if (inicioFile) {
+    inicioFile.addEventListener('change', function(e) {
+        console.log('File selected', e.target.files[0]);
+        const file = e.target.files[0];
+        if (!file) return;
+        procesarDashboard(file);
+    });
+}
+var _bateriasFile = document.getElementById('bateriasFile');
+if (_bateriasFile) {
+_bateriasFile.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    mostrarModalGuardar(file);
+    e.target.value = '';
+});
+}
+const compFileEl = document.getElementById('comparativaFile');
+if (compFileEl) {
+compFileEl.addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    files.forEach((file, index) => {
+        setTimeout(() => procesarComparativa(file), index * 500);
+    });
+});
+}
+
+function mostrarStatus(id, msg, tipo) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg ' + tipo;
+    el.style.display = 'block';
+}
+
+function showLoadingModal(msg) {
+    const overlay = document.getElementById('loadingModal');
+    const text = document.getElementById('loadingText');
+    if (text && msg) text.textContent = msg;
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function hideLoadingModal() {
+    const overlay = document.getElementById('loadingModal');
+    if (overlay) overlay.style.display = 'none';
+}
+
+/* ===== COMPARATIVA SKELETON HELPERS ===== */
+function showCompBatterySkeleton() {
+    const empty = document.getElementById('compEmptyState');
+    const batteryCard = document.getElementById('batteryCard');
+    const listContainer = document.getElementById('batteryListContainer');
+    const sk = document.getElementById('compBatterySkeleton');
+    if (empty) empty.style.display = 'none';
+    if (batteryCard) batteryCard.style.display = 'block';
+    if (listContainer) listContainer.style.display = 'block';
+    if (sk) { sk.style.display = 'grid'; sk.style.opacity = '0'; requestAnimationFrame(function() { sk.style.opacity = '1'; sk.style.transition = 'opacity 0.3s ease'; }); }
+}
+function hideCompBatterySkeleton() {
+    const sk = document.getElementById('compBatterySkeleton');
+    if (sk) sk.style.display = 'none';
+}
+function showCompChartSkeletons() {
+    ['Intra','Extra','Stress'].forEach(function(s) {
+        var el = document.getElementById('compChartSkeleton' + s);
+        if (el) el.style.display = 'flex';
+        var cv = document.getElementById('grouped' + s);
+        if (cv) cv.style.opacity = '0';
+    });
+    var trendSk = document.getElementById('trendChartSkeleton');
+    if (trendSk) trendSk.style.display = 'flex';
+    var trendBody = document.getElementById('trendCardBody');
+    if (trendBody) trendBody.style.display = 'none';
+}
+function hideCompChartSkeletons() {
+    ['Intra','Extra','Stress'].forEach(function(s) {
+        var el = document.getElementById('compChartSkeleton' + s);
+        if (el) el.style.display = 'none';
+        var cv = document.getElementById('grouped' + s);
+        if (cv) cv.style.opacity = '1';
+    });
+    var trendSk = document.getElementById('trendChartSkeleton');
+    if (trendSk) trendSk.style.display = 'none';
+    var trendBody = document.getElementById('trendCardBody');
+    if (trendBody) trendBody.style.display = '';
+}
+function forceReflow(el) {
+    void el.offsetHeight; // force browser reflow
+}
+function fadeInCards(containerId) {
+    var cards = document.querySelectorAll('#' + containerId + ' .bat-card');
+    cards.forEach(function(c, i) {
+        c.style.opacity = '0';
+        c.style.transform = 'translateY(12px)';
+        c.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        c.style.transitionDelay = (i * 0.08) + 's';
+        requestAnimationFrame(function() {
+            c.style.opacity = '1';
+            c.style.transform = 'translateY(0)';
+        });
+    });
+}
+
+function showInlineLoading(msg) {
+    var overlay = document.getElementById('planInlineLoading');
+    var text = document.getElementById('planInlineLoadingText');
+    var content = document.getElementById('planContentArea');
+    if (content) content.style.display = 'none';
+    if (text && msg) text.textContent = msg;
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '0';
+        setTimeout(function() { overlay.style.opacity = '1'; }, 10);
+    }
+}
+
+function hideInlineLoading() {
+    var overlay = document.getElementById('planInlineLoading');
+    var content = document.getElementById('planContentArea');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(function() { 
+            overlay.style.display = 'none';
+            if (content) content.style.display = 'block';
+        }, 300);
+    }
+}
+
+function procesarDashboard(file) {
+    console.log('Processing dashboard file:', file.name);
+    showLoadingModal('Leyendo y procesando archivo...');
+    mostrarStatus('inicioStatus', 'Leyendo archivo...', 'info');
+    const inicioSuccess = document.getElementById('inicioSuccess');
+    if (inicioSuccess) inicioSuccess.style.display = 'none';
+    const inicioFile = document.getElementById('inicioFile');
+    if (inicioFile) inicioFile.value = '';
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        console.log('File read complete');
+        try {
+            const result = procesarExcel(new Uint8Array(e.target.result), file.name);
+            console.log('Excel processed, result:', result);
+            console.log('Excel processed, rows:', result.rows?.length);
+
+            if (!result.rows || result.rows.length === 0) {
+                hideLoadingModal();
+                mostrarStatus('inicioStatus', 'No se encontraron datos en las hojas esperadas (FORMA B digitacion / FORMA A Digitacion). Asegúrate de que los nombres de las hojas sean correctos.', 'error');
+                console.error('procesarExcel returned no rows.');
+                return;
+            }
+
+            state.bateriaActiva = result;
+            _cargarPlanes();
+            hideLoadingModal();
+            mostrarStatus('inicioStatus', '✔ ' + result.meta.fileName + ' — ' + result.meta.totalRows + ' registros (Forma ' + result.meta.forma + ')', 'success');
+
+            const inicioSuccess = document.getElementById('inicioSuccess');
+            if (inicioSuccess) inicioSuccess.style.display = 'block';
+
+            const topbarBadge = document.getElementById('topbarBadge');
+            if (topbarBadge) {
+                topbarBadge.style.display = 'inline';
+                topbarBadge.textContent = result.meta.fileName + ' (' + result.meta.totalRows + ' reg.)';
+            }
+
+            console.log('Calling renderDashboard');
+            renderDashboard();
+
+            // Switch to dashboard tab automatically
+            setTimeout(() => {
+                irADashboard();
+            }, 1500);
+        } catch(err) {
+            hideLoadingModal();
+            console.error('Error processing:', err);
+            mostrarStatus('inicioStatus', 'Error al procesar: ' + err.message, 'error');
+        }
+    };
+    reader.onerror = function(err) {
+        hideLoadingModal();
+        console.error('FileReader error:', err);
+        mostrarStatus('inicioStatus', 'Error al leer el archivo', 'error');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ── BATERÍAS: modal para guardar (nombre + año) ──
+let _pendingFile = null;
+
+function mostrarModalGuardar(file) {
+    _pendingFile = file;
+    const baseName = file.name.replace(/\.(xlsx?|xlsb)$/i, '') || 'Bateria';
+    const currentYear = new Date().getFullYear();
+
+    const modal = document.createElement('div');
+    modal.id = 'modalGuardarBateria';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:6000;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+    let yearOpts = '';
+    for (let y = currentYear + 1; y >= currentYear - 5; y--) {
+        yearOpts += '<option value="' + y + '"' + (y === currentYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+
+    modal.innerHTML =
+        '<div style="background:white;border-radius:16px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+            '<h3 style="margin:0 0 20px;color:#14532d;font-size:20px;">Guardar batería</h3>' +
+            '<label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nombre</label>' +
+            '<input id="modalNombreBateria" type="text" value="' + baseName + '" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box;">' +
+            '<label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Año</label>' +
+            '<select id="modalAnioBateria" style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:24px;box-sizing:border-box;">' + yearOpts + '</select>' +
+            '<div style="display:flex;gap:10px;">' +
+                '<button onclick="confirmarGuardarBateria()" style="flex:1;padding:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Guardar</button>' +
+                '<button onclick="cerrarModalGuardar()" style="padding:12px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('modalNombreBateria')?.select(), 100);
+}
+
+function cerrarModalGuardar() {
+    document.getElementById('modalGuardarBateria')?.remove();
+    _pendingFile = null;
+}
+
+function confirmarGuardarBateria() {
+    const file = _pendingFile;
+    if (!file) return;
+    const nombre = document.getElementById('modalNombreBateria')?.value?.trim();
+    const anio = document.getElementById('modalAnioBateria')?.value;
+    if (!nombre) { alert('Escribe un nombre'); return; }
+    var ext = file.name.match(/\.(xlsx?|xlsb)$/i);
+    var extStr = ext ? ext[0] : '.xlsx';
+    cerrarModalGuardar();
+    uploadBateria(file, nombre, anio, extStr);
+}
+
+function uploadBateria(file, nombre, anio, ext) {
+    showLoadingModal('Guardando batería en Drive...');
+    mostrarStatus('bateriasStatus', 'Procesando archivo...', 'info');
+    ext = ext || '.xlsx';
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const arrayBuffer = e.target.result;
+            const result = procesarExcel(new Uint8Array(arrayBuffer), file.name);
+            if (!result.rows || result.rows.length === 0) {
+                hideLoadingModal();
+                mostrarStatus('bateriasStatus', 'No se encontraron datos en las hojas esperadas.', 'error');
+                return;
+            }
+
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+            const excelBase64 = btoa(binary);
+
+            const s = result.summary;
+            const total = s.total || 1;
+            const intraP = Math.round((((s.intraGeneral?.["Riesgo alto"]||0)+(s.intraGeneral?.["Riesgo muy alto"]||0))/total)*100);
+            const extraP = Math.round((((s.extraGeneral?.["Riesgo alto"]||0)+(s.extraGeneral?.["Riesgo muy alto"]||0))/total)*100);
+            const stressP = Math.round((((s.stress?.["Riesgo alto"]||0)+(s.stress?.["Riesgo muy alto"]||0))/total)*100);
+            const psicoPct = Math.round((intraP + extraP + stressP) / 3);
+            const metadata = { total: s.total, forma: result.meta.forma, intraP, extraP, stressP, psicoPct };
+
+            // Guardar el resultado procesado para carga rápida posterior
+            const datosProcesados = { meta: result.meta, summary: result.summary, rows: result.rows };
+
+            state.bateriaActiva = result;
+
+            google.script.run
+                .withSuccessHandler(function(entry) {
+                    hideLoadingModal();
+                    mostrarStatus('bateriasStatus', '✔ ' + nombre + ' guardada en Drive (' + entry.total + ' registros)', 'success');
+                    renderBaterias();
+                })
+                .withFailureHandler(function(err) {
+                    hideLoadingModal();
+                    const msg = err.message.includes('permissions') || err.message.includes('permisos') || err.message.includes('insufficient') ?
+                        'Permisos insuficientes. Ve a la pestaña Baterías y haz clic en "Autorizar Drive".' :
+                        'Error al guardar: ' + err.message;
+                    mostrarStatus('bateriasStatus', msg, 'error');
+                    console.error(err);
+                })
+                .guardarBateria(excelBase64, datosProcesados, nombre, anio, metadata, ext);
+        } catch(err) {
+            hideLoadingModal();
+            mostrarStatus('bateriasStatus', 'Error al procesar: ' + err.message, 'error');
+            console.error(err);
+        }
+    };
+    reader.onerror = function(err) {
+        hideLoadingModal();
+        mostrarStatus('bateriasStatus', 'Error al leer el archivo', 'error');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function mostrarPlanToast(msg, tipo) {
+    var toast = document.getElementById('planToast');
+    var text = document.getElementById('planToastText');
+    if (!toast) return;
+    text.textContent = msg;
+    toast.className = 'plan-toast ' + tipo;
+    toast.querySelector('.toast-icon').textContent = tipo === 'success' ? '✓' : '✕';
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function() { toast.classList.remove('show'); }, 3000);
+}
+</script>
+

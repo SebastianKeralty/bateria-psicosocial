@@ -1,0 +1,426 @@
+<script>
+function exportarDatosJSON() {
+    const tab = document.querySelector('.tab-content.active');
+    if (!tab) return;
+
+    const id = tab.id;
+    var data;
+
+    if (id === 'tab-dashboard') {
+        if (!state.bateriaActiva) return;
+        data = buildDashboardExport(state.bateriaActiva);
+    } else if (id === 'tab-comparativa') {
+        const sel = getSelectedBaterias();
+        if (sel.length < 1) return;
+        data = buildComparativaExport(sel);
+    } else {
+        return;
+    }
+
+    const baseName = id === 'tab-dashboard'
+        ? state.bateriaActiva.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '')
+        : 'Comparativa_Baterias';
+    downloadJSON(data, baseName);
+}
+
+function downloadJSON(data, baseName) {
+    const btn = document.getElementById('btnExport');
+    const origHtml = btn.innerHTML;
+    btn.classList.add('loading');
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Exportando...';
+
+    setTimeout(function () {
+        const text = _buildPPTText(data);
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = baseName + '.txt';
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        btn.classList.remove('loading');
+        btn.innerHTML = origHtml;
+    }, 100);
+}
+
+function exportarJSON() {
+    const tab = document.querySelector('.tab-content.active');
+    if (!tab) return;
+
+    const id = tab.id;
+    var data;
+
+    if (id === 'tab-dashboard') {
+        if (!state.bateriaActiva) return;
+        data = buildDashboardExport(state.bateriaActiva);
+    } else if (id === 'tab-comparativa') {
+        const sel = getSelectedBaterias();
+        if (sel.length < 1) return;
+        data = buildComparativaExport(sel);
+    } else {
+        return;
+    }
+
+    const baseName = id === 'tab-dashboard'
+        ? state.bateriaActiva.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '')
+        : 'Comparativa_Baterias';
+    downloadJSONFile(data, baseName);
+}
+
+function downloadJSONFile(data, baseName) {
+    const btn = document.getElementById('btnExportJSON');
+    const origHtml = btn.innerHTML;
+    btn.classList.add('loading');
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Exportando...';
+
+    setTimeout(function () {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = baseName + '.json';
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        btn.classList.remove('loading');
+        btn.innerHTML = origHtml;
+    }, 100);
+}
+
+function getActiveFilters() {
+    const filters = {};
+    var s = document.getElementById('dfSexo');
+    if (s && s.value) filters.sexo = s.value;
+    s = document.getElementById('dfTipoCargo');
+    if (s && s.value) filters.tipoCargo = s.value;
+    s = document.getElementById('dfAreaTrabajo');
+    if (s && s.value) filters.areaTrabajo = s.value;
+    s = document.getElementById('dfTipoContrato');
+    if (s && s.value) filters.tipoContrato = s.value;
+    s = document.getElementById('dfEstrato');
+    if (s && s.value) filters.estrato = s.value;
+    s = document.getElementById('dfAntiguedadCargo');
+    if (s && s.value) filters.antiguedadCargo = s.value;
+    return filters;
+}
+
+function riskHighCount(dist) {
+    return (dist['Riesgo alto'] || 0) + (dist['Riesgo muy alto'] || 0);
+}
+
+function pctRiskByDimension(rows, summary) {
+    return summary.dimensions.map(function (d) {
+        var pct = summary.total > 0 ? Math.round((riskHighCount(d.risk) / summary.total) * 1000) / 10 : 0;
+        return { name: d.name, pctCritico: pct, avgT: d.avgT };
+    }).sort(function (a, b) { return b.pctCritico - a.pctCritico; });
+}
+
+function buildDashboardExport(battery) {
+    var sum = battery.summary;
+    var rows = battery.rows;
+    var total = sum.total;
+
+    var sexGroups = {};
+    rows.forEach(function (r) {
+        var sex = String(r['2. Sexo'] || 'Sin dato').trim();
+        if (!sexGroups[sex]) sexGroups[sex] = [];
+        sexGroups[sex].push(r);
+    });
+    var bySex = [];
+    Object.keys(sexGroups).forEach(function (sex) {
+        var grp = sexGroups[sex];
+        var s = computeSummary(grp);
+        bySex.push({
+            grupo: sex,
+            total: grp.length,
+            intraCritico: pctCriticoDist(s.intraGeneral, grp.length),
+            extraCritico: pctCriticoDist(s.extraGeneral, grp.length),
+            stressCritico: getStressPct({ summary: s })
+        });
+    });
+
+    var areaGroups = {};
+    var areaNameMap = {};
+    var normArea = function (a) { return a.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); };
+    rows.forEach(function (r) {
+        var orig = String(r['16. \u00c1rea donde trabaja'] || 'Sin dato').trim();
+        var key = normArea(orig);
+        if (!areaGroups[key]) { areaGroups[key] = []; areaNameMap[key] = orig; }
+        areaGroups[key].push(r);
+    });
+    var byArea = [];
+    Object.keys(areaGroups)
+        .filter(function (a) { return areaGroups[a].length >= 5; })
+        .forEach(function (areaKey) {
+            var grp = areaGroups[areaKey];
+            var s = computeSummary(grp);
+            var topDims = pctRiskByDimension(grp, s).slice(0, 3).map(function (d) { return d.name; });
+            byArea.push({
+                area: areaNameMap[areaKey] || areaKey,
+                total: grp.length,
+                intraCritico: pctCriticoDist(s.intraGeneral, grp.length),
+                extraCritico: pctCriticoDist(s.extraGeneral, grp.length),
+                stressCritico: getStressPct({ summary: s }),
+                topDimensionesCriticas: topDims
+            });
+        });
+
+    var contractGroups = {};
+    rows.forEach(function (r) {
+        var c = String(r['17. Tipo de contrato'] || 'Sin dato').trim();
+        if (!contractGroups[c]) contractGroups[c] = [];
+        contractGroups[c].push(r);
+    });
+    var byContrato = [];
+    Object.keys(contractGroups).forEach(function (c) {
+        var grp = contractGroups[c];
+        var s = computeSummary(grp);
+        byContrato.push({
+            contrato: c,
+            total: grp.length,
+            intraCritico: pctCriticoDist(s.intraGeneral, grp.length),
+            extraCritico: pctCriticoDist(s.extraGeneral, grp.length),
+            stressCritico: getStressPct({ summary: s })
+        });
+    });
+
+    var cargoGroups = {};
+    rows.forEach(function (r) {
+        var c = String(r['14. Tipo de cargo'] || 'Sin dato').trim();
+        if (!cargoGroups[c]) cargoGroups[c] = [];
+        cargoGroups[c].push(r);
+    });
+    var byCargo = [];
+    Object.keys(cargoGroups).forEach(function (c) {
+        var grp = cargoGroups[c];
+        var s = computeSummary(grp);
+        byCargo.push({
+            cargo: c,
+            total: grp.length,
+            intraCritico: pctCriticoDist(s.intraGeneral, grp.length),
+            extraCritico: pctCriticoDist(s.extraGeneral, grp.length),
+            stressCritico: getStressPct({ summary: s })
+        });
+    });
+
+    var dimToDomain = {};
+    Object.keys(DOMAIN_DIMS).forEach(function (domain) {
+        DOMAIN_DIMS[domain].forEach(function (dim) {
+            dimToDomain[dim.toLowerCase()] = domain;
+        });
+    });
+    var dimensionBreakdown = [];
+    (sum.dimensions || []).forEach(function (d) {
+        var pct = total > 0 ? Math.round((riskHighCount(d.risk) / total) * 1000) / 10 : 0;
+        var nivel = d.avgT >= 70 ? 'Muy Alto' : d.avgT >= 55 ? 'Alto' : d.avgT >= 30 ? 'Medio' : 'Bajo';
+        dimensionBreakdown.push({
+            dimension: d.name,
+            dominio: dimToDomain[d.name.toLowerCase()] || 'Intralaboral',
+            pctCritico: pct,
+            avgT: d.avgT,
+            nivel: nivel
+        });
+    });
+
+    var stressBreakdown = [];
+    (sum.stressQuestions || []).forEach(function (q) {
+        var pct = total > 0 ? Math.round((riskHighCount(q.risk) / total) * 1000) / 10 : 0;
+        stressBreakdown.push({ pregunta: q.name, pctCritico: pct });
+    });
+
+    return {
+        version: '1.0',
+        type: 'dashboard',
+        exportDate: new Date().toISOString(),
+        battery: {
+            fileName: battery.meta.fileName,
+            forma: battery.meta.forma,
+            totalRows: battery.meta.totalRows
+        },
+        filters: getActiveFilters(),
+        summary: {
+            total: sum.total,
+            intraGeneral: sum.intraGeneral,
+            extraGeneral: sum.extraGeneral,
+            stress: sum.stress,
+            demographics: sum.demographics,
+            topCriticas: (sum.topCriticas || []).slice(0, 10)
+        },
+        bySex: bySex,
+        byArea: byArea,
+        byCargo: byCargo,
+        byContrato: byContrato,
+        dimensionBreakdown: dimensionBreakdown,
+        stressBreakdown: stressBreakdown
+    };
+}
+
+function buildComparativaExport(selected) {
+    var baterias = selected.map(function (b) {
+        return {
+            meta: b.meta,
+            summary: b.summary,
+            rows: b.rows
+        };
+    });
+
+    var sorted = [].concat(selected).sort(function (a, b) {
+        return (parseInt(a.meta.year) || 0) - (parseInt(b.meta.year) || 0);
+    });
+
+    var allDimNames = [];
+    if (selected.length > 0) {
+        allDimNames = selected[0].summary.dimensions.map(function (d) { return d.name; });
+    }
+
+    var sideBySide = allDimNames.map(function (dimName) {
+        var entry = { dimension: dimName };
+        baterias.forEach(function (b, i) {
+            var dim = b.summary.dimensions.find(function (d) { return d.name === dimName; });
+            entry['bateria_' + i] = dim
+                ? {
+                    avgT: dim.avgT,
+                    pctCritico: b.summary.total > 0 ? Math.round((riskHighCount(dim.risk) / b.summary.total) * 1000) / 10 : 0,
+                    risk: dim.risk
+                }
+                : null;
+        });
+        return entry;
+    });
+
+    var deltas = [];
+    for (var i = 1; i < sorted.length; i++) {
+        var a = sorted[i - 1], b = sorted[i];
+        var d = {
+            from: a.meta.year || a.meta.fileName,
+            to: b.meta.year || b.meta.fileName,
+            intraDelta: pctCriticoDist(b.summary.intraGeneral, b.summary.total) - pctCriticoDist(a.summary.intraGeneral, a.summary.total),
+            extraDelta: pctCriticoDist(b.summary.extraGeneral, b.summary.total) - pctCriticoDist(a.summary.extraGeneral, a.summary.total),
+            stressDelta: getStressPct({ summary: b.summary }) - getStressPct({ summary: a.summary })
+        };
+        deltas.push(d);
+    }
+
+    var trends = {};
+    ['intraGeneral', 'extraGeneral', 'stress'].forEach(function (key) {
+        var vals = sorted.map(function (b) {
+            return key === 'stress'
+                ? getStressPct({ summary: b.summary })
+                : pctCriticoDist(b.summary[key], b.summary.total);
+        });
+        var last = vals[vals.length - 1];
+        var first = vals[0];
+        var dir = last > first ? 'empeor\u00f3' : last < first ? 'mejor\u00f3' : 'estable';
+        var change = last - first;
+        trends[key] = { valores: vals, cambio: Math.round(change * 10) / 10, direccion: dir };
+    });
+
+    return {
+        version: '1.0',
+        type: 'comparativa',
+        exportDate: new Date().toISOString(),
+        totalBaterias: baterias.length,
+        comparativa: {
+            overview: trends,
+            sideBySideDimensiones: sideBySide,
+            deltas: deltas
+        },
+        baterias: baterias
+    };
+}
+
+// ============================================================
+// DRILL-DOWN MODAL
+// ============================================================
+const DOMAIN_DIMS = {
+    "LIDERAZGO Y RELACIONES SOCIALES": ["Caracteristicas Liderazgo", "Relaciones Sociales", "Retroal. Desempeño", "Relación colaboradores"],
+    "CONTROL SOBRE EL TRABAJO": ["Control y autonomia sobre el trabajo", "Oportunidades para el desarrollo", "Participación y manejo del cambIo", "Claridad de rol", "Capacitación"],
+    "DEMANDAS DEL TRABAJO": ["Demandas cuantitativas", "demandas de carga mental", "Demandas emocionales", "Exigencias de responsabilidad", "Demandas ambientales y de esfuerzo fisico", "Demandas de jornada laboral", "Consistencia de rol", "Influencia sobre el entorno extra"],
+    "RECOMPENSAS": ["Reconocimiento y compensación", "Recompensas de pertenencia y trabajo"]
+};
+const STRESS_CAT_QS = {
+    "Síntomas Fisiológicos":              [1,2,3,4,5,6,7,8],
+    "Síntomas de Comportamiento Social":  [9,10,11,12],
+    "Síntomas Intelectuales y Laborales": [13,14,15,16,17,18,19,20,21,22],
+    "Síntomas Psicoemocionales":          [23,24,25,26,27,28,29,30,31]
+};
+const STRESS_QUESTIONS = {
+    1:"Dolores en el cuello y espalda o tensión muscular",
+    2:"Problemas gastrointestinales, úlcera péptica, acidez, problemas digestivos o del colon",
+    3:"Problemas respiratorios",
+    4:"Dolor de cabeza",
+    5:"Trastornos del sueño como somnolencia durante el día o desvelo en la noche",
+    6:"Palpitaciones en el pecho o problemas cardíacos",
+    7:"Cambios fuertes al apetito",
+    8:"Problemas relacionados con la función de los órganos genitales (Impotencia, frigidez)",
+    9:"Dificultad en las relaciones familiares",
+    10:"Dificultad para permanecer quieto o dificultad para iniciar actividades",
+    11:"Dificultad en las relaciones con otras personas",
+    12:"Sensación de aislamiento y desisnterés",
+    13:"Sentimiento de sobrecarga de trabajo",
+    14:"Dificultad para concentrarse, olvidos frecuentes",
+    15:"Aumento en el número de accidentes de trabajo",
+    16:"Sentimiento de frustración, de no haber hecho lo que se quería en la vida",
+    17:"Cansancio, tedio o desgano",
+    18:"Disminución del rendimiento en el trabajo o poca creatividad",
+    19:"Deseo de no asistir al trabajo",
+    20:"Bajo compromiso o poco interés con lo que se hace",
+    21:"Dificultad para tomar decisiones",
+    22:"Deseo de cambiar de empleo",
+    23:"Sentimiento de soledad y miedo",
+    24:"Sentimiento de irritabilidad, actitudes y pensamientos negativos",
+    25:"Sentimiento de angustia, preocupación o tristeza",
+    26:"Consumo de drogas para aliviar la tensión o los nervios",
+    27:"Sentimiento de que 'no vale nada', o 'no sirve para nada'",
+    28:"Consumo de bebidas alcohólicas o café o cigarrillo",
+    29:"Sentimiento de que está perdiendo la razón",
+    30:"Comportamientos rígidos, obstinación o terquedad",
+    31:"Sensación de no poder manejar los problemas de la vida"
+};
+
+function toggleSort() {
+    state._sortDir = state._sortDir === 'desc' ? 'asc' : 'desc';
+    aplicarFiltrosModal();
+}
+
+function rebuildDimensionOptions(type) {
+    const dimSel = document.getElementById('mfDimension');
+    if (!dimSel) return;
+    const domain = document.getElementById('mfDominio')?.value || '';
+    const currentVal = dimSel.value;
+    dimSel.innerHTML = '<option value="">Dimensi\u00f3n: Todas</option>';
+    let availDims = [];
+    if (type === 'intra') {
+        availDims = (state._drillSummary.dimensions || [])
+            .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
+        if (domain) {
+            const domainDims = DOMAIN_DIMS[domain] || [];
+            availDims = availDims.filter(d => domainDims.includes(d.name));
+        }
+        availDims = availDims.map(d => d.name);
+    } else {
+        availDims = (state._drillSummary.dimensions || [])
+            .filter(d => d.name.startsWith('[Extra]'))
+            .map(d => d.name.replace('[Extra] ', ''));
+    }
+    availDims.sort().forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d; opt.textContent = d;
+        dimSel.appendChild(opt);
+    });
+    if (currentVal) {
+        // restore if still valid
+        if (Array.from(dimSel.options).some(o => o.value === currentVal)) {
+            dimSel.value = currentVal;
+        }
+    }
+}
+
+function buildModalFilters(type) {
+    const container = document.getElementById('modalFilters');
+    container.innerHTML = '';
+    const src = state._drillBatteryData || state.bateriaActiva;
+    const allRows = src.rows;
+
+    const autoApply = aplicarFiltrosModal;
+</script>
