@@ -1,5 +1,5 @@
 <script>
-function exportarDatosJSON() {
+function exportarDatosPPT() {
     const tab = document.querySelector('.tab-content.active');
     if (!tab) return;
 
@@ -20,10 +20,10 @@ function exportarDatosJSON() {
     const baseName = id === 'tab-dashboard'
         ? state.bateriaActiva.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '')
         : 'Comparativa_Baterias';
-    downloadJSON(data, baseName);
+    downloadPPTText(data, baseName);
 }
 
-function downloadJSON(data, baseName) {
+function downloadPPTText(data, baseName) {
     const btn = document.getElementById('btnExport');
     const origHtml = btn.innerHTML;
     btn.classList.add('loading');
@@ -64,10 +64,10 @@ function exportarJSON() {
     const baseName = id === 'tab-dashboard'
         ? state.bateriaActiva.meta.fileName.replace(/\.(xlsx?|xlsb)$/i, '')
         : 'Comparativa_Baterias';
-    downloadJSONFile(data, baseName);
+    downloadPPTTextFile(data, baseName);
 }
 
-function downloadJSONFile(data, baseName) {
+function downloadPPTTextFile(data, baseName) {
     const btn = document.getElementById('btnExportJSON');
     const origHtml = btn.innerHTML;
     btn.classList.add('loading');
@@ -244,14 +244,17 @@ function buildDashboardExport(battery) {
             extraGeneral: sum.extraGeneral,
             stress: sum.stress,
             demographics: sum.demographics,
-            topCriticas: (sum.topCriticas || []).slice(0, 10)
+            topCriticas: (sum.topCriticas || []).slice(0, 10),
+            dimensions: sum.dimensions,
+            stressQuestions: sum.stressQuestions
         },
         bySex: bySex,
         byArea: byArea,
         byCargo: byCargo,
         byContrato: byContrato,
         dimensionBreakdown: dimensionBreakdown,
-        stressBreakdown: stressBreakdown
+        stressBreakdown: stressBreakdown,
+        rows: rows
     };
 }
 

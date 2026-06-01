@@ -1260,24 +1260,40 @@ function renderDetailTable(rows, summary) {
 }
 
 // ============================================================
-// EXPORT PPT TEXT (organized by slides matching _generarPPT structure)
+// EXPORT PPT TEXT (15 slides fijas con datos reales, sin placeholders)
 // ============================================================
 function _buildPPTText(data) {
     var lines = [];
-    var sep = '============================================================';
-    var sub = '------------------------------------------------------------';
-    var SLD = '--------------------------------------------------------------------';
 
     function add() { for (var i = 0; i < arguments.length; i++) lines.push(arguments[i]); }
     function tabRow() { return Array.prototype.join.call(arguments, '\t'); }
+    function sepLine() { return '============================================================'; }
+    function subLine() { return '------------------------------------------------------------'; }
+
     function critPct(dist, total) {
         if (!dist || !total) return '0%';
         return Math.round((((dist['Riesgo alto']||0)+(dist['Riesgo muy alto']||0))/total)*100) + '%';
+    }
+    function critPctNum(dist, total) {
+        if (!dist || !total) return 0;
+        return Math.round((((dist['Riesgo alto']||0)+(dist['Riesgo muy alto']||0))/total)*100);
     }
     function totalInDist(dist) {
         if (!dist) return 0;
         return Object.values(dist).reduce(function(a, b) { return a + b; }, 0);
     }
+    function riskLevelName(pct) {
+        if (pct <= 29) return 'Sin Riesgo';
+        if (pct <= 49) return 'Bajo';
+        if (pct <= 69) return 'Medio';
+        if (pct <= 84) return 'Alto';
+        return 'Muy Alto';
+    }
+    function normDimName(name) {
+        return name.replace('[Global] ', '').replace('[Extra] ', '').replace('[Stress] ', '');
+    }
+
+    // ── Build intra domain groups ──
     function buildIntraDomainGroups(s) {
         var globalDims = [], intraDims = [];
         if (s.dimensions) {
@@ -1304,272 +1320,372 @@ function _buildPPTText(data) {
         });
         return { globalDims: globalDims, groups: groups };
     }
-    function writeIntraDomains(slideNum, domNames, meta) {
-        add(SLD, 'SLIDE ' + slideNum + ': INTRALABORAL - ' + domNames.join(', '), SLD);
-        domNames.forEach(function(domName) {
-            var gDom = null;
-            meta.globalDims.forEach(function(gd) { if (gd.name.includes(domName)) gDom = gd; });
-            var dTot = gDom ? totalInDist(gDom.risk) : 0;
-            var dCrit = gDom && dTot > 0 ? Math.round(((gDom.risk['Riesgo alto']||0)+(gDom.risk['Riesgo muy alto']||0))/dTot*100) + '%' : '0%';
-            add(tabRow('[DOMINIO]', domName, '% cr\u00edtico: ' + dCrit));
-            var dims = meta.groups[domName] || [];
-            if (dims.length > 0) {
-                add(tabRow('Dimensi\u00f3n', 'SR', 'RB', 'RM', 'RA', 'RMA', '% Cr\u00edtico'));
-                dims.forEach(function(d) {
-                    var r = d.risk || {};
-                    var sr = r['Sin riesgo']||0, rb = r['Riesgo bajo']||0, rm = r['Riesgo medio']||0;
-                    var ra = r['Riesgo alto']||0, rma = r['Riesgo muy alto']||0;
-                    var tot = sr + rb + rm + ra + rma;
-                    var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
-                    add(tabRow(d.name, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
-                });
+
+    // ── Look up plan actions from MATRIZ_RECOMENDACIONES ──
+    function lookupPlanActions(dimName, level) {
+        var clean = dimName.toLowerCase()
+            .replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e')
+            .replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o')
+            .replace(/[úùüû]/g,'u').replace(/ñ/g,'n')
+            .replace(/\s+/g,' ').trim();
+        for (var key in MATRIZ_RECOMENDACIONES) {
+            var kn = key.toLowerCase()
+                .replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e')
+                .replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o')
+                .replace(/[úùüû]/g,'u').replace(/ñ/g,'n')
+                .replace(/\s+/g,' ').trim();
+            if (kn === clean || clean.indexOf(kn) !== -1 || kn.indexOf(clean) !== -1) {
+                var actions = MATRIZ_RECOMENDACIONES[key][level] || MATRIZ_RECOMENDACIONES[key]['Medio'] || [];
+                return actions;
             }
-            add('');
-        });
+        }
+        return [];
     }
 
-    add(sep, 'INFORME DE RIESGO PSICOSOCIAL - DATOS PARA PRESENTACI\u00d3N', sep, '');
-
-    if (data.type === 'dashboard') {
-        var b = data.battery, s = data.summary, rows = data.rows || [];
-        var areas = [];
-        try { areas = _getAreasFromRows(rows); } catch(e) {}
-        var numAreas = areas.length;
-        var maxAreaSlides = 5;
-        var areasPerSlide = Math.max(6, Math.ceil(areas.length / maxAreaSlides));
-        var areasSlides = areas.length > 0 ? Math.ceil(areas.length / areasPerSlide) : 0;
-
-        var areaStartSlide = 10;
-        var conclusionsSlide = areaStartSlide + areasSlides;
-        var totalSlidesNum = conclusionsSlide + 1;
-
-        // ============ SLIDE 1: PORTADA ============
-        add(SLD, 'SLIDE 1: PORTADA', SLD);
-        add(tabRow('Archivo', b.fileName));
-        add(tabRow('Forma', b.forma));
-        add(tabRow('Total encuestados', String(s.total)));
-        add(tabRow('\u00c1reas', String(numAreas)));
-        add(tabRow('Fecha exportaci\u00f3n', data.exportDate));
-        add('');
-
-        // ============ SLIDE 2: CONTENIDO ============
-        add(SLD, 'SLIDE 2: CONTENIDO', SLD);
-        var idxItems = [
-            ['Factores de Riesgo Psicosocial', 3],
-            ['Participantes y Cobertura', 4],
-            ['Estad\u00edsticas Generales', 5],
-            ['Intralaboral', 6],
-            ['Extralaboral', 7],
-            ['Estr\u00e9s', 8],
-            ['Planes Estrat\u00e9gicos Recomendados', 9],
-            ['An\u00e1lisis por \u00c1reas', areaStartSlide + '-' + (areaStartSlide + areasSlides - 1)],
-            ['Conclusiones y Recomendaciones', conclusionsSlide]
-        ];
-        add(tabRow('Secci\u00f3n', 'Slide'));
-        idxItems.forEach(function (item) {
-            add(tabRow(item[0], String(item[1])));
+    // ── Compute area ranking (same logic as renderTopAreas) ──
+    function computeAreaRanking(rows, summary) {
+        var normArea = function(s) { return s.replace(/^[\d\s]+[\.\s]*/g,'').replace(/\s+/g,' ').trim().toLowerCase(); };
+        var intraCol = summary.isFormB ? "INTRALABORAL(I)" : "INTRALABORAL (I)";
+        var extraCol = "PUNTAJE BRUTO TOTAL (I)";
+        var stressCol = "Interpretaci\u00f3n";
+        var groups = {};
+        rows.forEach(function(row) {
+            var area = (row["Unidad de An\u00e1lisis"] || '').trim();
+            if (!area) return;
+            var key = normArea(area);
+            if (!groups[key]) groups[key] = { name: area, rows: [] };
+            groups[key].rows.push(row);
         });
-        add('');
-
-        // ============ SLIDE 3: FACTORES DE RIESGO PSICOSOCIAL ============
-        add(SLD, 'SLIDE 3: FACTORES DE RIESGO PSICOSOCIAL', SLD);
-        add(tabRow('INTRALABORAL', 'Eval\u00faa condiciones del trabajo que afectan la salud'));
-        add(tabRow('', '4 dominios: Liderazgo y Relaciones Sociales, Control sobre el Trabajo, Demandas del Trabajo, Recompensas'));
-        add(tabRow('', '16 dimensiones: Liderazgo, Relaciones Sociales, Retroalimentaci\u00f3n, Control, Oportunidades, Participaci\u00f3n, Claridad de Rol, Capacitaci\u00f3n, Demandas cuantitativas, carga mental, emocionales, ambientales, jornada, influencia extra, reconocimiento, recompensas'));
-        add(tabRow('EXTRALABORAL', 'Eval\u00faa condiciones del entorno social y familiar del trabajador'));
-        add(tabRow('', '7 dimensiones: Tiempo fuera del Trabajo, Relaciones Familiares, Comunicaci\u00f3n, Situaci\u00f3n Econ\u00f3mica, Vivienda, Influencia del Entorno, Desplazamiento'));
-        add(tabRow('ESTR\u00c9S', 'Eval\u00faa s\u00edntomas asociados a respuestas de estr\u00e9s'));
-        add(tabRow('', '4 categor\u00edas: S\u00edntomas Fisiol\u00f3gicos, de Comportamiento Social, Intelectuales y Laborales, Psicoemocionales'));
-        add(tabRow('', '31 preguntas distribuidas en 4 categor\u00edas que miden la frecuencia de s\u00edntomas de estr\u00e9s'));
-        add('');
-
-        // ============ SLIDE 4: PARTICIPANTES Y COBERTURA ============
-        add(SLD, 'SLIDE 4: PARTICIPANTES Y COBERTURA', SLD);
-        add(tabRow('Total encuestados', String(s.total)));
-        add(tabRow('\u00c1reas cubiertas', String(numAreas)));
-        add(tabRow('Intralaboral % cr\u00edtico', critPct(s.intraGeneral, s.total)));
-        add(tabRow('Extralaboral % cr\u00edtico', critPct(s.extraGeneral, s.total)));
-        add(tabRow('Estr\u00e9s % cr\u00edtico', critPct(s.stress, s.total)));
-        add('');
-
-        // ============ SLIDE 5: ESTAD\u00cdSTICAS GENERALES ============
-        add(SLD, 'SLIDE 5: ESTAD\u00cdSTICAS GENERALES', SLD);
-        add(tabRow('Indicador', 'Sin riesgo', 'Bajo', 'Medio', 'Alto', 'Muy alto', '% Cr\u00edtico'));
-        function distRow(lbl, dist) {
-            if (!dist) return;
-            var sr = dist['Sin riesgo']||0, rb = dist['Riesgo bajo']||0, rm = dist['Riesgo medio']||0;
-            var ra = dist['Riesgo alto']||0, rma = dist['Riesgo muy alto']||0;
-            var tot = sr + rb + rm + ra + rma;
-            var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
-            add(tabRow(lbl, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
-        }
-        distRow('Intralaboral', s.intraGeneral);
-        distRow('Extralaboral', s.extraGeneral);
-        distRow('Estr\u00e9s', s.stress);
-        add('');
-
-        // ============ SLIDE 6: INTRALABORAL ============
-        var intraMeta = buildIntraDomainGroups(s);
-        writeIntraDomains(6, ['LIDERAZGO Y RELACIONES SOCIALES', 'CONTROL SOBRE EL TRABAJO', 'DEMANDAS DEL TRABAJO', 'RECOMPENSAS'], { globalDims: intraMeta.globalDims, groups: intraMeta.groups });
-
-        // ============ SLIDE 7: EXTRALABORAL ============
-        add(SLD, 'SLIDE 7: EXTRALABORAL', SLD);
-        var extraDims = [];
-        if (s.dimensions) {
-            extraDims = s.dimensions.filter(function(d) { return d.name.startsWith('[Extra]') && d.risk; });
-        }
-        if (extraDims.length > 0) {
-            add(tabRow('Dimensi\u00f3n', 'SR', 'RB', 'RM', 'RA', 'RMA', '% Cr\u00edtico'));
-            extraDims.forEach(function(d) {
-                var name = d.name.replace('[Extra] ', '');
-                var r = d.risk || {};
-                var sr = r['Sin riesgo']||0, rb = r['Riesgo bajo']||0, rm = r['Riesgo medio']||0;
-                var ra = r['Riesgo alto']||0, rma = r['Riesgo muy alto']||0;
-                var tot = sr + rb + rm + ra + rma;
-                var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
-                add(tabRow(name, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
+        var list = [];
+        for (var k in groups) {
+            var grp = groups[k];
+            var total = grp.rows.length;
+            var critSum = 0;
+            grp.rows.forEach(function(row) {
+                if (row[intraCol] === "Riesgo alto" || row[intraCol] === "Riesgo muy alto") critSum++;
+                if (row[extraCol] === "Riesgo alto" || row[extraCol] === "Riesgo muy alto") critSum++;
+                if (row[stressCol] === "Riesgo alto" || row[stressCol] === "Riesgo muy alto") critSum++;
             });
-            add('');
+            list.push({ name: grp.name, count: total, pct: total > 0 ? Math.round((critSum / (total * 3)) * 100) : 0, rows: grp.rows });
         }
+        list.sort(function(a, b) { return b.pct - a.pct; });
+        return list;
+    }
 
-        // ============ SLIDE 8: ESTR\u00c9S ============
-        add(SLD, 'SLIDE 8: ESTR\u00c9S - CATEGOR\u00cdAS Y PREGUNTAS', SLD);
-        var stressDims = [];
-        if (s.dimensions) {
-            stressDims = s.dimensions.filter(function(d) { return d.name.startsWith('[Stress]') && d.risk; });
-        }
-        if (stressDims.length > 0) {
-            add(sub, 'Categor\u00edas de Estr\u00e9s', sub);
-            stressDims.forEach(function(d) {
-                var name = d.name.replace('[Stress] ', '');
-                var tot = totalInDist(d.risk);
-                var cp = tot > 0 ? Math.round(((d.risk['Riesgo alto']||0)+(d.risk['Riesgo muy alto']||0))/tot*100) + '%' : '0%';
-                add(tabRow(name, 'Total: ' + tot, '% cr\u00edtico: ' + cp));
-            });
-            add('');
-        }
-        var stressQuestions = s.stressQuestions || [];
-        if (stressQuestions.length > 0) {
-            add(sub, 'Preguntas de Estr\u00e9s (Top 15 por % cr\u00edtico)', sub);
-            var sortedQs = stressQuestions.map(function(q) {
-                var tot = totalInDist(q.risk);
-                var cp = tot > 0 ? Math.round(((q.risk['Riesgo alto']||0)+(q.risk['Riesgo muy alto']||0))/tot*100) : 0;
-                return { name: q.name, risk: q.risk, _crit: cp, _total: tot };
-            }).sort(function(a, b) { return b._crit - a._crit; }).slice(0, 15);
-            add(tabRow('Pregunta', 'Sin riesgo', 'Medio', 'Alto', 'Muy alto', '% Cr\u00edtico'));
-            sortedQs.forEach(function(q) {
-                var r = q.risk || {};
-                var sr = r['Sin riesgo']||0, rm = r['Riesgo medio']||0;
-                var ra = r['Riesgo alto']||0, rma = r['Riesgo muy alto']||0;
-                add(tabRow(q.name, String(sr), String(rm), String(ra), String(rma), q._crit + '%'));
-            });
-            add('');
-        }
+    add(sepLine());
+    add('INFORME DE RIESGO PSICOSOCIAL - DATOS PARA PRESENTACIÓN (15 SLIDES)');
+    add(sepLine());
+    add('');
 
-        // ============ SLIDE 9: PLANES ESTRAT\u00c9GICOS RECOMENDADOS ============
-        add(SLD, 'SLIDE 9: PLANES ESTRAT\u00c9GICOS RECOMENDADOS', SLD);
-        add(tabRow('Objetivo Estrat\u00e9gico:', ''));
-        add(tabRow('Acciones Clave:', ''));
-        add(tabRow('Responsable:', ''));
-        add(tabRow('Plazo:', ''));
-        add(tabRow('Indicador de Seguimiento:', ''));
-        add('');
-
-        // ============ SLIDES 10+: AN\u00c1LISIS POR \u00c1REAS (m\u00edn 6/slide, max 5 slides) ============
-        if (areas.length > 0) {
-            for (var ai = 0; ai < areas.length; ai += areasPerSlide) {
-                var slideNum = areaStartSlide + Math.floor(ai / areasPerSlide);
-                add(SLD, 'SLIDE ' + slideNum + ': AN\u00c1LISIS POR \u00c1REAS (' + (ai + 1) + '-' + Math.min(ai + areasPerSlide, areas.length) + ' de ' + areas.length + ')', SLD);
-                for (var j = 0; j < areasPerSlide && ai + j < areas.length; j++) {
-                    var areaName = areas[ai + j];
-                    var areaRows = rows.filter(function(r) { return (r['Unidad de An\u00e1lisis'] || '').trim() === areaName; });
-                    var areaSummary = null;
-                    try { areaSummary = computeSummary(areaRows); } catch(e) {}
-                    if (!areaSummary) continue;
-                    add(sub, areaName, sub);
-                    add(tabRow('Total encuestados', String(areaSummary.total)));
-                    add(tabRow('Intralaboral % cr\u00edtico', critPct(areaSummary.intraGeneral, areaSummary.total)));
-                    add(tabRow('Extralaboral % cr\u00edtico', critPct(areaSummary.extraGeneral, areaSummary.total)));
-                    add(tabRow('Estr\u00e9s % cr\u00edtico', critPct(areaSummary.stress, areaSummary.total)));
-                    var topCrit = (areaSummary.topCriticas || []).slice(0, 3);
-                    if (topCrit.length > 0) {
-                        add(tabRow('Top 3 dimensiones cr\u00edticas:'));
-                        topCrit.forEach(function(tc, idx) {
-                            var dn = (tc.name || '').replace('[Global] ', '').replace('[Extra] ', '').replace('[Stress] ', '');
-                            add(tabRow('  ' + (idx + 1) + '. ' + dn, (tc.pctAlto || tc.pctCritico || '') + '% cr\u00edtico'));
-                        });
-                    }
-                    add('');
-                }
-            }
-        }
-
-        // ============ SLIDE CONCLUSIONES ============
-        add(SLD, 'SLIDE ' + conclusionsSlide + ': CONCLUSIONES Y RECOMENDACIONES', SLD);
-        add(tabRow('Conclusiones:', ''));
-        add(tabRow('Recomendaciones:', ''));
-        add(tabRow('Plan de Intervenci\u00f3n:', ''));
-        add('');
-
-    } else if (data.type === 'comparativa') {
-        // Comparativa - structured text (no slide mapping needed)
+    // ── COMPARATIVA: simplified output ──
+    if (data.type === 'comparativa') {
         var comp = data.comparativa, ov = comp.overview || {};
-        add(sub, 'COMPARATIVA ENTRE BATER\u00cdAS', sub);
-        add(tabRow('Total bater\u00edas', String(data.totalBaterias)));
-        add(tabRow('Fecha exportaci\u00f3n', data.exportDate));
+        add(subLine()); add('COMPARATIVA ENTRE BATERÍAS'); add(subLine());
+        add(tabRow('Total baterías', String(data.totalBaterias)));
+        add(tabRow('Fecha exportación', data.exportDate));
         add('');
-
         if (ov.intraGeneral || ov.extraGeneral || ov.stress) {
-            add(sub, 'TENDENCIAS GENERALES', sub);
-            add(tabRow('Indicador', 'Direcci\u00f3n', 'Cambio', 'Valores'));
-            ['intraGeneral', 'extraGeneral', 'stress'].forEach(function(k) {
+            add('TENDENCIAS GENERALES');
+            add(tabRow('Indicador', 'Dirección', 'Cambio', 'Valores'));
+            ['intraGeneral','extraGeneral','stress'].forEach(function(k) {
                 var t = ov[k];
                 if (t) add(tabRow(k, t.direccion, String(t.cambio), String(t.valores.join(', '))));
             });
             add('');
         }
-
         if (comp.sideBySideDimensiones && comp.sideBySideDimensiones.length) {
-            add(sub, 'COMPARATIVA POR DIMENSI\u00d3N', sub);
-            var hdr = ['Dimensi\u00f3n'];
-            for (var i = 0; i < data.totalBaterias; i++) {
-                hdr.push('Bater\u00eda ' + i + ' - %Cr\u00edtico', 'Bater\u00eda ' + i + ' - Puntaje T');
-            }
+            add('COMPARATIVA POR DIMENSIÓN');
+            var hdr = ['Dimensión'];
+            for (var i = 0; i < data.totalBaterias; i++) hdr.push('Batería ' + i + ' - %Crítico', 'Batería ' + i + ' - Puntaje T');
             add(tabRow.apply(null, hdr));
             comp.sideBySideDimensiones.forEach(function(entry) {
                 var row = [entry.dimension];
                 for (var j = 0; j < data.totalBaterias; j++) {
                     var d = entry['bateria_' + j];
-                    if (d) { row.push(d.pctCritico + '%', String(d.avgT)); }
-                    else { row.push('-', '-'); }
+                    row.push(d ? d.pctCritico + '%' : '-', d ? String(d.avgT) : '-');
                 }
                 add(tabRow.apply(null, row));
             });
             add('');
         }
-
-        if (comp.deltas && comp.deltas.length) {
-            add(sub, 'CAMBIOS ANUALES (Deltas)', sub);
-            add(tabRow('Per\u00edodo', 'Delta Intra (% cr\u00edtico)', 'Delta Extra (% cr\u00edtico)', 'Delta Estr\u00e9s (% cr\u00edtico)'));
-            comp.deltas.forEach(function(d) {
-                add(tabRow(d.from + ' \u2192 ' + d.to, (d.intraDelta >= 0 ? '+' : '') + d.intraDelta + 'pp', (d.extraDelta >= 0 ? '+' : '') + d.extraDelta + 'pp', (d.stressDelta >= 0 ? '+' : '') + d.stressDelta + 'pp'));
-            });
-            add('');
-        }
-
-        if (data.baterias) {
-            data.baterias.forEach(function(bat, idx) {
-                add(sub, 'BATER\u00cdA ' + (idx + 1) + ': ' + (bat.meta.fileName || ''), sub);
-                add(tabRow('Total registros', String(bat.meta.totalRows || bat.summary.total || '')));
-                add(tabRow('Forma', bat.meta.forma || ''));
-                var sm = bat.summary;
-                add(tabRow('Intra % cr\u00edtico', sm.total > 0 ? Math.round((( (sm.intraGeneral['Riesgo alto']||0) + (sm.intraGeneral['Riesgo muy alto']||0) ) / sm.total) * 100) + '%' : ''));
-                add(tabRow('Extra % cr\u00edtico', sm.total > 0 ? Math.round((( (sm.extraGeneral['Riesgo alto']||0) + (sm.extraGeneral['Riesgo muy alto']||0) ) / sm.total) * 100) + '%' : ''));
-                add(tabRow('Estr\u00e9s % cr\u00edtico', sm.total > 0 ? Math.round((( (sm.stress['Riesgo alto']||0) + (sm.stress['Riesgo muy alto']||0) ) / sm.total) * 100) + '%' : ''));
-                add('');
-            });
-        }
+        return lines.join('\r\n');
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // DASHBOARD — 15 slides fijas
+    // ══════════════════════════════════════════════════════════════
+
+    var b = data.battery, s = data.summary, rows = data.rows || [];
+    var areas = [];
+    try { areas = _getAreasFromRows(rows); } catch(e) {}
+    var numAreas = areas.length;
+
+    // ==================== SLIDE 1: PORTADA ====================
+    add(sepLine());
+    add('# SLIDE 1: PORTADA');
+    add(sepLine());
+    add(tabRow('Archivo', b.fileName));
+    add(tabRow('Forma', b.forma));
+    add(tabRow('Total encuestados', String(s.total)));
+    add(tabRow('Áreas', String(numAreas)));
+    add(tabRow('Fecha exportación', data.exportDate));
+    add('');
+
+    // ==================== SLIDE 2: ÍNDICE ====================
+    add(sepLine());
+    add('# SLIDE 2: ÍNDICE');
+    add(sepLine());
+    add(tabRow('Sección', 'Slide'));
+    var idxItems = [
+        ['Portada', 1],
+        ['Índice', 2],
+        ['Factores de Riesgo Psicosocial', 3],
+        ['Participantes y Cobertura', 4],
+        ['Estadísticas Generales', 5],
+        ['Intralaboral', 6],
+        ['Extralaboral', 7],
+        ['Estrés (Categorías + Avatar)', 8],
+        ['Planes Estratégicos Recomendados', 9],
+        ['Top 10 Preguntas de Estrés más Críticas', 10],
+        ['Top 3 Áreas Prioritarias (1-3)', 11],
+        ['Top 3 Áreas Prioritarias (4-6)', 12],
+        ['Top 4 Áreas Prioritarias (7-10)', 13],
+        ['Conclusiones + Recomendaciones + Plan de Intervención', 14],
+        ['Gracias', 15]
+    ];
+    idxItems.forEach(function(item) { add(tabRow(item[0], String(item[1]))); });
+    add('');
+
+    // ==================== SLIDE 3: FACTORES DE RIESGO PSICOSOCIAL ====================
+    add(sepLine());
+    add('# SLIDE 3: FACTORES DE RIESGO PSICOSOCIAL');
+    add(sepLine());
+    add(tabRow('INTRALABORAL', 'Evalúa condiciones del trabajo que afectan la salud'));
+    add(tabRow('', '4 dominios: Liderazgo y Relaciones Sociales, Control sobre el Trabajo, Demandas del Trabajo, Recompensas'));
+    add(tabRow('', '16 dimensiones'));
+    add(tabRow('EXTRALABORAL', 'Evalúa condiciones del entorno social y familiar del trabajador'));
+    add(tabRow('', '7 dimensiones: Tiempo fuera del Trabajo, Relaciones Familiares, Comunicación, Situación Económica, Vivienda, Influencia del Entorno, Desplazamiento'));
+    add(tabRow('ESTRÉS', 'Evalúa síntomas asociados a respuestas de estrés'));
+    add(tabRow('', '4 categorías: Síntomas Fisiológicos, de Comportamiento Social, Intelectuales y Laborales, Psicoemocionales'));
+    add(tabRow('', '31 preguntas distribuidas en 4 categorías'));
+    add('');
+
+    // ==================== SLIDE 4: PARTICIPANTES Y COBERTURA ====================
+    add(sepLine());
+    add('# SLIDE 4: PARTICIPANTES Y COBERTURA');
+    add(sepLine());
+    add(tabRow('Total encuestados', String(s.total)));
+    add(tabRow('Áreas cubiertas', String(numAreas)));
+    add(tabRow('Intralaboral % crítico', critPct(s.intraGeneral, s.total)));
+    add(tabRow('Extralaboral % crítico', critPct(s.extraGeneral, s.total)));
+    add(tabRow('Estrés % crítico', critPct(s.stress, s.total)));
+    add('');
+
+    // ==================== SLIDE 5: ESTADÍSTICAS GENERALES ====================
+    add(sepLine());
+    add('# SLIDE 5: ESTADÍSTICAS GENERALES');
+    add(sepLine());
+    add(tabRow('Indicador', 'Sin riesgo', 'Bajo', 'Medio', 'Alto', 'Muy alto', '% Crítico'));
+    function distRow(lbl, dist) {
+        if (!dist) return;
+        var sr = dist['Sin riesgo']||0, rb = dist['Riesgo bajo']||0, rm = dist['Riesgo medio']||0;
+        var ra = dist['Riesgo alto']||0, rma = dist['Riesgo muy alto']||0;
+        var tot = sr + rb + rm + ra + rma;
+        var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
+        add(tabRow(lbl, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
+    }
+    distRow('Intralaboral', s.intraGeneral);
+    distRow('Extralaboral', s.extraGeneral);
+    distRow('Estrés', s.stress);
+    add('');
+
+    // ==================== SLIDE 6: INTRALABORAL ====================
+    add(sepLine());
+    add('# SLIDE 6: INTRALABORAL');
+    add(sepLine());
+    var intraMeta = buildIntraDomainGroups(s);
+    var domNames = ['LIDERAZGO Y RELACIONES SOCIALES', 'CONTROL SOBRE EL TRABAJO', 'DEMANDAS DEL TRABAJO', 'RECOMPENSAS'];
+    domNames.forEach(function(domName) {
+        var gDom = null;
+        intraMeta.globalDims.forEach(function(gd) { if (gd.name.includes(domName)) gDom = gd; });
+        var dTot = gDom ? totalInDist(gDom.risk) : 0;
+        var dCrit = gDom && dTot > 0 ? Math.round(((gDom.risk['Riesgo alto']||0)+(gDom.risk['Riesgo muy alto']||0))/dTot*100) + '%' : '0%';
+        add(tabRow('DOMINIO: ' + domName, '% crítico: ' + dCrit));
+        var dims = intraMeta.groups[domName] || [];
+        if (dims.length > 0) {
+            add(tabRow('Dimensión', 'SR', 'RB', 'RM', 'RA', 'RMA', '% Crítico'));
+            dims.forEach(function(d) {
+                var r = d.risk || {};
+                var sr = r['Sin riesgo']||0, rb = r['Riesgo bajo']||0, rm = r['Riesgo medio']||0;
+                var ra = r['Riesgo alto']||0, rma = r['Riesgo muy alto']||0;
+                var tot = sr + rb + rm + ra + rma;
+                var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
+                add(tabRow(d.name, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
+            });
+        }
+        add('');
+    });
+
+    // ==================== SLIDE 7: EXTRALABORAL ====================
+    add(sepLine());
+    add('# SLIDE 7: EXTRALABORAL');
+    add(sepLine());
+    var extraDims = [];
+    if (s.dimensions) {
+        extraDims = s.dimensions.filter(function(d) { return d.name.startsWith('[Extra]') && d.risk; });
+    }
+    if (extraDims.length > 0) {
+        add(tabRow('Dimensión', 'SR', 'RB', 'RM', 'RA', 'RMA', '% Crítico'));
+        extraDims.forEach(function(d) {
+            var name = d.name.replace('[Extra] ', '');
+            var r = d.risk || {};
+            var sr = r['Sin riesgo']||0, rb = r['Riesgo bajo']||0, rm = r['Riesgo medio']||0;
+            var ra = r['Riesgo alto']||0, rma = r['Riesgo muy alto']||0;
+            var tot = sr + rb + rm + ra + rma;
+            var cp = tot > 0 ? Math.round(((ra + rma) / tot) * 100) + '%' : '0%';
+            add(tabRow(name, String(sr), String(rb), String(rm), String(ra), String(rma), cp));
+        });
+        add('');
+    }
+
+    // ==================== SLIDE 8: ESTRÉS (CATEGORÍAS + AVATAR) ====================
+    add(sepLine());
+    add('# SLIDE 8: ESTRÉS (CATEGORÍAS + AVATAR)');
+    add(sepLine());
+    var stressDims = [];
+    if (s.dimensions) {
+        stressDims = s.dimensions.filter(function(d) { return d.name.startsWith('[Stress]') && d.risk; });
+    }
+    if (stressDims.length > 0) {
+        add('Categorías de Estrés');
+        stressDims.forEach(function(d) {
+            var name = d.name.replace('[Stress] ', '');
+            var tot = totalInDist(d.risk);
+            var cp = tot > 0 ? Math.round(((d.risk['Riesgo alto']||0)+(d.risk['Riesgo muy alto']||0))/tot*100) + '%' : '0%';
+            add(tabRow(name, 'Total: ' + tot, '% crítico: ' + cp));
+        });
+        add('');
+    }
+
+    // ==================== SLIDE 9: PLANES ESTRATÉGICOS ====================
+    add(sepLine());
+    add('# SLIDE 9: PLANES ESTRATÉGICOS');
+    add(sepLine());
+    var topPlanDims = (s.topCriticas || []).slice(0, 15);
+    var planAdded = false;
+    topPlanDims.forEach(function(dim) {
+        var cleanName = normDimName(dim.name);
+        var pct = dim.pctAlto || dim.pctCritico || 0;
+        if (pct < 30) return;
+        var level = riskLevelName(pct);
+        var actions = lookupPlanActions(cleanName, level);
+        if (actions.length > 0) {
+            add(tabRow('Dimensión: ' + cleanName, 'Nivel: ' + level, '% crítico: ' + pct + '%'));
+            actions.forEach(function(a) { add(tabRow('  - ' + a)); });
+            add('');
+            planAdded = true;
+        }
+    });
+    if (!planAdded) {
+        add(tabRow('No se requieren planes estratégicos predefinidos para los niveles de riesgo actuales.'));
+        add('');
+    }
+
+    // ==================== SLIDE 10: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS ====================
+    function stressName(raw) {
+        var m = raw.match(/Estr\u00e9s\s*(\d+)/i);
+        if (m && STRESS_QUESTIONS && STRESS_QUESTIONS[parseInt(m[1])]) return STRESS_QUESTIONS[parseInt(m[1])];
+        return raw;
+    }
+    var stressQuestions = s.stressQuestions || [];
+    if (stressQuestions.length > 0) {
+        add(sepLine());
+        add('# SLIDE 10: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS');
+        add(sepLine());
+        var sortedQs = stressQuestions.map(function(q) {
+            var tot = totalInDist(q.risk);
+            var cp = tot > 0 ? Math.round(((q.risk['Riesgo alto']||0)+(q.risk['Riesgo muy alto']||0))/tot*100) : 0;
+            return { name: stressName(q.name), risk: q.risk, _crit: cp, _total: tot };
+        }).sort(function(a, b) { return b._crit - a._crit; }).slice(0, 10);
+        add(tabRow('Pregunta', '% Crítico'));
+        sortedQs.forEach(function(q) {
+            add(tabRow(q.name, q._crit + '%'));
+        });
+        add('');
+    }
+
+    // ==================== SLIDES 11-13: TOP ÁREAS PRIORITARIAS ====================
+    var areaRanking = computeAreaRanking(rows, s);
+    var topAreas = areaRanking.slice(0, 10);
+    var normArea = function(s) { return s.replace(/^[\d\s]+[\.\s]*/g,'').replace(/\s+/g,' ').trim().toLowerCase(); };
+
+    function writeAreaSlide(slideNum, title, areasSlice) {
+        add(sepLine());
+        add('# SLIDE ' + slideNum + ': ' + title);
+        add(sepLine());
+        add(tabRow('Área', 'Total', '% Crítico', 'Top 3 Dimensiones'));
+        areasSlice.forEach(function(area) {
+            var areaRows = rows.filter(function(r) { return normArea(r["Unidad de Análisis"] || '') === normArea(area.name); });
+            var areaSummary = null;
+            try { areaSummary = computeSummary(areaRows); } catch(e) {}
+            var topDims = [];
+            if (areaSummary && areaSummary.topCriticas) {
+                topDims = areaSummary.topCriticas.slice(0, 3).map(function(d) { return normDimName(d.name); });
+            }
+            add(tabRow(area.name, String(area.count), area.pct + '%', topDims.join(', ')));
+        });
+        add('');
+    }
+
+    if (topAreas.length >= 1) writeAreaSlide(11, 'Top 3 Áreas Prioritarias (1-3)', topAreas.slice(0, 3));
+    if (topAreas.length >= 4) writeAreaSlide(12, 'Top 3 Áreas Prioritarias (4-6)', topAreas.slice(3, 6));
+    if (topAreas.length >= 7) writeAreaSlide(13, 'Top 4 Áreas Prioritarias (7-10)', topAreas.slice(6, 10));
+
+    // ==================== SLIDE 14: CONCLUSIONES + RECOMENDACIONES + PLAN ====================
+    var topCrit = (s.topCriticas || []).slice(0, 5);
+    var intraPctNum = critPctNum(s.intraGeneral, s.total);
+    var extraPctNum = critPctNum(s.extraGeneral, s.total);
+    var stressPctNum = critPctNum(s.stress, s.total);
+    add(sepLine());
+    add('# SLIDE 14: CONCLUSIONES + RECOMENDACIONES + PLAN DE INTERVENCIÓN');
+    add(sepLine());
+    add('Conclusiones:');
+    if (intraPctNum >= 50) add(tabRow('- El riesgo intralaboral es crítico (' + intraPctNum + '%). Se requiere intervención prioritaria en condiciones de trabajo.'));
+    else add(tabRow('- El riesgo intralaboral está en nivel ' + riskLevelName(intraPctNum) + ' (' + intraPctNum + '%).'));
+    if (extraPctNum >= 50) add(tabRow('- El riesgo extralaboral es crítico (' + extraPctNum + '%). Se requieren programas de apoyo social y familiar.'));
+    else add(tabRow('- El riesgo extralaboral está en nivel ' + riskLevelName(extraPctNum) + ' (' + extraPctNum + '%).'));
+    if (stressPctNum >= 50) add(tabRow('- El riesgo de estrés es crítico (' + stressPctNum + '%). Se requiere intervención en salud mental.'));
+    else add(tabRow('- El riesgo de estrés está en nivel ' + riskLevelName(stressPctNum) + ' (' + stressPctNum + '%).'));
+    add('');
+    add('Recomendaciones:');
+    if (intraPctNum >= 50) {
+        add(tabRow('- Fortalecer liderazgo, claridad de roles y sistemas de reconocimiento.'));
+        add(tabRow('- Implementar programas de control sobre la carga de trabajo y demandas laborales.'));
+    }
+    if (extraPctNum >= 50) {
+        add(tabRow('- Desarrollar programas de apoyo familiar, gestión del tiempo libre y bienestar social.'));
+    }
+    if (stressPctNum >= 50) {
+        add(tabRow('- Implementar programas de gestión del estrés, apoyo psicológico y promoción de salud mental.'));
+    }
+    if (intraPctNum < 50 && extraPctNum < 50 && stressPctNum < 50) {
+        add(tabRow('- Mantener las buenas prácticas actuales y realizar seguimiento periódico.'));
+        add(tabRow('- Reforzar programas preventivos existentes.'));
+    }
+    add('');
+    add('Plan de Intervención:');
+    add(tabRow('Corto plazo (0-3 meses):', 'Intervenir dimensiones con % crítico > 70% (' + (topCrit.filter(function(d){return (d.pctAlto||0)>=70;}).length) + ' dimensiones)'));
+    add(tabRow('Mediano plazo (3-6 meses):', 'Intervenir dimensiones con % crítico entre 50% y 70% (' + (topCrit.filter(function(d){var p=d.pctAlto||0;return p>=50&&p<70;}).length) + ' dimensiones)'));
+    add(tabRow('Largo plazo (6-12 meses):', 'Seguimiento a dimensiones con % crítico entre 30% y 50% (' + (topCrit.filter(function(d){var p=d.pctAlto||0;return p>=30&&p<50;}).length) + ' dimensiones)'));
+    add('');
+
+    // ==================== SLIDE 15: GRACIAS ====================
+    add(sepLine());
+    add('# SLIDE 15: GRACIAS');
+    add(sepLine());
+    add('Gracias por utilizar el Sistema de Batería Psicosocial');
+    add(tabRow('Datos generados:', data.exportDate));
+    add('');
 
     return lines.join('\r\n');
 }
