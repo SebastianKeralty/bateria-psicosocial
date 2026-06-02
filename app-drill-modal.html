@@ -8,11 +8,35 @@ function buildModalFilters(type) {
 
     const bar = document.createElement('div');
     bar.className = 'mf-quick-bar';
-    bar.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:5px;';
+    bar.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+    const selStyle = 'min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:600;color:#334155;cursor:pointer;';
+
+    // ── Search first ──
+    const searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'position:relative;display:flex;align-items:center;flex:1;min-width:120px;';
+    const searchIcon = document.createElement('span');
+    searchIcon.style.cssText = 'position:absolute;left:10px;color:#94a3b8;pointer-events:none;display:flex;';
+    searchIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    const inp = document.createElement('input');
+    inp.id = 'mfBusqueda';
+    inp.placeholder = 'Buscar\u2026';
+    inp.style.cssText = 'width:100%;padding:6px 10px 6px 26px;border:none;border-radius:20px;background:#f1f5f9;font-size:12px;outline:none;transition:all 0.25s;box-sizing:border-box;';
+    let debounceTimer;
+    inp.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(autoApply, 300);
+    };
+    inp.onfocus = function() { this.style.background = '#fff'; this.style.boxShadow = '0 0 0 2px rgba(59,130,246,0.2)'; };
+    inp.onblur = function() { if (!this.value) {} this.style.background = '#f1f5f9'; this.style.boxShadow = 'none'; };
+    searchWrap.appendChild(searchIcon);
+    searchWrap.appendChild(inp);
+    bar.appendChild(searchWrap);
 
     // Forma
     const formaSel = document.createElement('select');
     formaSel.id = 'mfForma';
+    formaSel.style.cssText = selStyle;
     ['', 'A', 'B'].forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
@@ -25,6 +49,7 @@ function buildModalFilters(type) {
     const addSelect = (id, placeholder, col) => {
         const sel = document.createElement('select');
         sel.id = id;
+        sel.style.cssText = selStyle;
         const optAll = document.createElement('option');
         optAll.value = ''; optAll.textContent = placeholder;
         sel.appendChild(optAll);
@@ -45,6 +70,7 @@ function buildModalFilters(type) {
     if (type === 'intra') {
         const selDom = document.createElement('select');
         selDom.id = 'mfDominio';
+        selDom.style.cssText = selStyle;
         const optAllDom = document.createElement('option');
         optAllDom.value = ''; optAllDom.textContent = 'Dominio: Todos';
         selDom.appendChild(optAllDom);
@@ -63,6 +89,7 @@ function buildModalFilters(type) {
     if (type === 'intra' || type === 'extra') {
         const dimSel = document.createElement('select');
         dimSel.id = 'mfDimension';
+        dimSel.style.cssText = selStyle;
         const optAllDim = document.createElement('option');
         optAllDim.value = ''; optAllDim.textContent = 'Dimensi\u00f3n: Todas';
         dimSel.appendChild(optAllDim);
@@ -89,6 +116,7 @@ function buildModalFilters(type) {
     if (type === 'stress') {
         const catSel = document.createElement('select');
         catSel.id = 'mfStressCat';
+        catSel.style.cssText = selStyle;
         const optAllCat = document.createElement('option');
         optAllCat.value = ''; optAllCat.textContent = 'Categor\u00eda: Todas';
         catSel.appendChild(optAllCat);
@@ -119,31 +147,11 @@ function buildModalFilters(type) {
 
         const qSel = document.createElement('select');
         qSel.id = 'mfStressQ';
+        qSel.style.cssText = selStyle;
         populateStressQuestions('');
         qSel.onchange = autoApply;
         bar.appendChild(qSel);
     }
-
-    // ── Search chip (compact, expandable on focus) ──
-    const searchWrap = document.createElement('div');
-    searchWrap.style.cssText = 'position:relative;display:flex;align-items:center;margin-left:auto;';
-    const searchIcon = document.createElement('span');
-    searchIcon.style.cssText = 'position:absolute;left:10px;color:#94a3b8;pointer-events:none;display:flex;';
-    searchIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-    const inp = document.createElement('input');
-    inp.id = 'mfBusqueda';
-    inp.placeholder = 'Buscar\u2026';
-    inp.style.cssText = 'padding:5px 10px 5px 26px;border:none;border-radius:20px;background:#f1f5f9;font-size:12px;width:120px;outline:none;transition:all 0.25s;';
-    let debounceTimer;
-    inp.oninput = function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(autoApply, 300);
-    };
-    inp.onfocus = function() { this.style.width = '180px'; this.style.background = '#fff'; this.style.boxShadow = '0 0 0 2px rgba(59,130,246,0.2)'; };
-    inp.onblur = function() { if (!this.value) { this.style.width = '120px'; } this.style.background = '#f1f5f9'; this.style.boxShadow = 'none'; };
-    searchWrap.appendChild(searchIcon);
-    searchWrap.appendChild(inp);
-    bar.appendChild(searchWrap);
 
     // Toggle advanced
     const toggleBtn = document.createElement('button');
@@ -619,40 +627,6 @@ function eliminarPlanActual() {
             mostrarPlanToast('Error: ' + err.message, 'error');
         })
         .eliminarPlan(state.bateriaActiva.meta.id, _planActual.dimension);
-}
-
-function generarPlanConIA() {
-    if (!_planActual) return;
-    
-    showInlineLoading('Generando plan con inteligencia artificial...');
-    var btn = document.getElementById('btnGenerarPlan');
-    btn.disabled = true;
-    btn.innerHTML = '<span style="opacity:0.5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar con IA</span>';
-
-    var dim = _planActual.dimension;
-    var riesgo = _planActual.riesgoActual;
-    var nivel = _planActual.nivel;
-    var encuesta = _planActual.encuesta;
-
-    google.script.run
-        .withSuccessHandler(function(resp) {
-            hideInlineLoading();
-            btn.disabled = false;
-            btn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar con IA';
-            if (resp.error) {
-                mostrarPlanToast('Error: ' + resp.error, 'error');
-                return;
-            }
-            document.getElementById('planTexto').value = resp.plan || '';
-            mostrarPlanToast('✅ Plan generado correctamente', 'success');
-        })
-        .withFailureHandler(function(err) {
-            hideInlineLoading();
-            btn.disabled = false;
-            btn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar con IA';
-            mostrarPlanToast('Error: ' + err.message, 'error');
-        })
-        .generarPlanIA(dim, riesgo, nivel, encuesta, state.bateriaActiva.summary.total);
 }
 
 function guardarPlanActual() {

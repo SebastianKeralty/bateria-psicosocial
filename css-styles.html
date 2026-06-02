@@ -1,5 +1,6 @@
 ﻿    <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { overflow-x: hidden; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
@@ -269,6 +270,15 @@
         }
         .btn-export:hover { opacity: 0.9; transform: translateY(-1px); }
         .btn-export:active { transform: translateY(0); }
+        .btn-export-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+        }
         .battery-item .b-name { flex:1; min-width:0; }
         .battery-item .b-name input {
             width:100%;
@@ -398,7 +408,7 @@
             position: sticky;
             top: 72px; 
             z-index: 90;
-            margin: 0 auto 32px auto;
+            margin: 0 auto 20px auto;
             max-width: 100%;
             display: flex;
             flex-wrap: wrap;

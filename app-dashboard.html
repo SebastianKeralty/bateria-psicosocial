@@ -476,13 +476,13 @@ function buildDashboardFilters(rows) {
     mainRow.className = 'mf-quick-bar';
     mainRow.style.display = 'flex';
     mainRow.style.width = '100%';
-    mainRow.style.gap = '14px';
+    mainRow.style.gap = '10px';
     mainRow.style.alignItems = 'center';
-    mainRow.style.flexWrap = 'wrap';
 
     // 1. Search Bar (With SVG Icon)
     const searchWrapper = document.createElement('div');
-    searchWrapper.style.flex = '1 1 350px'; 
+    searchWrapper.style.flex = '1'; 
+    searchWrapper.style.minWidth = '160px';
     searchWrapper.style.position = 'relative';
     searchWrapper.style.display = 'flex';
     searchWrapper.style.alignItems = 'center';
@@ -500,11 +500,11 @@ function buildDashboardFilters(rows) {
     inp.placeholder = 'Buscar por nombre, ID, cargo o área...';
     inp.className = 'mf-search-input';
     inp.style.width = '100%';
-    inp.style.padding = '12px 20px 12px 44px'; 
-    inp.style.borderRadius = '14px';
+    inp.style.padding = '10px 14px 10px 40px'; 
+    inp.style.borderRadius = '10px';
     inp.style.border = '2px solid rgba(22, 163, 74, 0.15)';
     inp.style.background = '#fff';
-    inp.style.fontSize = '15px';
+    inp.style.fontSize = '13px';
     inp.style.fontWeight = '500';
     inp.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)';
     inp.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -532,19 +532,18 @@ function buildDashboardFilters(rows) {
     // 2. Select Group
     const selectGroup = document.createElement('div');
     selectGroup.style.display = 'flex';
-    selectGroup.style.gap = '8px';
-    selectGroup.style.flex = '0 1 auto';
-    selectGroup.style.flexWrap = 'wrap';
+    selectGroup.style.gap = '6px';
+    selectGroup.style.flexShrink = '0';
 
     const addSelect = (id, placeholder, col) => {
         const sel = document.createElement('select');
         sel.id = id;
-        sel.style.minWidth = '135px';
-        sel.style.padding = '10px 14px';
-        sel.style.borderRadius = '12px';
+        sel.style.minWidth = '110px';
+        sel.style.padding = '8px 10px';
+        sel.style.borderRadius = '8px';
         sel.style.border = '1px solid #e2e8f0';
         sel.style.background = '#f8fafc';
-        sel.style.fontSize = '13px';
+        sel.style.fontSize = '12px';
         sel.style.fontWeight = '600';
         sel.style.color = '#334155';
         sel.style.cursor = 'pointer';
@@ -573,9 +572,8 @@ function buildDashboardFilters(rows) {
     // 3. Action Buttons
     const actionGroup = document.createElement('div');
     actionGroup.style.display = 'flex';
-    actionGroup.style.gap = '8px';
+    actionGroup.style.gap = '6px';
     actionGroup.style.flexShrink = '0';
-    actionGroup.style.marginLeft = 'auto';
 
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'dfToggle';
@@ -1567,9 +1565,32 @@ function _buildPPTText(data) {
         add('');
     }
 
-    // ==================== SLIDE 9: PLANES ESTRATÉGICOS ====================
+    // ==================== SLIDE 9: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS ====================
+    function stressName(raw) {
+        var m = raw.match(/Estr\u00e9s\s*(\d+)/i);
+        if (m && STRESS_QUESTIONS && STRESS_QUESTIONS[parseInt(m[1])]) return STRESS_QUESTIONS[parseInt(m[1])];
+        return raw;
+    }
+    var stressQuestions = s.stressQuestions || [];
+    if (stressQuestions.length > 0) {
+        add(sepLine());
+        add('# SLIDE 9: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS');
+        add(sepLine());
+        var sortedQs = stressQuestions.map(function(q) {
+            var tot = totalInDist(q.risk);
+            var cp = tot > 0 ? Math.round(((q.risk['Riesgo alto']||0)+(q.risk['Riesgo muy alto']||0))/tot*100) : 0;
+            return { name: stressName(q.name), risk: q.risk, _crit: cp, _total: tot };
+        }).sort(function(a, b) { return b._crit - a._crit; }).slice(0, 10);
+        add(tabRow('Pregunta', '% Crítico'));
+        sortedQs.forEach(function(q) {
+            add(tabRow(q.name, q._crit + '%'));
+        });
+        add('');
+    }
+
+    // ==================== SLIDE 10: PLANES ESTRATÉGICOS ====================
     add(sepLine());
-    add('# SLIDE 9: PLANES ESTRATÉGICOS');
+    add('# SLIDE 10: PLANES ESTRATÉGICOS');
     add(sepLine());
     var topPlanDims = (s.topCriticas || []).slice(0, 15);
     var planAdded = false;
@@ -1588,29 +1609,6 @@ function _buildPPTText(data) {
     });
     if (!planAdded) {
         add(tabRow('No se requieren planes estratégicos predefinidos para los niveles de riesgo actuales.'));
-        add('');
-    }
-
-    // ==================== SLIDE 10: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS ====================
-    function stressName(raw) {
-        var m = raw.match(/Estr\u00e9s\s*(\d+)/i);
-        if (m && STRESS_QUESTIONS && STRESS_QUESTIONS[parseInt(m[1])]) return STRESS_QUESTIONS[parseInt(m[1])];
-        return raw;
-    }
-    var stressQuestions = s.stressQuestions || [];
-    if (stressQuestions.length > 0) {
-        add(sepLine());
-        add('# SLIDE 10: TOP 10 PREGUNTAS DE ESTRÉS MÁS CRÍTICAS');
-        add(sepLine());
-        var sortedQs = stressQuestions.map(function(q) {
-            var tot = totalInDist(q.risk);
-            var cp = tot > 0 ? Math.round(((q.risk['Riesgo alto']||0)+(q.risk['Riesgo muy alto']||0))/tot*100) : 0;
-            return { name: stressName(q.name), risk: q.risk, _crit: cp, _total: tot };
-        }).sort(function(a, b) { return b._crit - a._crit; }).slice(0, 10);
-        add(tabRow('Pregunta', '% Crítico'));
-        sortedQs.forEach(function(q) {
-            add(tabRow(q.name, q._crit + '%'));
-        });
         add('');
     }
 

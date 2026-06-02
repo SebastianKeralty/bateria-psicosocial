@@ -4,7 +4,7 @@
     <base target="_top">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Batería Psicosocial</title>
+    <title>Baterï¿½a Psicosocial</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -24,7 +24,7 @@
         </button>
         <button class="side-btn" data-tab="baterias">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            <span class="label">Baterías</span>
+            <span class="label">Baterï¿½as</span>
         </button>
         <button class="side-btn" data-tab="dashboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -42,9 +42,9 @@
     <hr class="sidebar-divider" style="margin:auto 20px 0;">
     <button class="side-btn" data-tab="informacion" style="margin-top:4px;opacity:0.75;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span class="label">Información</span>
+        <span class="label">Informaciï¿½n</span>
     </button>
-    <div class="sidebar-footer">v2.0 &mdash; Batería Psicosocial</div>
+    <div class="sidebar-footer">v2.0 &mdash; Baterï¿½a Psicosocial</div>
 </aside>
 
 <!-- ===== MAIN ===== -->
@@ -54,13 +54,11 @@
         <h2 id="topbarTitle">Inicio</h2>
         <span class="badge-data" id="topbarBadge" style="display:none;"></span>
         <div class="topbar-actions">
-            <button class="btn-export" id="btnExport" style="display:none;" onclick="exportarDatosPPT()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Descargar datos para PPT (.txt)
+            <button class="btn-export btn-export-icon" id="btnExport" style="display:none;" onclick="exportarDatosPPT()" title="Descargar PPT (.txt)">
+                <svg width="18" height="18" viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M255.979 66.987C114.603 66.987 0 183.21 0 326.657v124.33h47.19v-12.373c0-58.198 46.463-105.345 103.807-105.345s103.808 47.147 103.808 105.323v12.395h47.19v-12.373c0-84.63-67.627-153.174-150.998-153.174a148.64 148.64 0 00-87.168 28.117C89.6 261.59 142.656 225.92 203.947 225.92c86.55 0 156.736 71.21 156.736 158.998v66.069h47.19v-66.07c0-114.24-91.308-206.89-203.948-206.89a201.461 201.461 0 00-132.629 49.75c35.03-67.18 104.576-112.94 184.704-112.94 115.328 0 208.81 94.848 208.81 211.84v124.31H512v-124.33C511.98 183.21 397.376 66.986 255.98 66.986z"/></svg>
             </button>
-            <button class="btn-export" id="btnExportJSON" style="display:none;" onclick="exportarJSON()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Descargar datos JSON (.json)
+            <button class="btn-export btn-export-icon" id="btnExportJSON" style="display:none;" onclick="exportarJSON()" title="Descargar JSON (.json)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             </button>
         </div>
     </div>
@@ -108,32 +106,32 @@
                     <div style="display:flex;gap:60px;padding:64px 72px 32px;">
                         <div style="flex:1.5;min-width:0;">
                             <div class="inicio-hero" style="margin-bottom:20px;">
-                                <h2 style="font-size:58px;margin:0;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg, #0ea5e9, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Batería Psicosocial</h2>
+                                <h2 style="font-size:58px;margin:0;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg, #0ea5e9, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Baterï¿½a Psicosocial</h2>
                             </div>
                             <div class="inicio-text" style="margin-bottom:32px;">
-                                <p style="color:#475569;margin:0;font-size:18px;font-weight:400;line-height:1.7;">Plataforma integral para el análisis, visualización y generación de reportes de la Batería de Riesgo Psicosocial. Carga tus datos, explora resultados y descubre insights.</p>
+                                <p style="color:#475569;margin:0;font-size:18px;font-weight:400;line-height:1.7;">Plataforma integral para el anï¿½lisis, visualizaciï¿½n y generaciï¿½n de reportes de la Baterï¿½a de Riesgo Psicosocial. Carga tus datos, explora resultados y descubre insights.</p>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                                 <div class="inicio-func-card" style="display:flex;align-items:center;gap:16px;background:rgba(56,189,248,0.08);border-radius:16px;padding:18px 24px;border:1px solid rgba(56,189,248,0.12);">
                                     <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#38bdf8,#0ea5e9);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px;">??</div>
-                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Análisis</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Resultados por batería</div></div>
+                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Anï¿½lisis</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Resultados por baterï¿½a</div></div>
                                 </div>
                                 <div class="inicio-func-card" style="display:flex;align-items:center;gap:16px;background:rgba(74,222,128,0.08);border-radius:16px;padding:18px 24px;border:1px solid rgba(74,222,128,0.12);">
                                     <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#4ade80,#22c55e);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px;">??</div>
-                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Dashboard</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Gráficos interactivos</div></div>
+                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Dashboard</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Grï¿½ficos interactivos</div></div>
                                 </div>
                                 <div class="inicio-func-card" style="display:flex;align-items:center;gap:16px;background:rgba(251,191,36,0.08);border-radius:16px;padding:18px 24px;border:1px solid rgba(251,191,36,0.12);">
                                     <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px;">??</div>
-                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Reportes</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Documentación automática</div></div>
+                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Reportes</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Documentaciï¿½n automï¿½tica</div></div>
                                 </div>
                                 <div class="inicio-func-card" style="display:flex;align-items:center;gap:16px;background:rgba(248,113,113,0.08);border-radius:16px;padding:18px 24px;border:1px solid rgba(248,113,113,0.12);">
                                     <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#f87171,#ef4444);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px;">??</div>
-                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Exportación</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Descarga de resultados</div></div>
+                                    <div><div style="font-weight:700;font-size:16px;color:#0f172a;">Exportaciï¿½n</div><div style="font-size:14px;color:#64748b;margin-top:2px;">Descarga de resultados</div></div>
                                 </div>
                             </div>
                         </div>
                         <div class="inicio-image" style="flex:3.5;display:flex;align-items:center;justify-content:center;">
-                            <img src="https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800" alt="Batería Psicosocial" style="max-width:100%;max-height:500px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(34,197,94,0.4)) drop-shadow(0 0 50px rgba(34,197,94,0.2));opacity:0.95;transition:filter 0.4s ease,opacity 0.4s ease;cursor:pointer;animation:floatCharacter 4s ease-in-out infinite;" class="inicio-img-glow" onmouseover="this.src='https://lh3.googleusercontent.com/d/1CJ9sPWxqKg2QKcWHQd0nc2fCyDgwxAd9=w800';this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.opacity='1';this.style.animation='none';" onmouseout="this.src='https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800';this.style.filter='drop-shadow(0 0 24px rgba(34,197,94,0.4)) drop-shadow(0 0 50px rgba(34,197,94,0.2))';this.style.opacity='0.95';this.style.animation='floatCharacter 4s ease-in-out infinite';">
+                            <img src="https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800" alt="Baterï¿½a Psicosocial" style="max-width:100%;max-height:500px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(34,197,94,0.4)) drop-shadow(0 0 50px rgba(34,197,94,0.2));opacity:0.95;transition:filter 0.4s ease,opacity 0.4s ease;cursor:pointer;animation:floatCharacter 4s ease-in-out infinite;" class="inicio-img-glow" onmouseover="this.src='https://lh3.googleusercontent.com/d/1CJ9sPWxqKg2QKcWHQd0nc2fCyDgwxAd9=w800';this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.opacity='1';this.style.animation='none';" onmouseout="this.src='https://lh3.googleusercontent.com/d/17sg7l302nOTjJGnJyPuEDzYsMxUZObh3=w800';this.style.filter='drop-shadow(0 0 24px rgba(34,197,94,0.4)) drop-shadow(0 0 50px rgba(34,197,94,0.2))';this.style.opacity='0.95';this.style.animation='floatCharacter 4s ease-in-out infinite';">
                         </div>
                     </div>
                     <div id="inicioStatus" class="status-msg" style="padding:0 72px 32px;"></div>
@@ -142,18 +140,18 @@
             </div>
         </section>
 
-        <!-- ============ TAB: BATERÍAS ============ -->
+        <!-- ============ TAB: BATERï¿½AS ============ -->
         <section id="tab-baterias" class="tab-content" style="min-height:100vh;background:#dcfce7;padding:24px;position:relative;overflow:hidden;">
             <div style="position:absolute;width:380px;height:380px;top:-8%;right:-5%;background:linear-gradient(135deg,#22c55e,#16a34a);opacity:0.08;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift2 25s ease-in-out infinite reverse,morph 12s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="position:absolute;width:280px;height:280px;bottom:10%;left:3%;background:linear-gradient(135deg,#15803d,#166534);opacity:0.06;border-radius:58% 42% 75% 25%/76% 46% 54% 24%;animation:blobDrift1 20s ease-in-out infinite,morph 15s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="position:absolute;width:200px;height:200px;top:45%;left:50%;background:linear-gradient(135deg,#4ade80,#22c55e);opacity:0.04;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:blobDrift3 22s ease-in-out infinite,morph 10s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div id="bateriasContainer">
                 <div class="smooth-1" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <h2 style="font-size:28px;margin:0;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Baterías Guardadas</h2>
+                    <h2 style="font-size:28px;margin:0;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Baterï¿½as Guardadas</h2>
                     <div id="bateriasUploadGroup" style="display:none;">
                         <div class="upload-area" id="bateriasDropZone" style="width:auto;padding:8px 20px;border:2px dashed rgba(34,197,94,0.4);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            <span style="font-weight:600;color:#15803d;font-size:14px;">Subir y guardar batería</span>
+                            <span style="font-weight:600;color:#15803d;font-size:14px;">Subir y guardar baterï¿½a</span>
                             <input type="file" id="bateriasFile" accept=".xlsx,.xls,.xlsb" style="display:none;">
                         </div>
                     </div>
@@ -171,7 +169,7 @@
                 <div class="smooth-5" id="bateriasGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
                     <div style="grid-column:1/-1;text-align:center;padding:60px 20px;">
                         <p style="font-size:48px;margin-bottom:12px;">??</p>
-                        <h3 style="color:#94a3b8;">No hay baterías guardadas</h3>
+                        <h3 style="color:#94a3b8;">No hay baterï¿½as guardadas</h3>
                         <p style="color:#94a3b8;margin-top:8px;">Sube un archivo Excel para guardarlo en Drive y compartirlo con tu equipo.</p>
                     </div>
                 </div>
@@ -199,9 +197,9 @@
                          onmouseover="this.src=this.getAttribute('data-hover');this.style.filter='drop-shadow(0 0 30px rgba(34,197,94,0.8)) drop-shadow(0 0 60px rgba(34,197,94,0.5))';this.style.transform='scale(1.08)';this.style.opacity='1';"
                          onmouseout="this.src=this.getAttribute('data-original');this.style.filter='none';this.style.transform='scale(1)';this.style.opacity='0.92';">
                 </div>
-                <h2 class="stagger-2" style="font-size:32px;color:#14532d;font-weight:800;">Dashboard de Análisis</h2>
-                <p class="stagger-3" style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aún no has cargado ninguna batería. Selecciona una desde la sección Baterías para comenzar el análisis.</p>
-                <button class="stagger-4" onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(14,165,233,0.3);transition:all 0.3s ease;">Ir a Baterías</button>
+                <h2 class="stagger-2" style="font-size:32px;color:#14532d;font-weight:800;">Dashboard de Anï¿½lisis</h2>
+                <p class="stagger-3" style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aï¿½n no has cargado ninguna baterï¿½a. Selecciona una desde la secciï¿½n Baterï¿½as para comenzar el anï¿½lisis.</p>
+                <button class="stagger-4" onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(14,165,233,0.3);transition:all 0.3s ease;">Ir a Baterï¿½as</button>
             </div>
             </div>
 
@@ -211,7 +209,7 @@
                 <!-- 1. RESUMEN (Sin recuadro para que sobresalga) -->
                 <div class="cards-row" id="summaryCards" style="margin-bottom: 32px;"></div>
                 
-                <!-- 2. FOCOS DE INTERVENCIÓN + ÁREAS (misma fila) -->
+                <!-- 2. FOCOS DE INTERVENCIï¿½N + ï¿½REAS (misma fila) -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;align-items:start;">
                     <div class="dash-section-box" id="criticalPillarsBox" style="display:none;margin-bottom:0;min-width:0;width:100%;overflow:hidden;">
                         <div id="criticalPillars"></div>
@@ -221,11 +219,11 @@
                     </div>
                 </div>
 
-                <!-- 3. GRÁFICAS POR BATERÍA (Recuadro independiente) -->
+                <!-- 3. GRï¿½FICAS POR BATERï¿½A (Recuadro independiente) -->
                 <div class="dash-section-box" id="mainChartsBox">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
                         <div style="width:36px;height:36px;border-radius:10px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;color:#16a34a;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
-                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Resultados por Batería</h3>
+                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Resultados por Baterï¿½a</h3>
                     </div>
                     <div id="dashMainView">
                         <div class="charts-row-three">
@@ -241,18 +239,18 @@
                             </div>
                             <div class="chart-card" onclick="showDrillDown('stress')">
                                 <span class="click-hint">? Ver detalle</span>
-                                <h3>Estrés</h3>
+                                <h3>Estrï¿½s</h3>
                                 <canvas id="stressBars"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. ESTADÍSTICAS DETALLADAS (Recuadro independiente) -->
+                <!-- 4. ESTADï¿½STICAS DETALLADAS (Recuadro independiente) -->
                 <div class="dash-section-box">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
                         <div style="width:36px;height:36px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;color:#4f46e5;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div>
-                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Desglose Estadístico</h3>
+                        <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;">Desglose Estadï¿½stico</h3>
                     </div>
                     <div id="detailTable"></div>
                 </div>
@@ -302,7 +300,7 @@
             </div>
         </div>
 
-        <!-- ============ MODAL PLAN DE ACCIÓN ============ -->
+        <!-- ============ MODAL PLAN DE ACCIï¿½N ============ -->
         <div id="planAccionModal" class="modal-overlay" style="display:none;z-index:5000;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:planPanelIn 0.35s ease forwards;">
             <div style="background:linear-gradient(145deg,#ffffff 0%,#f0fdf4 50%,#ecfdf5 100%);border-radius:24px;width:90%;max-width:660px;max-height:90vh;overflow:hidden;position:relative;box-shadow:0 25px 80px rgba(0,0,0,0.35),0 0 100px rgba(34,197,94,0.1);">
                 <div style="position:absolute;width:200px;height:200px;top:-60px;right:-40px;background:linear-gradient(135deg,#22c55e,#0ea5e9);opacity:0.06;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation:blobDrift1 20s ease-in-out infinite,morph 12s linear infinite;pointer-events:none;filter:blur(30px);"></div>
@@ -311,9 +309,9 @@
                 <div style="position:relative;z-index:1;max-height:90vh;overflow-y:auto;">
 
                 <div style="position:sticky;top:0;background:linear-gradient(135deg,rgba(255,255,255,0.97),rgba(240,253,244,0.97));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:24px 24px 0 0;z-index:2;padding:22px 24px 14px;border-bottom:1px solid rgba(34,197,94,0.12);display:flex;align-items:center;gap:14px;">
-                    <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a,#15803d);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(34,197,94,0.35);animation:float 4s ease-in-out infinite;"><span style="font-size:20px;">??</span></div>
-                    <h2 id="planDimTitle" style="margin:0;font-size:20px;font-weight:800;background:linear-gradient(135deg,#15803d,#22c55e,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1;">Plan de Acción</h2>
-                    <button onclick="cerrarPlanAccion()" style="width:36px;height:36px;border:none;border-radius:10px;background:#f1f5f9;font-size:18px;cursor:pointer;color:#64748b;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.background='linear-gradient(135deg,#f43f5e,#ec4899)';this.style.color='#fff';this.style.transform='rotate(90deg) scale(1.15)';this.style.boxShadow='0 4px 16px rgba(244,63,94,0.45)';" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b';this.style.transform='rotate(0deg) scale(1)';this.style.boxShadow='none';">?</button>
+                    <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a,#15803d);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(34,197,94,0.35);"><span style="font-size:20px;">ðŸ“‹</span></div>
+                    <h2 id="planDimTitle" style="margin:0;font-size:20px;font-weight:800;background:linear-gradient(135deg,#15803d,#22c55e,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1;">Plan de AcciÃ³n</h2>
+                    <button onclick="cerrarPlanAccion()" style="width:36px;height:36px;border:none;border-radius:10px;background:#f1f5f9;font-size:18px;cursor:pointer;color:#64748b;transition:all 0.25s ease;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.background='linear-gradient(135deg,#f43f5e,#ec4899)';this.style.color='#fff';this.style.transform='scale(1.1)';this.style.boxShadow='0 4px 16px rgba(244,63,94,0.5)';" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b';this.style.transform='scale(1)';this.style.boxShadow='none';">âœ•</button>
                 </div>
 
                 <div id="planModalBody" style="padding:22px 24px 24px;position:relative;">
@@ -338,14 +336,12 @@
                     </div>
 
                     <label style="font-weight:700;font-size:14px;color:#14532d;display:block;margin-bottom:8px;">Detalles Adicionales</label>
-                    <textarea id="planTexto" style="width:100%;min-height:80px;padding:12px 16px;border:1px solid rgba(34,197,94,0.12);border-radius:14px;font-size:13px;font-family:Arial;resize:vertical;box-sizing:border-box;margin-bottom:18px;background:rgba(255,255,255,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:border-color 0.3s ease,box-shadow 0.3s ease,background 0.3s ease;" placeholder="Añade notas o detalles adicionales aquí..." onfocus="this.style.borderColor='#0ea5e9';this.style.boxShadow='0 0 0 4px rgba(14,165,233,0.12)';this.style.background='#fff';" onblur="this.style.borderColor='rgba(34,197,94,0.12)';this.style.boxShadow='none';this.style.background='rgba(255,255,255,0.65)';"></textarea>
+                    <textarea id="planTexto" style="width:100%;min-height:80px;padding:12px 16px;border:1px solid rgba(34,197,94,0.12);border-radius:14px;font-size:13px;font-family:Arial;resize:vertical;box-sizing:border-box;margin-bottom:18px;background:rgba(255,255,255,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:border-color 0.3s ease,box-shadow 0.3s ease,background 0.3s ease;" placeholder="Aï¿½ade notas o detalles adicionales aquï¿½..." onfocus="this.style.borderColor='#0ea5e9';this.style.boxShadow='0 0 0 4px rgba(14,165,233,0.12)';this.style.background='#fff';" onblur="this.style.borderColor='rgba(34,197,94,0.12)';this.style.boxShadow='none';this.style.background='rgba(255,255,255,0.65)';"></textarea>
 
-                    <div style="display:flex;flex-direction:column;gap:10px;">
-                        <div style="display:flex;gap:10px;">
-                            <button onclick="generarPlanConIA()" id="btnGenerarPlan" style="flex:1;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.35s cubic-bezier(0.22,1,0.36,1);box-shadow:0 4px 16px rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.transform='translateY(-3px) scale(1.02)';this.style.boxShadow='0 10px 30px rgba(99,102,241,0.5)';" onmouseout="this.style.transform='translateY(0) scale(1)';this.style.boxShadow='0 4px 16px rgba(99,102,241,0.3)';"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Generar con IA</button>
-                            <button onclick="eliminarPlanActual()" id="btnEliminarPlan" style="flex:1;padding:12px;background:rgba(255,255,255,0.7);color:#dc2626;border:1.5px solid #fca5a5;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.35s cubic-bezier(0.22,1,0.36,1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.background='#fef2f2';this.style.borderColor='#ef4444';this.style.transform='translateY(-3px) scale(1.02)';this.style.boxShadow='0 8px 24px rgba(239,68,68,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.7)';this.style.borderColor='#fca5a5';this.style.transform='translateY(0) scale(1)';this.style.boxShadow='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button>
-                        </div>
-                        <button onclick="guardarPlanActual()" id="btnGuardarPlan" style="width:100%;padding:15px;background:linear-gradient(135deg,#0ea5e9,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;transition:all 0.35s cubic-bezier(0.22,1,0.36,1);box-shadow:0 6px 20px rgba(14,165,233,0.3);display:flex;align-items:center;justify-content:center;gap:10px;letter-spacing:0.4px;" onmouseover="this.style.transform='translateY(-3px) scale(1.02)';this.style.boxShadow='0 12px 36px rgba(14,165,233,0.45)';this.style.background='linear-gradient(135deg,#0ea5e9,#14b8a6,#16a34a)';" onmouseout="this.style.transform='translateY(0) scale(1)';this.style.boxShadow='0 6px 20px rgba(14,165,233,0.3)';this.style.background='linear-gradient(135deg,#0ea5e9,#16a34a,#15803d)';"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción</button>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="eliminarPlanActual()" id="btnEliminarPlan" style="flex:1;padding:12px;background:rgba(255,255,255,0.7);color:#dc2626;border:1.5px solid #fca5a5;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s ease;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.background='#fef2f2';this.style.borderColor='#ef4444';" onmouseout="this.style.background='rgba(255,255,255,0.7)';this.style.borderColor='#fca5a5';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button>
+                        <button onclick="guardarPlanActual()" id="btnGuardarPlan" style="flex:2;padding:12px;background:linear-gradient(135deg,#0ea5e9,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 6px 20px rgba(14,165,233,0.3);display:flex;align-items:center;justify-content:center;gap:10px;letter-spacing:0.4px;" onmouseover="this.style.background='linear-gradient(135deg,#0ea5e9,#14b8a6,#16a34a)';" onmouseout="this.style.background='linear-gradient(135deg,#0ea5e9,#16a34a,#15803d)';"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de AcciÃ³n</button>
+                    </div>
                     </div>
                     <div id="planStatus" style="margin-top:14px;font-size:13px;color:#64748b;text-align:center;"></div>
                     </div>
@@ -462,7 +458,7 @@
                         <canvas id="groupedExtra"></canvas>
                     </div>
                     <div class="chart-card" style="cursor:pointer;" onclick="abrirDrillComparativa('stress')">
-                        <h3 style="font-size:14px;">?? Estrés</h3>
+                        <h3 style="font-size:14px;">?? Estrï¿½s</h3>
                         <div id="compChartSkeletonStress" class="comp-sk-chart" style="display:none;">
                             <div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div><div class="comp-sk-bar"></div>
                         </div>
@@ -500,8 +496,8 @@
                              onmouseout="this.src=this.getAttribute('data-original');this.style.filter='none';this.style.transform='scale(1)';this.style.opacity='0.92';">
                     </div>
                     <h2 class="stagger-2" style="font-size:32px;color:#14532d;font-weight:800;">Reportes</h2>
-                    <p class="stagger-3" style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aún no has cargado ninguna batería. Selecciona una desde la sección Baterías para generar reportes.</p>
-                    <button class="stagger-4" onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(14,165,233,0.3);transition:all 0.3s ease;">Ir a Baterías</button>
+                    <p class="stagger-3" style="color:#4b5563;margin:16px auto;max-width:500px;line-height:1.6;">Aï¿½n no has cargado ninguna baterï¿½a. Selecciona una desde la secciï¿½n Baterï¿½as para generar reportes.</p>
+                    <button class="stagger-4" onclick="document.querySelector('.side-btn[data-tab=\'baterias\']').click()" style="margin-top:24px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:white;padding:14px 36px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(14,165,233,0.3);transition:all 0.3s ease;">Ir a Baterï¿½as</button>
                 </div>
 
                 <div id="reportContent" style="display:none;">
@@ -556,12 +552,12 @@
             <div style="position:absolute;width:260px;height:260px;bottom:12%;left:2%;background:linear-gradient(135deg,#15803d,#166534);opacity:0.05;border-radius:58% 42% 75% 25%/76% 46% 54% 24%;animation:blobDrift1 21s ease-in-out infinite,morph 15s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="position:absolute;width:200px;height:200px;top:50%;left:50%;background:linear-gradient(135deg,#4ade80,#22c55e);opacity:0.04;border-radius:50% 50% 33% 67%/55% 27% 73% 45%;animation:blobDrift3 17s ease-in-out infinite,morph 13s linear infinite;pointer-events:none;filter:blur(40px);"></div>
             <div style="max-width:1000px;margin:0 auto;">
-                <h2 class="smooth-1" style="font-size:28px;margin:0 0 20px;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Información</h2>
+                <h2 class="smooth-1" style="font-size:28px;margin:0 0 20px;font-weight:800;background:linear-gradient(135deg, #15803d, #22c55e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Informaciï¿½n</h2>
 
                 <div class="welcome-card smooth-2">
                     <div style="flex:1;">
-                        <h3 style="font-size:24px; color:#14532d; margin:0 0 12px; font-weight:800;">¡Bienvenido al manual de la Batería!</h3>
-                        <p style="margin:0; color:#475569; font-size:16px; line-height:1.7;">Aquí encontrarás toda la información necesaria para comprender y aplicar correctamente la Batería de Instrumentos para la Evaluación de Factores de Riesgo Psicosocial. Explora las secciones a continuación para aprender más.</p>
+                        <h3 style="font-size:24px; color:#14532d; margin:0 0 12px; font-weight:800;">ï¿½Bienvenido al manual de la Baterï¿½a!</h3>
+                        <p style="margin:0; color:#475569; font-size:16px; line-height:1.7;">Aquï¿½ encontrarï¿½s toda la informaciï¿½n necesaria para comprender y aplicar correctamente la Baterï¿½a de Instrumentos para la Evaluaciï¿½n de Factores de Riesgo Psicosocial. Explora las secciones a continuaciï¿½n para aprender mï¿½s.</p>
                     </div>
                     <div class="char-container">
                         <div class="char-blob"></div>
@@ -574,15 +570,15 @@
                     </div>
                 </div>
 
-                <!-- ACCORDION 1: ¿Qué es la Batería Psicosocial? -->
+                <!-- ACCORDION 1: ï¿½Quï¿½ es la Baterï¿½a Psicosocial? -->
                 <div class="info-accordion smooth-3" style="background:white;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
                     <div class="info-header" onclick="toggleAccordion(this)" style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;">
                         <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
-                        <span style="flex:1;font-weight:700;font-size:16px;color:#14532d;">¿Qué es la Batería Psicosocial?</span>
+                        <span style="flex:1;font-weight:700;font-size:16px;color:#14532d;">ï¿½Quï¿½ es la Baterï¿½a Psicosocial?</span>
                         <span class="info-arrow" style="font-size:12px;color:#94a3b8;transition:transform 0.2s;">?</span>
                     </div>
                     <div class="info-body" style="padding:0 20px 0 56px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
-                        <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">La Batería de Instrumentos para la Evaluación de Factores de Riesgo Psicosocial es un conjunto de herramientas diseñadas para evaluar los factores de riesgo psicosocial en el trabajo. Fue desarrollada por la Pontificia Universidad Javeriana y el Ministerio de la Protección Social de Colombia. Su aplicación es obligatoria según la Resolución 2646 de 2008 y la Resolución 2764 de 2022.</p>
+                        <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">La Baterï¿½a de Instrumentos para la Evaluaciï¿½n de Factores de Riesgo Psicosocial es un conjunto de herramientas diseï¿½adas para evaluar los factores de riesgo psicosocial en el trabajo. Fue desarrollada por la Pontificia Universidad Javeriana y el Ministerio de la Protecciï¿½n Social de Colombia. Su aplicaciï¿½n es obligatoria segï¿½n la Resoluciï¿½n 2646 de 2008 y la Resoluciï¿½n 2764 de 2022.</p>
                     </div>
                 </div>
 
@@ -599,30 +595,30 @@
                             <div class="risk-level-card" style="background:#bbf7d0;border-radius:12px;padding:14px;text-align:center;border:1px solid #86efac;">
                                 <div style="font-size:24px;margin-bottom:4px;">??</div>
                                 <div style="font-weight:800;font-size:14px;color:#166534;">Sin riesgo</div>
-                                <div style="font-size:12px;color:#15803d;font-weight:600;">0 – 29%</div>
+                                <div style="font-size:12px;color:#15803d;font-weight:600;">0 ï¿½ 29%</div>
                             </div>
                             <div class="risk-level-card" style="background:#d9f99d;border-radius:12px;padding:14px;text-align:center;border:1px solid #bef264;">
                                 <div style="font-size:24px;margin-bottom:4px;">??</div>
                                 <div style="font-weight:800;font-size:14px;color:#3f6212;">Riesgo bajo</div>
-                                <div style="font-size:12px;color:#4d7c0f;font-weight:600;">30 – 49%</div>
+                                <div style="font-size:12px;color:#4d7c0f;font-weight:600;">30 ï¿½ 49%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fef08a;border-radius:12px;padding:14px;text-align:center;border:1px solid #fde047;">
                                 <div style="font-size:24px;margin-bottom:4px;">??</div>
                                 <div style="font-weight:800;font-size:14px;color:#854d0e;">Riesgo medio</div>
-                                <div style="font-size:12px;color:#a16207;font-weight:600;">50 – 69%</div>
+                                <div style="font-size:12px;color:#a16207;font-weight:600;">50 ï¿½ 69%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fed7aa;border-radius:12px;padding:14px;text-align:center;border:1px solid #fdba74;">
                                 <div style="font-size:24px;margin-bottom:4px;">??</div>
                                 <div style="font-weight:800;font-size:14px;color:#9a3412;">Riesgo alto</div>
-                                <div style="font-size:12px;color:#c2410c;font-weight:600;">70 – 84%</div>
+                                <div style="font-size:12px;color:#c2410c;font-weight:600;">70 ï¿½ 84%</div>
                             </div>
                             <div class="risk-level-card" style="background:#fca5a5;border-radius:12px;padding:14px;text-align:center;border:1px solid #f87171;">
                                 <div style="font-size:24px;margin-bottom:4px;">??</div>
                                 <div style="font-weight:800;font-size:14px;color:#7f1d1d;">Riesgo muy alto</div>
-                                <div style="font-size:12px;color:#991b1b;font-weight:600;">85 – 100%</div>
+                                <div style="font-size:12px;color:#991b1b;font-weight:600;">85 ï¿½ 100%</div>
                             </div>
                         </div>
-                        <p style="color:#64748b;font-size:13px;margin-bottom:10px;font-weight:600;">Visualización continua del riesgo:</p>
+                        <p style="color:#64748b;font-size:13px;margin-bottom:10px;font-weight:600;">Visualizaciï¿½n continua del riesgo:</p>
                         <div class="risk-gradient-bar" style="position:relative;width:100%;height:44px;border-radius:22px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.12),inset 0 2px 4px rgba(255,255,255,0.3);background:linear-gradient(90deg,#bbf7d0 0%,#bbf7d0 29%,#d9f99d 29%,#d9f99d 49%,#fef08a 49%,#fef08a 69%,#fed7aa 69%,#fed7aa 84%,#fca5a5 84%,#fca5a5 100%);margin-bottom:8px;">
                             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0.4) 0%,rgba(255,255,255,0.05) 50%,transparent 100%);border-radius:22px;"></div>
                             <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.2) 50%,transparent 100%);border-radius:22px;"></div>
@@ -662,7 +658,7 @@
                         <span class="info-arrow" style="font-size:12px;color:#94a3b8;transition:transform 0.2s;">?</span>
                     </div>
                     <div class="info-body" style="padding:0 20px 0 56px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
-                        <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Instrumento que recopila información sociodemográfica y ocupacional del trabajador, incluyendo edad, sexo, cargo, antigüedad, tipo de contrato, entre otros datos relevantes para el análisis psicosocial.</p>
+                        <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Instrumento que recopila informaciï¿½n sociodemogrï¿½fica y ocupacional del trabajador, incluyendo edad, sexo, cargo, antigï¿½edad, tipo de contrato, entre otros datos relevantes para el anï¿½lisis psicosocial.</p>
                         <a href="#" onclick="abrirDocumento('1cSCpqE9cwqfEBMPrnbeTiEWmdXJ0WHTA','Ficha de Datos Generales');return false;" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento ??</a>
                     </div>
                 </div>
@@ -677,39 +673,39 @@
                     <div class="info-body" style="padding:0 20px 0 20px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
-                                <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Estrés</h4>
-                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa síntomas de estrés en 4 categorías: fisiológicos, comportamiento social, intelectuales y psicoemocionales (31 preguntas).</p>
-                                <a href="#" onclick="abrirDocumento('1-wtxZfVR1aj6UkXGUkU5rwAtB5C0JG0l','Cuestionario Estrés');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir ??</a>
+                                <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Estrï¿½s</h4>
+                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalï¿½a sï¿½ntomas de estrï¿½s en 4 categorï¿½as: fisiolï¿½gicos, comportamiento social, intelectuales y psicoemocionales (31 preguntas).</p>
+                                <a href="#" onclick="abrirDocumento('1-wtxZfVR1aj6UkXGUkU5rwAtB5C0JG0l','Cuestionario Estrï¿½s');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir ??</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Extralaboral</h4>
-                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa condiciones del entorno social, familiar y económico del trabajador (7 dimensiones).</p>
+                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalï¿½a condiciones del entorno social, familiar y econï¿½mico del trabajador (7 dimensiones).</p>
                                 <a href="#" onclick="abrirDocumento('1io8_Aublxmovz-YJvETW3hWsjeXBJjOi','Cuestionario Extralaboral');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir ??</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Intralaboral A</h4>
-                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa factores de riesgo intralaboral en su forma A (19 dimensiones).</p>
+                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalï¿½a factores de riesgo intralaboral en su forma A (19 dimensiones).</p>
                                 <a href="#" onclick="abrirDocumento('1DZ1XlkJkGDIlpyJY8NV247tPWt39mkL-','Cuestionario Intralaboral A');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir ??</a>
                             </div>
                             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;">
                                 <h4 style="margin:0 0 4px;color:#14532d;font-size:14px;">Cuestionario Intralaboral B</h4>
-                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalúa factores de riesgo intralaboral en su forma B (16 dimensiones).</p>
+                                <p style="margin:0 0 10px;color:#64748b;font-size:12px;">Evalï¿½a factores de riesgo intralaboral en su forma B (16 dimensiones).</p>
                                 <a href="#" onclick="abrirDocumento('13ccpfVaInYwBKjo-KjNLKhpVGIbwdLd6','Cuestionario Intralaboral B');return false;" style="padding:6px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px;display:inline-block;">Abrir ??</a>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ACCORDION 5: Documento Técnico Completo -->
+                <!-- ACCORDION 5: Documento Tï¿½cnico Completo -->
                 <div class="info-accordion smooth-7" style="background:white;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
                     <div class="info-header" onclick="toggleAccordion(this)" style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;">
                         <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-                        <span style="flex:1;font-weight:700;font-size:16px;color:#14532d;">Batería — Documento Técnico Completo</span>
+                        <span style="flex:1;font-weight:700;font-size:16px;color:#14532d;">Baterï¿½a ï¿½ Documento Tï¿½cnico Completo</span>
                         <span class="info-arrow" style="font-size:12px;color:#94a3b8;transition:transform 0.2s;">?</span>
                     </div>
                     <div class="info-body" style="padding:0 20px 0 56px;max-height:0;overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease;">
-                        <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Documento técnico completo de la Batería de Instrumentos para la Evaluación de Factores de Riesgo Psicosocial, desarrollado por la Pontificia Universidad Javeriana y el Ministerio de la Protección Social.</p>
-                        <a href="#" onclick="abrirDocumento('1T6SmMCx3QqfkgibiipZFJrGcP831QqNz','Batería — Documento Técnico Completo');return false;" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento ??</a>
+                        <p style="margin:0 0 12px;color:#64748b;font-size:13px;line-height:1.6;">Documento tï¿½cnico completo de la Baterï¿½a de Instrumentos para la Evaluaciï¿½n de Factores de Riesgo Psicosocial, desarrollado por la Pontificia Universidad Javeriana y el Ministerio de la Protecciï¿½n Social.</p>
+                        <a href="#" onclick="abrirDocumento('1T6SmMCx3QqfkgibiipZFJrGcP831QqNz','Baterï¿½a ï¿½ Documento Tï¿½cnico Completo');return false;" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:16px;">Abrir documento ??</a>
                     </div>
                 </div>
 
