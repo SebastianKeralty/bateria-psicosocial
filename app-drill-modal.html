@@ -1,0 +1,1354 @@
+<script>
+function buildModalFilters(type) {
+    const container = document.getElementById('modalFilters');
+    container.innerHTML = '';
+    const src = state._drillBatteryData || state.bateriaActiva;
+    const allRows = src.rows;
+    const autoApply = aplicarFiltrosModal;
+
+    const bar = document.createElement('div');
+    bar.className = 'mf-quick-bar';
+    bar.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+    const selStyle = 'min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:600;color:#334155;cursor:pointer;';
+
+    // ── Search first ──
+    const searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'position:relative;display:flex;align-items:center;flex:1;min-width:120px;';
+    const searchIcon = document.createElement('span');
+    searchIcon.style.cssText = 'position:absolute;left:10px;color:#94a3b8;pointer-events:none;display:flex;';
+    searchIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    const inp = document.createElement('input');
+    inp.id = 'mfBusqueda';
+    inp.placeholder = 'Buscar\u2026';
+    inp.style.cssText = 'width:100%;padding:6px 10px 6px 26px;border:none;border-radius:20px;background:#f1f5f9;font-size:12px;outline:none;transition:all 0.25s;box-sizing:border-box;';
+    let debounceTimer;
+    inp.oninput = function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(autoApply, 300);
+    };
+    inp.onfocus = function() { this.style.background = '#fff'; this.style.boxShadow = '0 0 0 2px rgba(59,130,246,0.2)'; };
+    inp.onblur = function() { if (!this.value) {} this.style.background = '#f1f5f9'; this.style.boxShadow = 'none'; };
+    searchWrap.appendChild(searchIcon);
+    searchWrap.appendChild(inp);
+    bar.appendChild(searchWrap);
+
+    // Forma
+    const formaSel = document.createElement('select');
+    formaSel.id = 'mfForma';
+    formaSel.style.cssText = selStyle;
+    ['', 'A', 'B'].forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v ? 'Forma ' + v : 'Forma: Todas';
+        formaSel.appendChild(opt);
+    });
+    formaSel.onchange = autoApply;
+    bar.appendChild(formaSel);
+
+    const addSelect = (id, placeholder, col) => {
+        const sel = document.createElement('select');
+        sel.id = id;
+        sel.style.cssText = selStyle;
+        const optAll = document.createElement('option');
+        optAll.value = ''; optAll.textContent = placeholder;
+        sel.appendChild(optAll);
+        const opts = getFilterOptions(allRows, col);
+        opts.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o; opt.textContent = o;
+            sel.appendChild(opt);
+        });
+        sel.onchange = autoApply;
+        bar.appendChild(sel);
+    };
+
+    addSelect('mfSexo', 'Sexo: Todos', '2. Sexo');
+    addSelect('mfArea', '\u00c1rea: Todas', 'Unidad de An\u00e1lisis');
+
+    // Dominio (intra only)
+    if (type === 'intra') {
+        const selDom = document.createElement('select');
+        selDom.id = 'mfDominio';
+        selDom.style.cssText = selStyle;
+        const optAllDom = document.createElement('option');
+        optAllDom.value = ''; optAllDom.textContent = 'Dominio: Todos';
+        selDom.appendChild(optAllDom);
+        const availableDims = state._drillSummary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]'));
+        const availDomains = Object.keys(DOMAIN_DIMS).filter(d => DOMAIN_DIMS[d].some(dim => availableDims.some(a => a.name === dim)));
+        availDomains.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = toTitleCase(d);
+            selDom.appendChild(opt);
+        });
+        selDom.onchange = function() { rebuildDimensionOptions(type); autoApply(); };
+        bar.appendChild(selDom);
+    }
+
+    // Dimensión (intra / extra)
+    if (type === 'intra' || type === 'extra') {
+        const dimSel = document.createElement('select');
+        dimSel.id = 'mfDimension';
+        dimSel.style.cssText = selStyle;
+        const optAllDim = document.createElement('option');
+        optAllDim.value = ''; optAllDim.textContent = 'Dimensi\u00f3n: Todas';
+        dimSel.appendChild(optAllDim);
+        let availDims = [];
+        if (type === 'intra') {
+            availDims = (state._drillSummary.dimensions || [])
+                .filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'))
+                .map(d => d.name);
+        } else {
+            availDims = (state._drillSummary.dimensions || [])
+                .filter(d => d.name.startsWith('[Extra]'))
+                .map(d => d.name.replace('[Extra] ', ''));
+        }
+        availDims.sort().forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = d;
+            dimSel.appendChild(opt);
+        });
+        dimSel.onchange = autoApply;
+        bar.appendChild(dimSel);
+    }
+
+    // Stress: category + question
+    if (type === 'stress') {
+        const catSel = document.createElement('select');
+        catSel.id = 'mfStressCat';
+        catSel.style.cssText = selStyle;
+        const optAllCat = document.createElement('option');
+        optAllCat.value = ''; optAllCat.textContent = 'Categor\u00eda: Todas';
+        catSel.appendChild(optAllCat);
+        Object.keys(STRESS_CAT_QS).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            catSel.appendChild(opt);
+        });
+        const populateStressQuestions = (cat) => {
+            const qSel = document.getElementById('mfStressQ');
+            if (!qSel) return;
+            const currentVal = qSel.value;
+            qSel.innerHTML = '<option value="">Pregunta: Todas</option>';
+            const nums = cat && STRESS_CAT_QS[cat] ? STRESS_CAT_QS[cat] : Array.from({length:31},(_,i)=>i+1);
+            nums.forEach(i => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                const txt = STRESS_QUESTIONS[i] || '';
+                opt.textContent = i + '. ' + (txt.length > 60 ? txt.slice(0,57)+'...' : txt);
+                qSel.appendChild(opt);
+            });
+            if (currentVal && Array.from(qSel.options).some(o => o.value === currentVal)) {
+                qSel.value = currentVal;
+            }
+        };
+        catSel.onchange = function() { populateStressQuestions(this.value); autoApply(); };
+        bar.appendChild(catSel);
+
+        const qSel = document.createElement('select');
+        qSel.id = 'mfStressQ';
+        qSel.style.cssText = selStyle;
+        populateStressQuestions('');
+        qSel.onchange = autoApply;
+        bar.appendChild(qSel);
+    }
+
+    // Toggle advanced
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'mfToggle';
+    toggleBtn.title = 'M\u00e1s filtros';
+    toggleBtn.style.cssText = 'width:28px;height:28px;border:none;border-radius:8px;background:#f1f5f9;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;';
+    toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/><circle cx="6" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>';
+    toggleBtn.onclick = toggleAdvancedFilters;
+    toggleBtn.onmouseenter = function() { this.style.background = '#e2e8f0'; };
+    toggleBtn.onmouseleave = function() { this.style.background = '#f1f5f9'; };
+    bar.appendChild(toggleBtn);
+
+    // Clear
+    const btnL = document.createElement('button');
+    btnL.title = 'Limpiar';
+    btnL.style.cssText = 'width:28px;height:28px;border:none;border-radius:8px;background:linear-gradient(135deg,#f43f5e,#ec4899);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(244,63,94,0.3);transition:all 0.2s;';
+    btnL.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    btnL.onclick = limpiarFiltrosModal;
+    btnL.onmouseenter = function() { this.style.transform = 'scale(1.1)'; this.style.boxShadow = '0 4px 12px rgba(244,63,94,0.45)'; };
+    btnL.onmouseleave = function() { this.style.transform = 'scale(1)'; this.style.boxShadow = '0 2px 6px rgba(244,63,94,0.3)'; };
+    bar.appendChild(btnL);
+
+    container.appendChild(bar);
+
+    // ── Advanced panel ──
+    const advPanel = document.createElement('div');
+    advPanel.id = 'mfAdvancedPanel';
+    advPanel.className = 'mf-advanced-panel';
+    advPanel.style.display = 'none';
+
+    const groups = [
+        {
+            title: 'Persona',
+            cols: [
+                { label: 'Estado civil', col: '4. Estado civil', id: 'mfEstadoCivil' },
+                { label: 'Nivel estudios', col: '5. Nivel estudios', id: 'mfNivelEstudios' },
+                { label: 'Estrato', col: '8. Estrato', id: 'mfEstrato' },
+                { label: 'Tipo vivienda', col: '9. Tipo vivienda', id: 'mfTipoVivienda' }
+            ]
+        },
+        {
+            title: 'Laboral',
+            cols: [
+                { label: 'Tipo de cargo', col: '14. Tipo de cargo', id: 'mfTipoCargo' },
+                { label: 'Antig\u00fcedad empresa', col: '12. Antig\u00fcedad en la empresa', id: 'mfAntiguedadEmp' },
+                { label: 'Antig\u00fcedad cargo', col: '15. Antig\u00fcedad en el cargo', id: 'mfAntiguedadCargo' },
+                { label: 'Tipo contrato', col: '17. Tipo de contrato', id: 'mfTipoContrato' },
+                { label: 'Horas diarias', col: '18. Horas diarias de trabajo', id: 'mfHorasDiarias' },
+                { label: 'Tipo salario', col: '19. Tipo de salario', id: 'mfTipoSalario' },
+                { label: 'Nivel cargo', col: 'Nivel de cargo del trabajador', id: 'mfNivelCargo' },
+                { label: '\u00c1rea trabajo', col: '16. \u00c1rea donde trabaja', id: 'mfAreaTrabajo' }
+            ]
+        },
+        {
+            title: 'Ubicaci\u00f3n',
+            cols: [
+                { label: 'Ciudad residencia', col: '7. Lugar de residencia: Ciudad', id: 'mfCiudadRes' },
+                { label: 'Dpto residencia', col: '7. Lugar de residencia: Departamento', id: 'mfDptoRes' },
+                { label: 'Ciudad trabajo', col: '11. Lugar de trabajo: Ciudad', id: 'mfCiudadTrab' },
+                { label: 'Dpto trabajo', col: '11. Lugar de trabajo: Departamento', id: 'mfDptoTrab' }
+            ]
+        }
+    ];
+
+    const advGrid = document.createElement('div');
+    advGrid.className = 'mf-adv-grid';
+
+    for (const group of groups) {
+        const card = document.createElement('div');
+        card.className = 'mf-group-card';
+        const header = document.createElement('div');
+        header.className = 'mf-group-header';
+        header.textContent = group.title;
+        card.appendChild(header);
+        const grid = document.createElement('div');
+        grid.className = 'mf-group-grid';
+        let hasFields = false;
+        for (const f of group.cols) {
+            const opts = getFilterOptions(allRows, f.col);
+            if (opts.length === 0) continue;
+            hasFields = true;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mf-field';
+            const lbl = document.createElement('label');
+            lbl.textContent = f.label;
+            wrapper.appendChild(lbl);
+            const sel = document.createElement('select');
+            sel.id = f.id;
+            const optAll = document.createElement('option');
+            optAll.value = ''; optAll.textContent = 'Todos';
+            sel.appendChild(optAll);
+            opts.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o; opt.textContent = o;
+                sel.appendChild(opt);
+            });
+            sel.onchange = autoApply;
+            wrapper.appendChild(sel);
+            grid.appendChild(wrapper);
+        }
+        if (hasFields) {
+            card.appendChild(grid);
+            advGrid.appendChild(card);
+        }
+    }
+
+    if (advGrid.children.length > 0) {
+        advPanel.appendChild(advGrid);
+        container.appendChild(advPanel);
+    } else {
+        toggleBtn.style.display = 'none';
+    }
+}
+
+function toggleAdvancedFilters() {
+    const panel = document.getElementById('mfAdvancedPanel');
+    const btn = document.getElementById('mfToggle');
+    if (!panel || !btn) return;
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    btn.title = isOpen ? 'M\u00e1s filtros' : 'Menos filtros';
+    if (isOpen) {
+        btn.style.background = '#f1f5f9';
+        btn.style.color = '#475569';
+    } else {
+        btn.style.background = '#1a73e8';
+        btn.style.color = '#fff';
+    }
+}
+
+function getModalFilteredRows() {
+    const src = state._drillBatteryData || state.bateriaActiva;
+    let rows = src.rows;
+
+    // Quick search (Layer 1)
+    const q = document.getElementById('mfBusqueda')?.value?.trim().toLowerCase();
+    if (q) {
+        const searchCols = ["ID", "Nombre completo del trabajador", "13. Cargo", "No. Encuesta"];
+        rows = rows.filter(r => searchCols.some(col =>
+            String(r[col] || '').trim().toLowerCase().includes(q)
+        ));
+    }
+
+    // Quick filter selects (Layer 2)
+    const area = document.getElementById('mfArea')?.value;
+    const sexo = document.getElementById('mfSexo')?.value;
+    const forma = document.getElementById('mfForma')?.value;
+    const _normArea = (s) => s.replace(/^[\d\s]+[\.\s]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (area || sexo || forma) {
+        rows = rows.filter(r => {
+            if (area && String(r["Unidad de Análisis"] || '').trim() !== area) return false;
+            if (sexo && String(r["2. Sexo"] || '').trim() !== sexo) return false;
+            if (forma && String(r["_forma"] || '').trim() !== forma) return false;
+            return true;
+        });
+    }
+
+    // Advanced filter selects (Layer 3)
+    const advMap = [
+        { id: 'mfEstadoCivil', col: '4. Estado civil' },
+        { id: 'mfNivelEstudios', col: '5. Nivel estudios' },
+        { id: 'mfEstrato', col: '8. Estrato' },
+        { id: 'mfTipoVivienda', col: '9. Tipo vivienda' },
+        { id: 'mfTipoCargo', col: '14. Tipo de cargo' },
+        { id: 'mfAntiguedadEmp', col: '12. Antigüedad en la empresa' },
+        { id: 'mfAntiguedadCargo', col: '15. Antigüedad en el cargo' },
+        { id: 'mfTipoContrato', col: '17. Tipo de contrato' },
+        { id: 'mfHorasDiarias', col: '18. Horas diarias de trabajo' },
+        { id: 'mfTipoSalario', col: '19. Tipo de salario' },
+        { id: 'mfNivelCargo', col: 'Nivel de cargo del trabajador' },
+        { id: 'mfAreaTrabajo', col: '16. Área donde trabaja' },
+        { id: 'mfCiudadRes', col: '7. Lugar de residencia: Ciudad' },
+        { id: 'mfDptoRes', col: '7. Lugar de residencia: Departamento' },
+        { id: 'mfCiudadTrab', col: '11. Lugar de trabajo: Ciudad' },
+        { id: 'mfDptoTrab', col: '11. Lugar de trabajo: Departamento' }
+    ];
+    const activeAdv = advMap.map(f => ({
+        f, val: document.getElementById(f.id)?.value
+    })).filter(x => x.val);
+
+    if (activeAdv.length > 0) {
+        rows = rows.filter(r => {
+            for (const { f, val } of activeAdv) {
+                const cell = String(r[f.col] || '').trim();
+                if (f.col === "16. Área donde trabaja") {
+                    if (_normArea(cell) !== val) return false;
+                } else {
+                    if (cell !== val) return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    return rows;
+}
+
+function aplicarFiltrosModal() {
+    const filtered = getModalFilteredRows();
+    state._drillRows = filtered;
+    state._drillSummary = computeSummary(filtered);
+    renderModalBody();
+    actualizarIndicadorFiltros();
+}
+
+function actualizarIndicadorFiltros() {
+    const advIds = ['mfEstadoCivil','mfNivelEstudios','mfEstrato','mfTipoVivienda',
+        'mfTipoCargo','mfAntiguedadEmp','mfAntiguedadCargo','mfTipoContrato',
+        'mfHorasDiarias','mfTipoSalario','mfNivelCargo','mfAreaTrabajo',
+        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab'];
+    const hasActive = advIds.some(id => {
+        const el = document.getElementById(id);
+        return el && el.value && el.value !== '';
+    });
+    const btn = document.getElementById('mfToggle');
+    if (btn) {
+        btn.style.background = hasActive ? '#dbeafe' : '#f1f5f9';
+        btn.style.color = hasActive ? '#1a73e8' : '#475569';
+    }
+}
+
+function limpiarFiltrosModal() {
+    const ids = ['mfArea','mfSexo','mfForma','mfDimension','mfDominio','mfBusqueda',
+        'mfEstadoCivil','mfNivelEstudios','mfEstrato','mfTipoVivienda',
+        'mfTipoCargo','mfAntiguedadEmp','mfAntiguedadCargo','mfTipoContrato',
+        'mfHorasDiarias','mfTipoSalario','mfNivelCargo','mfAreaTrabajo',
+        'mfCiudadRes','mfDptoRes','mfCiudadTrab','mfDptoTrab',
+        'mfStressCat','mfStressQ'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    aplicarFiltrosModal();
+}
+
+function showDrillDown(type) {
+    const data = state.bateriaActiva;
+    if (!data) return;
+    state._drillBatteryData = null;
+    state._drillRows = data.rows;
+    state._drillSummary = data.summary;
+    state._drillType = type;
+    state._viewMode = 'table';
+
+    document.getElementById('drillModal').style.display = 'flex';
+    document.getElementById('modalBody').innerHTML = '';
+    document.getElementById('modalFilters').innerHTML = '';
+
+    const titles = { intra: 'Intralaboral — Dominios y Dimensiones', extra: 'Extralaboral — Dimensiones', stress: 'Estrés' };
+    document.getElementById('modalTitle').textContent = titles[type] || 'Detalle';
+
+    _cargarPlanes();
+
+    const toggleContainer = document.getElementById('modalViewToggle');
+    toggleContainer.style.display = 'inline-flex';
+    toggleContainer.innerHTML = '<button class="btn-view-toggle" onclick="toggleDrillView()" title="Ver gráfica">📊 Gráfica</button>';
+
+    buildModalFilters(type);
+    renderModalBody();
+}
+
+function showDrillFromComparativa(type, batteryData) {
+    if (!batteryData) return;
+    state._drillBatteryData = batteryData;
+    state._drillComparativaBaterias = state.bateriasComparativa.slice();
+    state._drillRows = batteryData.rows;
+    state._drillSummary = batteryData.summary;
+    state._drillType = type;
+    state._viewMode = 'table';
+
+    document.getElementById('drillModal').style.display = 'flex';
+    document.getElementById('modalBody').innerHTML = '';
+    document.getElementById('modalFilters').innerHTML = '';
+
+    document.getElementById('modalTitle').textContent = 'Comparativa — ' + (type === 'intra' ? 'Intralaboral' : type === 'extra' ? 'Extralaboral' : 'Estrés');
+
+    state._compSortCol = null;
+    state._compSortDir = 1;
+    state._compViewMode = 'cards';
+    const toggleContainer = document.getElementById('modalViewToggle');
+    toggleContainer.style.display = 'block';
+    toggleContainer.innerHTML = '<button class="btn-view-toggle" onclick="toggleComparativaDrillView()">📊 Gráfica</button>';
+
+    renderComparativaDrillModal(type);
+}
+
+function toggleComparativaDrillView() {
+    state._compViewMode = state._compViewMode === 'chart' ? 'cards' : 'chart';
+    const btn = document.querySelector('#modalViewToggle button');
+    if (btn) {
+        btn.innerHTML = state._compViewMode === 'cards' ? '📊 Gráfica' : '📋 Tarjetas';
+        btn.title = state._compViewMode === 'cards' ? 'Ver gráfica' : 'Ver tarjetas';
+    }
+    aplicarFiltrosComparativaDrill();
+}
+
+function sortComparativaHeatmap(col) {
+    if (state._compSortCol === col) {
+        state._compSortDir = state._compSortDir === 1 ? -1 : 1;
+    } else {
+        state._compSortCol = col;
+        state._compSortDir = 1;
+    }
+    aplicarFiltrosComparativaDrill();
+}
+
+function toggleDrillView() {
+    state._viewMode = state._viewMode === 'chart' ? 'table' : 'chart';
+    const btn = document.querySelector('#modalViewToggle button');
+    if (btn) {
+        btn.innerHTML = state._viewMode === 'table' ? '📊 Gráfica' : '📋 Tabla';
+        btn.title = state._viewMode === 'table' ? 'Ver gráfica' : 'Ver tabla';
+    }
+    aplicarFiltrosModal();
+}
+
+function closeDrillModal() {
+    state._drillBatteryData = null;
+    state._drillComparativaBaterias = null;
+    destroyChart('comparativaLineChart');
+    destroyChart('comparativaBarChart');
+    document.getElementById('drillModal').style.display = 'none';
+}
+
+// ── PLANES DE ACCIÓN ──
+var _planActual = null;
+
+function _cargarPlanes() {
+    if (!state.bateriaActiva || !state.bateriaActiva.meta || !state.bateriaActiva.meta.id) return;
+    google.script.run
+        .withSuccessHandler(function(planes) {
+            state.planes = planes || [];
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function() { state.planes = []; })
+        .cargarPlanes(state.bateriaActiva.meta.id);
+}
+
+function _actualizarIndicadoresTablas() {
+    var tables = document.querySelectorAll('#modalBody .table-wrap table tbody tr');
+    tables.forEach(function(row) {
+        var firstTd = row.querySelector('td:first-child');
+        if (!firstTd) return;
+        var strong = firstTd.querySelector('strong');
+        if (!strong) return;
+        var dimName = strong.textContent.trim();
+        var hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dimName; });
+        var existing = firstTd.querySelector('.plan-indicator');
+        if (!existing) {
+            var ind = document.createElement('span');
+            ind.className = 'plan-indicator';
+            ind.style.cssText = 'margin-right:6px;cursor:pointer;font-size:14px;';
+            ind.textContent = hasPlan ? '✅' : '○';
+            firstTd.insertBefore(ind, firstTd.firstChild);
+        } else {
+            existing.textContent = hasPlan ? '✅' : '○';
+        }
+    });
+}
+
+function abrirPlanAccion(dimName, riesgo, nivel, encuesta) {
+    var modal = document.getElementById('planAccionModal');
+    if (!modal) return;
+
+    var planExistente = state.planes && state.planes.find(function(p) { return p.dimension === dimName; });
+    var accionesGuardadas = planExistente && planExistente.acciones ? planExistente.acciones : [];
+    var planTextoVal = planExistente && planExistente.plan ? planExistente.plan : '';
+    var encuestaLabel = encuesta === 'intra' ? 'Intralaboral' : encuesta === 'extra' ? 'Extralaboral' : 'Estrés';
+    var rc = RISK_COLORS[nivel] || RISK_COLORS["ERROR"];
+    var estadoTxt = planExistente ? '✅ Tiene plan' : '○ Sin plan';
+
+    // Fill existing DOM elements
+    var el;
+    el = document.getElementById('planDimTitle');
+    if (el) el.textContent = 'Plan de Acción: ' + dimName;
+    el = document.getElementById('planDimRiesgo');
+    if (el) { el.textContent = riesgo + '% (' + nivel + ')'; el.style.color = rc.text; }
+
+    el = document.getElementById('planDimEncuesta');
+    if (el) el.textContent = encuestaLabel;
+
+    el = document.getElementById('planDimEstado');
+    if (el) el.textContent = estadoTxt;
+
+    var content = document.getElementById('planContentArea');
+    if (content) content.style.display = 'block';
+
+    var overlay = document.getElementById('planInlineLoading');
+    if (overlay) overlay.style.display = 'none';
+
+    // Generate checklist
+    var checkDiv = document.getElementById('planAccionesChecklist');
+    if (!checkDiv) { modal.style.display = 'flex'; return; }
+
+    var checkHtml = '';
+    try {
+        if (typeof generarChecklistAcciones === 'function') {
+            checkHtml = generarChecklistAcciones(dimName, nivel, accionesGuardadas);
+        }
+    } catch(e) {}
+    
+    checkDiv.innerHTML = checkHtml || '<div style="padding:20px;text-align:center;color:#64748b;font-size:13px;">Sin acciones disponibles.</div>';
+
+    el = document.getElementById('planTexto');
+    if (el) el.value = planTextoVal;
+
+    el = document.getElementById('planStatus');
+    if (el) el.textContent = '';
+
+    _planActual = { dimension: dimName, riesgoActual: riesgo, nivel: nivel, encuesta: encuesta };
+    modal.style.display = 'flex';
+}
+
+function cerrarPlanAccion() {
+    document.getElementById('planAccionModal').style.display = 'none';
+    _planActual = null;
+}
+
+function _renderItems(containerId, items) {
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    items.forEach(function(item, i) {
+        var div = document.createElement('div');
+        div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+        div.innerHTML = '<input type="text" value="' + item.replace(/"/g, '&quot;') + '" style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'
+            + '<button onclick="this.parentElement.remove()" style="padding:4px 10px;border:none;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;">✕</button>';
+        container.appendChild(div);
+    });
+}
+
+function agregarItem(containerId) {
+    var container = document.getElementById(containerId);
+    var div = document.createElement('div');
+    div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+    div.innerHTML = '<input type="text" placeholder="Nuevo ítem..." style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'
+        + '<button onclick="this.parentElement.remove()" style="padding:4px 10px;border:none;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;">✕</button>';
+    container.appendChild(div);
+}
+
+function _getItemsValues(containerId) {
+    var container = document.getElementById(containerId);
+    var values = [];
+    container.querySelectorAll('input').forEach(function(inp) {
+        var v = inp.value.trim();
+        if (v) values.push(v);
+    });
+    return values;
+}
+
+function eliminarPlanActual() {
+    if (!_planActual) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este plan de acción?')) return;
+    
+    showLoadingModal('Eliminando...');
+    var btn = document.getElementById('btnEliminarPlan');
+    btn.disabled = true;
+    
+    google.script.run
+        .withSuccessHandler(function() {
+            hideLoadingModal();
+            btn.disabled = false;
+            document.getElementById('planDimEstado').textContent = '○ Sin plan';
+            mostrarPlanToast('Plan eliminado correctamente', 'success');
+            document.querySelectorAll('#planAccionesChecklist input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
+            document.getElementById('planTexto').value = '';
+            if (state.planes) state.planes = state.planes.filter(function(p) { return p.dimension !== _planActual.dimension; });
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function(err) {
+            hideLoadingModal();
+            btn.disabled = false;
+            mostrarPlanToast('Error: ' + err.message, 'error');
+        })
+        .eliminarPlan(state.bateriaActiva.meta.id, _planActual.dimension);
+}
+
+function guardarPlanActual() {
+    if (!_planActual) return;
+    
+    var acciones = typeof getAccionesSeleccionadas === 'function' ? getAccionesSeleccionadas() : [];
+    var notas = document.getElementById('planTexto').value.trim();
+    
+    if (acciones.length === 0 && !notas) {
+        mostrarPlanToast('Selecciona al menos una acción o escribe una nota.', 'error');
+        return;
+    }
+    
+    showLoadingModal('Guardando...');
+    
+    var planData = {
+        dimension: _planActual.dimension,
+        encuesta: _planActual.encuesta,
+        riesgoActual: _planActual.riesgoActual,
+        nivel: _planActual.nivel,
+        acciones: acciones,
+        plan: notas,
+        indicadores: [],
+        beneficios: [],
+        fecha: new Date().toISOString().slice(0, 10)
+    };
+
+    var btn = document.getElementById('btnGuardarPlan');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="opacity:0.5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan</span>';
+
+    google.script.run
+        .withSuccessHandler(function() {
+            hideLoadingModal();
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción';
+            document.getElementById('planDimEstado').textContent = '✅ Tiene plan';
+            mostrarPlanToast('✅ Plan guardado correctamente', 'success');
+            state.planes = state.planes || [];
+            var idx = state.planes.findIndex(function(p) { return p.dimension === _planActual.dimension; });
+            if (idx >= 0) state.planes[idx] = planData;
+            else state.planes.push(planData);
+            _actualizarIndicadoresTablas();
+        })
+        .withFailureHandler(function(err) {
+            hideLoadingModal();
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Plan de Acción';
+            mostrarPlanToast('Error: ' + err.message, 'error');
+        })
+        .guardarPlan(state.bateriaActiva.meta.id, _planActual.dimension, planData);
+}
+
+function renderModalBody() {
+    const type = state._drillType;
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '';
+
+    if (type === 'intra') renderIntraCards();
+    else if (type === 'extra') renderExtraCards();
+    else if (type === 'stress') renderStressCards();
+
+    const isChart = state._viewMode === 'chart';
+    if (type === 'intra') {
+        if (isChart) renderIntraChart();
+        else renderIntraTable();
+    } else if (type === 'extra') {
+        if (isChart) renderExtraChart();
+        else renderExtraTable();
+    } else if (type === 'stress') {
+        if (isChart) renderStressChart();
+        else renderStressTable();
+    }
+}
+
+function renderIntraCards() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('modalBody');
+    const domain = document.getElementById('mfDominio')?.value || '';
+    const areaVal = document.getElementById('mfArea')?.value || '';
+
+    const intraDims = summary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
+
+    let html = '';
+    if (!total) {
+        html = '<p style="color:#94a3b8;text-align:center;padding:30px;">Sin datos para el filtro seleccionado.</p>';
+        container.innerHTML = html;
+        return;
+    }
+
+    const intraDist = summary.intraGeneral || {};
+    const hasDist = Object.keys(intraDist).length > 0;
+
+    const computeDomainRisk = (domainName) => {
+        const domainDimNames = DOMAIN_DIMS[domainName] || [];
+        const domainDims = intraDims.filter(d => domainDimNames.includes(d.name) && d.risk);
+        if (domainDims.length === 0) return null;
+        let sumPct = 0;
+        for (const d of domainDims) {
+            const alto = (d.risk["Riesgo alto"] || 0) + (d.risk["Riesgo muy alto"] || 0);
+            sumPct += total ? (alto / total) * 100 : 0;
+        }
+        const pctAlto = Math.round(sumPct / domainDims.length);
+        return { name: toTitleCase(domainName), pctAlto };
+    };
+
+    const pctColor = (pct) => clasificarCritico(pct).color;
+
+    const makeHorizBar = (name, pctAlto) => {
+        const barColor = pctColor(pctAlto);
+        return `<div class="bar-row" style="margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                <span style="color:#334155;">${name}</span>
+                <span style="font-weight:700;color:${barColor};">${pctAlto}%</span>
+            </div>
+            <div class="bar-bg">
+                <div class="bar-fill" style="width:${pctAlto}%;background:${barColor};"></div>
+            </div>
+        </div>`;
+    };
+
+    if (hasDist) {
+        const pctAltoGlobal = total ? Math.round((((intraDist["Riesgo alto"]||0)+(intraDist["Riesgo muy alto"]||0))/total)*100) : 0;
+
+        html += '<div class="card" style="display:flex;gap:12px;padding:16px;margin-bottom:16px;align-items:stretch;">';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        html += '<div style="background:#eef2ff;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;border:1px solid #c7d2fe;">';
+        html += '<div style="font-size:24px;font-weight:700;color:#1a73e8;">'+total+'</div>';
+        html += '<div style="font-size:10px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Encuestados</div>';
+        html += '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">';
+        const riskKeys = orderRiskKeys(intraDist);
+        for (const k of riskKeys) {
+            const v = intraDist[k] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            const rc = riskColor(k);
+            html += `<div class="bar-row" style="margin-bottom:2px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                    <span style="color:#334155;">${k} (${v})</span>
+                    <span style="font-weight:700;color:${rc.text};">${pct}%</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width:${pct}%;background:${rc.bg};"></div>
+                </div>
+            </div>`;
+        }
+        html += '</div></div>';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        if (!domain) {
+            const critColor = pctColor(pctAltoGlobal);
+            html += '<div style="background:#fef2f2;border-radius:8px;padding:6px 12px;text-align:center;margin-bottom:8px;border:1px solid #fecaca;">';
+            html += '<div style="font-size:28px;font-weight:800;color:' + critColor + ';line-height:1.2;">' + pctAltoGlobal + '%</div>';
+            html += '<div style="font-size:9px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Riesgo Intralaboral</div>';
+            html += '</div>';
+        }
+        const domainTitle = areaVal ? 'Dominios \u00b7 ' + areaVal : 'Dominios';
+        html += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">' + domainTitle + '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;">';
+        if (domain) {
+            const dr = computeDomainRisk(domain);
+            if (dr) {
+                const heroColor = pctColor(dr.pctAlto);
+                const heroBg = clasificarCritico(dr.pctAlto).bg;
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${dr.name}</div>
+                    <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${dr.pctAlto}%</div>
+                    <div style="font-size:10px;font-weight:700;color:${heroColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cr\u00edtico</div>
+                    <div style="width:80%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:${dr.pctAlto}%;background:${heroColor};border-radius:4px;transition:width 0.4s ease;"></div>
+                    </div>
+                </div>`;
+            }
+        } else {
+            const allDomains = Object.keys(DOMAIN_DIMS).filter(d =>
+                DOMAIN_DIMS[d].some(dim => intraDims.some(a => a.name === dim))
+            );
+            const domainData = allDomains.map(d => computeDomainRisk(d)).filter(Boolean);
+            domainData.sort((a, b) => b.pctAlto - a.pctAlto);
+            for (const d of domainData) {
+                html += makeHorizBar(d.name, d.pctAlto);
+            }
+        }
+        html += '</div></div>';
+
+        html += '</div>';
+    }
+
+    html += '<div id="belowSection"></div>';
+    container.innerHTML = html;
+}
+
+function renderIntraTable() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+    const domain = document.getElementById('mfDominio')?.value || '';
+    const intraDims = summary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
+    const filteredDims = domain
+        ? intraDims.filter(d => (DOMAIN_DIMS[domain] || []).includes(d.name))
+        : intraDims;
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? filteredDims.filter(d => d.name === dimFilter)
+        : filteredDims;
+
+    if (state._sortDir === undefined) state._sortDir = 'desc';
+    const sortedDims = [...finalDims].filter(d => d.risk).sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return state._sortDir === 'desc' ? bPct - aPct : aPct - bPct;
+    });
+
+    const sortIcon = state._sortDir === 'desc' ? '\u25BC' : '\u25B2';
+    let html = `<div class="table-wrap"><table>
+        <thead><tr><th>Dimensi\u00f3n</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+
+    for (const dim of sortedDims) {
+        if (!dim.risk) continue;
+        const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
+        const rowBg = clasificarCritico(pctAlto).bg;
+        const hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dim.name; });
+        const safeName = dim.name.replace(/'/g, "\\'");
+        html += `<tr style="background:${rowBg};cursor:pointer;" onclick="abrirPlanAccion('${safeName}',${pctAlto},'${clasificarCritico(pctAlto).label}','intra')"><td><span style="margin-right:6px;font-size:13px;">${hasPlan ? '✅' : '○'}</span><strong>${dim.name}</strong></td>`;
+        for (const r of RISK_ORDER) {
+            const v = dim.risk[r] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
+        }
+        const badgeClass = clasificarCritico(pctAlto).cls;
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function renderIntraChart() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+    const domain = document.getElementById('mfDominio')?.value || '';
+    const intraDims = summary.dimensions.filter(d => !d.name.startsWith('[Extra]') && !d.name.startsWith('[Global]') && !d.name.startsWith('[Stress]'));
+    const filteredDims = domain
+        ? intraDims.filter(d => (DOMAIN_DIMS[domain] || []).includes(d.name))
+        : intraDims;
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? filteredDims.filter(d => d.name === dimFilter)
+        : filteredDims;
+
+    const chartDims = [...finalDims].filter(d => d.risk).sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return bPct - aPct;
+    });
+
+    container.innerHTML = '<div style="position:relative;"><canvas id="intraChartCanvas"></canvas></div>';
+    destroyChart('intraChart');
+    const ctx = getChartCtx('intraChartCanvas');
+    if (!ctx || chartDims.length === 0) return;
+
+    const labels = chartDims.map(d => d.name.length > 35 ? d.name.slice(0, 32) + '...' : d.name);
+    const values = chartDims.map(d => total ? Math.round((((d.risk["Riesgo alto"]||0)+(d.risk["Riesgo muy alto"]||0))/total)*100) : 0);
+    const colors = values.map(v => clasificarCritico(v).color);
+
+    state.charts['intraChart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 3 }] },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            scales: {
+                x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } }
+            },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } } }
+        }
+    });
+}
+
+function renderExtraCards() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('modalBody');
+    const extraDims = summary.dimensions.filter(d => d.name.startsWith('[Extra]') && d.name !== '[Extra] PUNTAJE BRUTO TOTAL');
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+
+    let html = '';
+    if (!total) {
+        html = '<p style="color:#94a3b8;text-align:center;padding:30px;">Sin datos para el filtro seleccionado.</p>';
+        container.innerHTML = html;
+        return;
+    }
+
+    const pctColor = (pct) => clasificarCritico(pct).color;
+
+    const makeHorizBar = (name, pctAlto) => {
+        const barColor = pctColor(pctAlto);
+        return `<div class="bar-row" style="margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                <span style="color:#334155;">${name}</span>
+                <span style="font-weight:700;color:${barColor};">${pctAlto}%</span>
+            </div>
+            <div class="bar-bg">
+                <div class="bar-fill" style="width:${pctAlto}%;background:${barColor};"></div>
+            </div>
+        </div>`;
+    };
+
+    const computeExtraDimRisk = (dimName) => {
+        const dim = extraDims.find(d => d.name === dimName);
+        if (!dim || !dim.risk) return null;
+        const alto = (dim.risk["Riesgo alto"] || 0) + (dim.risk["Riesgo muy alto"] || 0);
+        const pctAlto = total ? Math.round((alto / total) * 100) : 0;
+        return { name: dim.name.replace('[Extra] ', ''), pctAlto };
+    };
+
+    const extraDist = summary.extraGeneral || {};
+    const hasDist = Object.keys(extraDist).length > 0;
+    const pctAltoGlobal = total ? Math.round((((extraDist["Riesgo alto"]||0)+(extraDist["Riesgo muy alto"]||0))/total)*100) : 0;
+
+    if (hasDist) {
+        html += '<div class="card" style="display:flex;gap:12px;padding:16px;margin-bottom:16px;align-items:stretch;">';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        html += '<div style="background:#eef2ff;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;border:1px solid #c7d2fe;">';
+        html += '<div style="font-size:24px;font-weight:700;color:#1a73e8;">'+total+'</div>';
+        html += '<div style="font-size:10px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Encuestados</div>';
+        html += '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">';
+        const riskKeys = orderRiskKeys(extraDist);
+        for (const k of riskKeys) {
+            const v = extraDist[k] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            const rc = riskColor(k);
+            html += `<div class="bar-row" style="margin-bottom:2px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                    <span style="color:#334155;">${k} (${v})</span>
+                    <span style="font-weight:700;color:${rc.text};">${pct}%</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width:${pct}%;background:${rc.bg};"></div>
+                </div>
+            </div>`;
+        }
+        html += '</div></div>';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        if (!dimFilter) {
+            const critColor = pctColor(pctAltoGlobal);
+            html += '<div style="background:#fef2f2;border-radius:8px;padding:6px 12px;text-align:center;margin-bottom:8px;border:1px solid #fecaca;">';
+            html += '<div style="font-size:28px;font-weight:800;color:' + critColor + ';line-height:1.2;">' + pctAltoGlobal + '%</div>';
+            html += '<div style="font-size:9px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Riesgo Extralaboral</div>';
+            html += '</div>';
+        }
+        html += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Dimensiones</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;">';
+
+        if (dimFilter) {
+            const dr = computeExtraDimRisk('[Extra] ' + dimFilter);
+            if (dr) {
+                const heroColor = pctColor(dr.pctAlto);
+                const heroBg = clasificarCritico(dr.pctAlto).bg;
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${dr.name}</div>
+                    <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${dr.pctAlto}%</div>
+                    <div style="font-size:10px;font-weight:700;color:${heroColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cr\u00edtico</div>
+                    <div style="width:80%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:${dr.pctAlto}%;background:${heroColor};border-radius:4px;transition:width 0.4s ease;"></div>
+                    </div>
+                </div>`;
+            }
+        } else {
+            const extraBars = extraDims
+                .map(d => computeExtraDimRisk(d.name))
+                .filter(Boolean);
+            extraBars.sort((a, b) => b.pctAlto - a.pctAlto);
+            for (const d of extraBars) {
+                html += makeHorizBar(d.name, d.pctAlto);
+            }
+        }
+        html += '</div></div></div>';
+    }
+
+    html += '<div id="belowSection"></div>';
+    container.innerHTML = html;
+}
+
+function renderExtraTable() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+    const extraDims = summary.dimensions.filter(d => d.name.startsWith('[Extra]') && d.name !== '[Extra] PUNTAJE BRUTO TOTAL');
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? extraDims.filter(d => d.name.replace('[Extra] ', '') === dimFilter)
+        : extraDims;
+
+    if (state._sortDir === undefined) state._sortDir = 'desc';
+    const sortedDims = [...finalDims].filter(d => d.risk).sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return state._sortDir === 'desc' ? bPct - aPct : aPct - bPct;
+    });
+
+    const sortIcon = state._sortDir === 'desc' ? '\u25BC' : '\u25B2';
+    let html = `<div class="table-wrap"><table>
+        <thead><tr><th>Dimensi\u00f3n</th>${RISK_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+
+    for (const dim of sortedDims) {
+        if (!dim.risk) continue;
+        const pctAlto = total ? Math.round((((dim.risk["Riesgo alto"]||0)+(dim.risk["Riesgo muy alto"]||0))/total)*100) : 0;
+        const rowBg = clasificarCritico(pctAlto).bg;
+        const dimName = dim.name.replace('[Extra] ','');
+        const hasPlan = state.planes && state.planes.some(function(p) { return p.dimension === dimName; });
+        const safeName = dimName.replace(/'/g, "\\'");
+        html += `<tr style="background:${rowBg};cursor:pointer;" onclick="abrirPlanAccion('${safeName}',${pctAlto},'${clasificarCritico(pctAlto).label}','extra')"><td><span style="margin-right:6px;font-size:13px;">${hasPlan ? '✅' : '○'}</span><strong>${dimName}</strong></td>`;
+        for (const r of RISK_ORDER) {
+            const v = dim.risk[r] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
+        }
+        const badgeClass = clasificarCritico(pctAlto).cls;
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function renderExtraChart() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+    const extraDims = summary.dimensions.filter(d => d.name.startsWith('[Extra]') && d.name !== '[Extra] PUNTAJE BRUTO TOTAL');
+    const dimFilter = document.getElementById('mfDimension')?.value || '';
+    const finalDims = dimFilter
+        ? extraDims.filter(d => d.name.replace('[Extra] ', '') === dimFilter)
+        : extraDims;
+
+    const chartDims = [...finalDims].filter(d => d.risk).sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return bPct - aPct;
+    });
+
+    container.innerHTML = '<div style="position:relative;"><canvas id="extraChartCanvas"></canvas></div>';
+    destroyChart('extraChart');
+    const ctx = getChartCtx('extraChartCanvas');
+    if (!ctx || chartDims.length === 0) return;
+
+    const labels = chartDims.map(d => (d.name.replace('[Extra] ', '')).length > 35 ? (d.name.replace('[Extra] ', '')).slice(0, 32) + '...' : d.name.replace('[Extra] ', ''));
+    const values = chartDims.map(d => total ? Math.round((((d.risk["Riesgo alto"]||0)+(d.risk["Riesgo muy alto"]||0))/total)*100) : 0);
+    const colors = values.map(v => clasificarCritico(v).color);
+
+    state.charts['extraChart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 3 }] },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            scales: {
+                x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } }
+            },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } } }
+        }
+    });
+}
+
+function renderStressCards() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('modalBody');
+    const stressDist = summary.stress || {};
+    const keys = orderRiskKeys(stressDist);
+    const hasDist = keys.length > 0;
+
+    const catFilter = document.getElementById('mfStressCat')?.value || '';
+
+    let html = '';
+    if (!total) {
+        html = '<p style="color:#94a3b8;text-align:center;padding:30px;">Sin datos para el filtro seleccionado.</p>';
+        container.innerHTML = html;
+        return;
+    }
+
+    const pctColor = (pct) => clasificarCritico(pct).color;
+
+    const makeHorizBar = (name, pctAlto) => {
+        const barColor = pctColor(pctAlto);
+        return `<div class="bar-row" style="margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                <span style="color:#334155;">${name}</span>
+                <span style="font-weight:700;color:${barColor};">${pctAlto}%</span>
+            </div>
+            <div class="bar-bg">
+                <div class="bar-fill" style="width:${pctAlto}%;background:${barColor};"></div>
+            </div>
+        </div>`;
+    };
+
+    const catNames = Object.keys(STRESS_CAT_QS);
+
+    const computeStressCatRisk = (catName) => {
+        const dim = summary.dimensions.find(d => d.name === `[Stress] ${catName}`);
+        if (!dim || !dim.risk) return null;
+        const alto = (dim.risk["Riesgo alto"] || 0) + (dim.risk["Riesgo muy alto"] || 0);
+        const pctAlto = total ? Math.round((alto / total) * 100) : 0;
+        return { name: catName, pctAlto };
+    };
+
+    const pctAltoGlobal = total ? Math.round((((stressDist["Riesgo alto"]||0)+(stressDist["Riesgo muy alto"]||0))/total)*100) : 0;
+
+    if (hasDist) {
+        html += '<div class="card" style="display:flex;gap:12px;padding:16px;margin-bottom:16px;align-items:stretch;">';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        html += '<div style="background:#eef2ff;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;border:1px solid #c7d2fe;">';
+        html += '<div style="font-size:24px;font-weight:700;color:#1a73e8;">'+total+'</div>';
+        html += '<div style="font-size:10px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Encuestados</div>';
+        html += '</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">';
+        const titleCase = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    for (const k of keys) {
+        const v = stressDist[k] || 0;
+        const pct = total ? Math.round((v/total)*100) : 0;
+        const rc = riskColor(k);
+        html += `<div class="bar-row" style="margin-bottom:2px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-bottom:2px;">
+                    <span style="color:#334155;">${titleCase(k)} (${v})</span>
+                    <span style="font-weight:700;color:${rc.text};">${pct}%</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width:${pct}%;background:${rc.bg};"></div>
+                </div>
+            </div>`;
+        }
+        html += '</div></div>';
+
+        html += '<div style="flex:1;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+        if (!catFilter) {
+            const critColor = pctColor(pctAltoGlobal);
+            html += '<div style="background:#fef2f2;border-radius:8px;padding:6px 12px;text-align:center;margin-bottom:8px;border:1px solid #fecaca;">';
+            html += '<div style="font-size:28px;font-weight:800;color:' + critColor + ';line-height:1.2;">' + pctAltoGlobal + '%</div>';
+            html += '<div style="font-size:9px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Riesgo Estr\u00e9s Global</div>';
+            html += '</div>';
+        }
+        html += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Categor\u00edas</div>';
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;">';
+
+        if (catFilter) {
+            const cr = computeStressCatRisk(catFilter);
+            if (cr) {
+                const heroColor = pctColor(cr.pctAlto);
+                const heroBg = clasificarCritico(cr.pctAlto).bg;
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${heroBg};border-radius:8px;padding:12px;text-align:center;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;line-height:1.3;">${cr.name}</div>
+                    <div style="font-size:42px;font-weight:800;color:${heroColor};line-height:1;">${cr.pctAlto}%</div>
+                    <div style="font-size:10px;font-weight:700;color:${heroColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cr\u00edtico</div>
+                    <div style="width:80%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:${cr.pctAlto}%;background:${heroColor};border-radius:4px;transition:width 0.4s ease;"></div>
+                    </div>
+                </div>`;
+            }
+        } else {
+            const catBars = catNames.map(c => computeStressCatRisk(c)).filter(Boolean);
+            catBars.sort((a, b) => b.pctAlto - a.pctAlto);
+            for (const c of catBars) {
+                html += makeHorizBar(c.name, c.pctAlto);
+            }
+        }
+        html += '</div></div></div>';
+    }
+
+    html += '<div id="belowSection"></div>';
+    container.innerHTML = html;
+}
+
+function renderStressTable() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+
+    const catFilter = document.getElementById('mfStressCat')?.value || '';
+    const qFilter = document.getElementById('mfStressQ')?.value || '';
+    const stressQuestions = summary.stressQuestions || [];
+
+    let filteredQs = stressQuestions;
+    if (catFilter && STRESS_CAT_QS[catFilter]) {
+        const qNums = STRESS_CAT_QS[catFilter];
+        filteredQs = filteredQs.filter(q => {
+            const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+            return qNums.includes(num);
+        });
+    }
+    if (qFilter) {
+        filteredQs = filteredQs.filter(q => q.name === `Estr\u00e9s ${qFilter}`);
+    }
+
+    if (state._sortDir === undefined) state._sortDir = 'desc';
+    filteredQs.sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return state._sortDir === 'desc' ? bPct - aPct : aPct - bPct;
+    });
+
+    const qText = (num) => {
+        const txt = STRESS_QUESTIONS[num] || '';
+        return txt.length > 55 ? txt.slice(0, 52) + '...' : txt;
+    };
+
+    const sortIcon = state._sortDir === 'desc' ? '\u25BC' : '\u25B2';
+    let html = `<div class="table-wrap"><table>
+        <thead><tr><th>Pregunta</th>${STRESS_ORDER.map(r => `<th>${r}</th>`).join('')}<th style="text-align:center;cursor:pointer;" onclick="toggleSort()">Riesgo Cr\u00edtico ${sortIcon}</th></tr></thead><tbody>`;
+
+    for (const q of filteredQs) {
+        if (!q.risk) continue;
+        const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+        const fullTxt = STRESS_QUESTIONS[num] || '';
+        const pctAlto = total ? Math.round((((q.risk["Riesgo alto"]||0)+(q.risk["Riesgo muy alto"]||0))/total)*100) : 0;
+        const rowBg = clasificarCritico(pctAlto).bg;
+        html += `<tr style="background:${rowBg};"><td><strong title="${fullTxt}">${num}. ${qText(num)}</strong></td>`;
+        for (const r of STRESS_ORDER) {
+            const v = q.risk[r] || 0;
+            const pct = total ? Math.round((v/total)*100) : 0;
+            html += `<td>${v} <span style="color:#64748b;font-size:11px;">(${pct}%)</span></td>`;
+        }
+        const badgeClass = clasificarCritico(pctAlto).cls;
+        html += `<td style="text-align:center;"><span class="badge ${badgeClass}" style="font-size:14px;padding:4px 16px;font-weight:700;">${pctAlto}%</span></td></tr>`;
+    }
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function renderStressChart() {
+    const summary = state._drillSummary;
+    const total = summary.total;
+    const container = document.getElementById('belowSection');
+    if (!container) return;
+
+    const catFilter = document.getElementById('mfStressCat')?.value || '';
+    const qFilter = document.getElementById('mfStressQ')?.value || '';
+
+    if (!total) {
+        container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px;">Sin datos para el filtro seleccionado.</p>';
+        return;
+    }
+
+    let filteredQs = summary.stressQuestions || [];
+    if (catFilter && STRESS_CAT_QS[catFilter]) {
+        const qNums = STRESS_CAT_QS[catFilter];
+        filteredQs = filteredQs.filter(q => {
+            const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+            return qNums.includes(num);
+        });
+    }
+    if (qFilter) {
+        filteredQs = filteredQs.filter(q => q.name === `Estr\u00e9s ${qFilter}`);
+    }
+
+    filteredQs.sort((a, b) => {
+        const aPct = total ? (((a.risk["Riesgo alto"]||0)+(a.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        const bPct = total ? (((b.risk["Riesgo alto"]||0)+(b.risk["Riesgo muy alto"]||0))/total)*100 : 0;
+        return bPct - aPct;
+    });
+
+    container.innerHTML = '<div style="position:relative;"><canvas id="stressChartCanvas"></canvas></div>';
+
+    destroyChart('stressChart');
+    const ctx = getChartCtx('stressChartCanvas');
+    if (!ctx) return;
+
+    const labels = filteredQs.map(q => {
+        const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+        const txt = STRESS_QUESTIONS[num] || '';
+        return num + '. ' + (txt.length > 35 ? txt.slice(0, 32) + '...' : txt);
+    });
+    const values = filteredQs.map(q => total ? Math.round((((q.risk["Riesgo alto"]||0)+(q.risk["Riesgo muy alto"]||0))/total)*100) : 0);
+    const colors = values.map(v => clasificarCritico(v).color);
+
+    state.charts['stressChart'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '% Cr\u00edtico',
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.parsed.x + '%',
+                        title: items => {
+                            const idx = items[0].dataIndex;
+                            const q = filteredQs[idx];
+                            if (!q) return '';
+                            const num = parseInt(q.name.replace('Estr\u00e9s ', ''));
+                            return num + '. ' + (STRESS_QUESTIONS[num] || '');
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
